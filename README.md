@@ -1,6 +1,6 @@
 [![GitHub All Releases](https://img.shields.io/github/downloads/zarzet/SpotiFLAC-Mobile/total?style=for-the-badge)](https://github.com/zarzet/SpotiFLAC-Mobile/releases)
 
-![Image](icon.png)
+<img src="icon.png" width="128" />
 
 <div align="center">
 
