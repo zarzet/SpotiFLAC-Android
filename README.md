@@ -1,8 +1,8 @@
 [![GitHub All Releases](https://img.shields.io/github/downloads/zarzet/SpotiFLAC-Mobile/total?style=for-the-badge)](https://github.com/zarzet/SpotiFLAC-Mobile/releases)
 
-<img src="icon.png" width="128" />
-
 <div align="center">
+
+<img src="icon.png" width="128" />
 
 Get Spotify tracks in true FLAC from Tidal, Qobuz & Amazon Music — no account required.
 
