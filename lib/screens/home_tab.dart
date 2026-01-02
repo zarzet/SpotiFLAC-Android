@@ -225,16 +225,19 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             _QualityPickerOption(
               title: 'FLAC Lossless',
               subtitle: '16-bit / 44.1kHz',
+              icon: Icons.music_note,
               onTap: () { Navigator.pop(context); onSelect('LOSSLESS'); },
             ),
             _QualityPickerOption(
               title: 'Hi-Res FLAC',
               subtitle: '24-bit / up to 96kHz',
+              icon: Icons.high_quality,
               onTap: () { Navigator.pop(context); onSelect('HI_RES'); },
             ),
             _QualityPickerOption(
               title: 'Hi-Res FLAC Max',
               subtitle: '24-bit / up to 192kHz',
+              icon: Icons.four_k,
               onTap: () { Navigator.pop(context); onSelect('HI_RES_LOSSLESS'); },
             ),
             const SizedBox(height: 16),
@@ -669,16 +672,17 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
 class _QualityPickerOption extends StatelessWidget {
   final String title;
   final String subtitle;
+  final IconData icon;
   final VoidCallback onTap;
-  const _QualityPickerOption({required this.title, required this.subtitle, required this.onTap});
+  const _QualityPickerOption({required this.title, required this.subtitle, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-      leading: Icon(Icons.music_note, color: colorScheme.primary),
-      title: Text(title),
+      leading: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: colorScheme.primaryContainer, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 20)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(color: colorScheme.onSurfaceVariant)),
       onTap: onTap,
     );

@@ -267,6 +267,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   static const _queueStorageKey = 'download_queue'; // Storage key for queue persistence
   final NotificationService _notificationService = NotificationService();
   int _totalQueuedAtStart = 0; // Track total items when queue started
+  int _completedInSession = 0; // Track completed downloads in current session
+  int _failedInSession = 0; // Track failed downloads in current session
   bool _isLoaded = false;
 
   @override
@@ -354,75 +356,17 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
   }
 
-  void _startProgressPolling(String itemId) {
-    _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
-      try {
-        final progress = await PlatformBridge.getDownloadProgress();
-        final bytesReceived = progress['bytes_received'] as int? ?? 0;
-        final bytesTotal = progress['bytes_total'] as int? ?? 0;
-        final isDownloading = progress['is_downloading'] as bool? ?? false;
-        final status = progress['status'] as String? ?? 'downloading';
-        
-        // Check if status is "finalizing" (embedding metadata)
-        if (status == 'finalizing') {
-          updateItemStatus(itemId, DownloadStatus.finalizing, progress: 1.0);
-          
-          // Update notification to show finalizing
-          final currentItem = state.items.where((i) => i.id == itemId).firstOrNull;
-          if (currentItem != null) {
-            _notificationService.showDownloadFinalizing(
-              trackName: currentItem.track.name,
-              artistName: currentItem.track.artistName,
-            );
-          }
-          return;
-        }
-        
-        if (isDownloading && bytesTotal > 0) {
-          final percentage = bytesReceived / bytesTotal;
-          updateProgress(itemId, percentage);
-          
-          // Update notification with progress
-          final currentItem = state.currentDownload;
-          if (currentItem != null) {
-            _notificationService.showDownloadProgress(
-              trackName: currentItem.track.name,
-              artistName: currentItem.track.artistName,
-              progress: bytesReceived,
-              total: bytesTotal,
-            );
-            
-            // Update foreground service notification (Android)
-            if (Platform.isAndroid) {
-              PlatformBridge.updateDownloadServiceProgress(
-                trackName: currentItem.track.name,
-                artistName: currentItem.track.artistName,
-                progress: bytesReceived,
-                total: bytesTotal,
-                queueCount: state.queuedCount,
-              ).catchError((_) {}); // Ignore errors
-            }
-          }
-          
-          // Log progress
-          final mbReceived = bytesReceived / (1024 * 1024);
-          final mbTotal = bytesTotal / (1024 * 1024);
-          _log.d('Progress: ${(percentage * 100).toStringAsFixed(1)}% (${mbReceived.toStringAsFixed(2)}/${mbTotal.toStringAsFixed(2)} MB)');
-        }
-      } catch (e) {
-        // Ignore polling errors
-      }
-    });
-  }
-
-  /// Start multi-progress polling for concurrent downloads
+  /// Start multi-progress polling for all downloads (sequential and parallel)
   void _startMultiProgressPolling() {
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
       try {
         final allProgress = await PlatformBridge.getAllDownloadProgress();
         final items = allProgress['items'] as Map<String, dynamic>? ?? {};
+        
+        bool hasFinalizingItem = false;
+        String? finalizingTrackName;
+        String? finalizingArtistName;
         
         for (final entry in items.entries) {
           final itemId = entry.key;
@@ -433,16 +377,16 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           final status = itemProgress['status'] as String? ?? 'downloading';
           
           // Check if status is "finalizing" (embedding metadata)
-          if (status == 'finalizing') {
+          // Only trust finalizing status if bytesTotal > 0 (download actually happened)
+          if (status == 'finalizing' && bytesTotal > 0) {
             updateItemStatus(itemId, DownloadStatus.finalizing, progress: 1.0);
             
-            // Update notification to show finalizing
+            // Track finalizing item for notification
             final currentItem = state.items.where((i) => i.id == itemId).firstOrNull;
             if (currentItem != null) {
-              _notificationService.showDownloadFinalizing(
-                trackName: currentItem.track.name,
-                artistName: currentItem.track.artistName,
-              );
+              hasFinalizingItem = true;
+              finalizingTrackName = currentItem.track.name;
+              finalizingArtistName = currentItem.track.artistName;
             }
             continue;
           }
@@ -458,19 +402,36 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           }
         }
         
-        // Update notification with first active download
+        // Show finalizing notification if any item is finalizing (takes priority)
+        if (hasFinalizingItem && finalizingTrackName != null) {
+          _notificationService.showDownloadFinalizing(
+            trackName: finalizingTrackName,
+            artistName: finalizingArtistName ?? '',
+          );
+          return; // Don't show download progress notification
+        }
+        
+        // Update notification with active downloads
         if (items.isNotEmpty) {
           final firstEntry = items.entries.first;
           final firstProgress = firstEntry.value as Map<String, dynamic>;
           final bytesReceived = firstProgress['bytes_received'] as int? ?? 0;
           final bytesTotal = firstProgress['bytes_total'] as int? ?? 0;
           
-          // Find the item to get track info
-          final downloadingItems = state.items.where((i) => i.status == DownloadStatus.downloading || i.status == DownloadStatus.finalizing).toList();
+          // Find downloading items (not finalizing)
+          final downloadingItems = state.items.where((i) => i.status == DownloadStatus.downloading).toList();
           if (downloadingItems.isNotEmpty) {
+            // Show single track name if only 1 download, otherwise show count
+            final trackName = downloadingItems.length == 1 
+                ? downloadingItems.first.track.name 
+                : '${downloadingItems.length} downloads';
+            final artistName = downloadingItems.length == 1 
+                ? downloadingItems.first.track.artistName 
+                : 'Downloading...';
+            
             _notificationService.showDownloadProgress(
-              trackName: '${downloadingItems.length} downloads',
-              artistName: 'Downloading...',
+              trackName: trackName,
+              artistName: artistName,
               progress: bytesReceived,
               total: bytesTotal > 0 ? bytesTotal : 1,
             );
@@ -823,6 +784,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
     // Track total items at start for notification
     _totalQueuedAtStart = state.items.where((i) => i.status == DownloadStatus.queued).length;
+    _completedInSession = 0;
+    _failedInSession = 0;
 
     // Start foreground service to keep downloads running in background (Android only)
     if (Platform.isAndroid && _totalQueuedAtStart > 0) {
@@ -893,12 +856,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
     
     // Show queue completion notification
-    final completedCount = state.completedCount;
-    final failedCount = state.failedCount;
+    _log.i('Queue stats - completed: $_completedInSession, failed: $_failedInSession, totalAtStart: $_totalQueuedAtStart');
     if (_totalQueuedAtStart > 0) {
       await _notificationService.showQueueComplete(
-        completedCount: completedCount,
-        failedCount: failedCount,
+        completedCount: _completedInSession,
+        failedCount: _failedInSession,
       );
     }
     
@@ -906,8 +868,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     state = state.copyWith(isProcessing: false, currentDownload: null);
   }
 
-  /// Sequential download processing (original behavior)
+  /// Sequential download processing (uses multi-progress system with single item)
   Future<void> _processQueueSequential() async {
+    // Start multi-progress polling (works for both sequential and parallel)
+    _startMultiProgressPolling();
+    
     while (true) {
       // Check if paused
       if (state.isPaused) {
@@ -932,7 +897,13 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       }
 
       await _downloadSingleItem(nextItem);
+      
+      // Clear item progress after download completes
+      PlatformBridge.clearItemProgress(nextItem.id).catchError((_) {});
     }
+    
+    // Stop polling when queue is done
+    _stopProgressPolling();
   }
 
   /// Parallel download processing with worker pool
@@ -940,7 +911,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     final maxConcurrent = state.concurrentDownloads;
     final activeDownloads = <String, Future<void>>{}; // Map item ID to future
     
-    // Start multi-progress polling for concurrent downloads
+    // Start multi-progress polling (shared with sequential mode)
     _startMultiProgressPolling();
     
     while (true) {
@@ -991,6 +962,9 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     if (activeDownloads.isNotEmpty) {
       await Future.wait(activeDownloads.values);
     }
+    
+    // Stop polling when queue is done
+    _stopProgressPolling();
   }
 
   /// Download a single item (used by both sequential and parallel processing)
@@ -998,11 +972,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     _log.d('Processing: ${item.track.name} by ${item.track.artistName}');
     _log.d('Cover URL: ${item.track.coverUrl}');
     
-    // Only set currentDownload for sequential mode (for progress polling)
-    if (state.concurrentDownloads == 1) {
-      state = state.copyWith(currentDownload: item);
-      _startProgressPolling(item.id);
-    }
+    // Set currentDownload for UI reference
+    state = state.copyWith(currentDownload: item);
     
     updateItemStatus(item.id, DownloadStatus.downloading);
 
@@ -1058,11 +1029,6 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           convertLyricsToRomaji: settings.convertLyricsToRomaji,
         );
       }
-
-      // Stop progress polling for this item (sequential mode only)
-      if (state.concurrentDownloads == 1) {
-        _stopProgressPolling();
-      }
       
       _log.d('Result: $result');
       
@@ -1099,12 +1065,15 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           progress: 1.0,
           filePath: filePath,
         );
+        
+        // Increment completed counter
+        _completedInSession++;
 
         // Show completion notification for this track
         await _notificationService.showDownloadComplete(
           trackName: item.track.name,
           artistName: item.track.artistName,
-          completedCount: state.completedCount,
+          completedCount: _completedInSession,
           totalCount: _totalQueuedAtStart,
         );
 
@@ -1142,6 +1111,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           DownloadStatus.failed,
           error: errorMsg,
         );
+        _failedInSession++;
       }
       
       // Increment download counter and cleanup connections periodically
@@ -1155,15 +1125,13 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         }
       }
     } catch (e, stackTrace) {
-      if (state.concurrentDownloads == 1) {
-        _stopProgressPolling();
-      }
       _log.e('Exception: $e', e, stackTrace);
       updateItemStatus(
         item.id,
         DownloadStatus.failed,
         error: e.toString(),
       );
+      _failedInSession++;
     }
   }
 }

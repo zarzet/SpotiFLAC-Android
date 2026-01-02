@@ -203,12 +203,7 @@ func (a *AmazonDownloader) downloadFromDoubleDoubleService(amazonURL, outputDir 
 
 // DownloadFile downloads a file from URL with User-Agent and progress tracking
 func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) error {
-	// Set current file being downloaded (legacy)
-	SetCurrentFile(filepath.Base(outputPath))
-	SetDownloading(true)
-	defer SetDownloading(false)
-
-	// Initialize item progress if itemID provided
+	// Initialize item progress (required for all downloads)
 	if itemID != "" {
 		StartItemProgress(itemID)
 		defer CompleteItemProgress(itemID)
@@ -232,11 +227,8 @@ func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) 
 	}
 
 	// Set total bytes if available
-	if resp.ContentLength > 0 {
-		SetBytesTotal(resp.ContentLength)
-		if itemID != "" {
-			SetItemBytesTotal(itemID, resp.ContentLength)
-		}
+	if resp.ContentLength > 0 && itemID != "" {
+		SetItemBytesTotal(itemID, resp.ContentLength)
 	}
 
 	out, err := os.Create(outputPath)
@@ -245,14 +237,14 @@ func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) 
 	}
 	defer out.Close()
 
-	// Use appropriate progress writer
+	// Use item progress writer
 	var bytesWritten int64
 	if itemID != "" {
 		pw := NewItemProgressWriter(out, itemID)
 		bytesWritten, err = io.Copy(pw, resp.Body)
 	} else {
-		pw := NewProgressWriter(out)
-		bytesWritten, err = io.Copy(pw, resp.Body)
+		// Fallback: direct copy without progress tracking
+		bytesWritten, err = io.Copy(out, resp.Body)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)

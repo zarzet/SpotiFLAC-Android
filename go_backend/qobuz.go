@@ -262,12 +262,7 @@ func (q *QobuzDownloader) GetDownloadURL(trackID int64, quality string) (string,
 
 // DownloadFile downloads a file from URL with User-Agent and progress tracking
 func (q *QobuzDownloader) DownloadFile(downloadURL, outputPath, itemID string) error {
-	// Set current file being downloaded (legacy)
-	SetCurrentFile(filepath.Base(outputPath))
-	SetDownloading(true)
-	defer SetDownloading(false)
-
-	// Initialize item progress if itemID provided
+	// Initialize item progress (required for all downloads)
 	if itemID != "" {
 		StartItemProgress(itemID)
 		defer CompleteItemProgress(itemID)
@@ -289,11 +284,8 @@ func (q *QobuzDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 	}
 
 	// Set total bytes if available
-	if resp.ContentLength > 0 {
-		SetBytesTotal(resp.ContentLength)
-		if itemID != "" {
-			SetItemBytesTotal(itemID, resp.ContentLength)
-		}
+	if resp.ContentLength > 0 && itemID != "" {
+		SetItemBytesTotal(itemID, resp.ContentLength)
 	}
 
 	out, err := os.Create(outputPath)
@@ -302,13 +294,13 @@ func (q *QobuzDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 	}
 	defer out.Close()
 
-	// Use appropriate progress writer
+	// Use item progress writer
 	if itemID != "" {
 		progressWriter := NewItemProgressWriter(out, itemID)
 		_, err = io.Copy(progressWriter, resp.Body)
 	} else {
-		progressWriter := NewProgressWriter(out)
-		_, err = io.Copy(progressWriter, resp.Body)
+		// Fallback: direct copy without progress tracking
+		_, err = io.Copy(out, resp.Body)
 	}
 	return err
 }

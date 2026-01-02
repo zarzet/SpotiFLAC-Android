@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.0.1] - 2026-01-03
+
+### Added
+- **Quality Picker Track Info**: Shows track name, artist, and cover in quality picker
+  - Tap to expand long track titles
+  - Expand icon only shows when title is truncated
+  - Ripple effect follows rounded corners including drag handle
+
+### Changed
+- **Update Dialog Redesign**: Material Expressive 3 style
+  - Icon header with container
+  - Version chips with "Current" and "New" labels
+  - Changelog in rounded card
+  - Download progress with percentage indicator
+  - Cleaner button layout
+- **Unified Progress Tracking System**: Deprecated legacy single-download progress
+  - All downloads now use item-based progress tracking
+  - Fixes duplicate notification bug when finalizing
+  - Cleaner codebase with single progress system
+
+### Fixed
+- **Duplicate Notification Bug**: Fixed issue where "Finalizing" and "Downloading" notifications appeared simultaneously
+- **Update Notification Stuck**: Fixed notification staying at 100% after download completes
+
 ## [2.0.0] - 2026-01-03
 
 ### Added
@@ -48,16 +72,6 @@
   - Theme/view mode chips have visible borders in light mode
 - **Navigation Bar Styling**: Distinct background color from content area
 - **Ask Before Download Default**: Now enabled by default for better UX
-- **Quality Picker Track Info**: Shows track name, artist, and cover in quality picker
-  - Tap to expand long track titles
-  - Expand icon only shows when title is truncated
-  - Ripple effect follows rounded corners including drag handle
-- **Update Dialog Redesign**: Material Expressive 3 style
-  - Icon header with container
-  - Version chips with "Current" and "New" labels
-  - Changelog in rounded card
-  - Download progress with percentage indicator
-  - Cleaner button layout
 
 ### Fixed
 - **Artist Profile Images**: Fixed artist images not showing in search results (field name mismatch)
