@@ -297,4 +297,23 @@ class PlatformBridge {
       'client_secret': clientSecret,
     });
   }
+
+  /// Pre-warm track ID cache for album/playlist tracks
+  /// This runs in background and returns immediately
+  /// Speeds up subsequent downloads by caching ISRC → Track ID mappings
+  static Future<void> preWarmTrackCache(List<Map<String, String>> tracks) async {
+    final tracksJson = jsonEncode(tracks);
+    await _channel.invokeMethod('preWarmTrackCache', {'tracks': tracksJson});
+  }
+
+  /// Get current track cache size
+  static Future<int> getTrackCacheSize() async {
+    final result = await _channel.invokeMethod('getTrackCacheSize');
+    return result as int;
+  }
+
+  /// Clear track ID cache
+  static Future<void> clearTrackCache() async {
+    await _channel.invokeMethod('clearTrackCache');
+  }
 }

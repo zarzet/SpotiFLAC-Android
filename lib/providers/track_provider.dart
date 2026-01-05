@@ -149,6 +149,8 @@ class TrackNotifier extends Notifier<TrackState> {
           albumName: albumInfo['name'] as String?,
           coverUrl: albumInfo['images'] as String?,
         );
+        // Pre-warm cache for album tracks in background
+        _preWarmCacheForTracks(tracks);
       } else if (type == 'playlist') {
         final playlistInfo = metadata['playlist_info'] as Map<String, dynamic>;
         final trackList = metadata['track_list'] as List<dynamic>;
@@ -160,6 +162,8 @@ class TrackNotifier extends Notifier<TrackState> {
           playlistName: owner?['name'] as String?,
           coverUrl: owner?['images'] as String?,
         );
+        // Pre-warm cache for playlist tracks in background
+        _preWarmCacheForTracks(tracks);
       } else if (type == 'artist') {
         final artistInfo = metadata['artist_info'] as Map<String, dynamic>;
         final albumsList = metadata['albums'] as List<dynamic>;
@@ -309,6 +313,28 @@ class TrackNotifier extends Notifier<TrackState> {
       followers: data['followers'] as int? ?? 0,
       popularity: data['popularity'] as int? ?? 0,
     );
+  }
+
+  /// Pre-warm track ID cache for faster downloads
+  /// Runs in background, doesn't block UI
+  void _preWarmCacheForTracks(List<Track> tracks) {
+    // Only pre-warm if we have tracks with ISRC
+    final tracksWithIsrc = tracks.where((t) => t.isrc != null && t.isrc!.isNotEmpty).toList();
+    if (tracksWithIsrc.isEmpty) return;
+
+    // Build request list for Go backend
+    final cacheRequests = tracksWithIsrc.map((t) => {
+      'isrc': t.isrc!,
+      'track_name': t.name,
+      'artist_name': t.artistName,
+      'spotify_id': t.id, // Include Spotify ID for Amazon lookup
+      'service': 'tidal', // Default to tidal for pre-warming
+    }).toList();
+
+    // Fire and forget - runs in background
+    PlatformBridge.preWarmTrackCache(cacheRequests).catchError((_) {
+      // Silently ignore errors - this is just an optimization
+    });
   }
 }
 

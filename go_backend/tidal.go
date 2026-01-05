@@ -1,6 +1,7 @@
 package gobackend
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -12,16 +13,26 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 // TidalDownloader handles Tidal downloads
 type TidalDownloader struct {
-	client       *http.Client
-	clientID     string
-	clientSecret string
-	apiURL       string
+	client         *http.Client
+	clientID       string
+	clientSecret   string
+	apiURL         string
+	cachedToken    string
+	tokenExpiresAt time.Time
+	tokenMu        sync.Mutex
 }
+
+var (
+	// Global Tidal downloader instance for token reuse
+	globalTidalDownloader *TidalDownloader
+	tidalDownloaderOnce   sync.Once
+)
 
 // TidalTrack represents a Tidal track
 type TidalTrack struct {
@@ -93,24 +104,25 @@ type MPD struct {
 	} `xml:"Period"`
 }
 
-// NewTidalDownloader creates a new Tidal downloader
+// NewTidalDownloader creates a new Tidal downloader (returns singleton for token reuse)
 func NewTidalDownloader() *TidalDownloader {
-	clientID, _ := base64.StdEncoding.DecodeString("NkJEU1JkcEs5aHFFQlRnVQ==")
-	clientSecret, _ := base64.StdEncoding.DecodeString("eGV1UG1ZN25icFo5SUliTEFjUTkzc2hrYTFWTmhlVUFxTjZJY3N6alRHOD0=")
+	tidalDownloaderOnce.Do(func() {
+		clientID, _ := base64.StdEncoding.DecodeString("NkJEU1JkcEs5aHFFQlRnVQ==")
+		clientSecret, _ := base64.StdEncoding.DecodeString("eGV1UG1ZN25icFo5SUliTEFjUTkzc2hrYTFWTmhlVUFxTjZJY3N6alRHOD0=")
 
-	downloader := &TidalDownloader{
-		client:       NewHTTPClientWithTimeout(DefaultTimeout), // 60s timeout
-		clientID:     string(clientID),
-		clientSecret: string(clientSecret),
-	}
+		globalTidalDownloader = &TidalDownloader{
+			client:       NewHTTPClientWithTimeout(DefaultTimeout), // 60s timeout
+			clientID:     string(clientID),
+			clientSecret: string(clientSecret),
+		}
 
-	// Get first available API
-	apis := downloader.GetAvailableAPIs()
-	if len(apis) > 0 {
-		downloader.apiURL = apis[0]
-	}
-
-	return downloader
+		// Get first available API
+		apis := globalTidalDownloader.GetAvailableAPIs()
+		if len(apis) > 0 {
+			globalTidalDownloader.apiURL = apis[0]
+		}
+	})
+	return globalTidalDownloader
 }
 
 // GetAvailableAPIs returns list of available Tidal APIs
@@ -138,8 +150,16 @@ func (t *TidalDownloader) GetAvailableAPIs() []string {
 	return apis
 }
 
-// GetAccessToken gets Tidal access token
+// GetAccessToken gets Tidal access token (with caching)
 func (t *TidalDownloader) GetAccessToken() (string, error) {
+	t.tokenMu.Lock()
+	defer t.tokenMu.Unlock()
+
+	// Return cached token if still valid (with 60s buffer)
+	if t.cachedToken != "" && time.Now().Add(60*time.Second).Before(t.tokenExpiresAt) {
+		return t.cachedToken, nil
+	}
+
 	data := fmt.Sprintf("client_id=%s&grant_type=client_credentials", t.clientID)
 
 	authURL, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hdXRoLnRpZGFsLmNvbS92MS9vYXV0aDIvdG9rZW4=")
@@ -163,10 +183,19 @@ func (t *TidalDownloader) GetAccessToken() (string, error) {
 
 	var result struct {
 		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
+	}
+
+	// Cache the token
+	t.cachedToken = result.AccessToken
+	if result.ExpiresIn > 0 {
+		t.tokenExpiresAt = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
+	} else {
+		t.tokenExpiresAt = time.Now().Add(55 * time.Minute) // Default 55 min
 	}
 
 	return result.AccessToken, nil
@@ -728,13 +757,17 @@ func (t *TidalDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 	}
 	defer out.Close()
 
-	// Use item progress writer
+	// Use buffered writer for better performance (256KB buffer)
+	bufWriter := bufio.NewWriterSize(out, 256*1024)
+	defer bufWriter.Flush()
+
+	// Use item progress writer with buffered output
 	if itemID != "" {
-		progressWriter := NewItemProgressWriter(out, itemID)
+		progressWriter := NewItemProgressWriter(bufWriter, itemID)
 		_, err = io.Copy(progressWriter, resp.Body)
 	} else {
 		// Fallback: direct copy without progress tracking
-		_, err = io.Copy(out, resp.Body)
+		_, err = io.Copy(bufWriter, resp.Body)
 	}
 	return err
 }
@@ -942,8 +975,44 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	var track *TidalTrack
 	var err error
 
-	// Strategy 1: Try to get Tidal URL from SongLink (using Spotify ID)
-	if req.SpotifyID != "" {
+	// OPTIMIZATION: Check cache first for track ID
+	if req.ISRC != "" {
+		if cached := GetTrackIDCache().Get(req.ISRC); cached != nil && cached.TidalTrackID > 0 {
+			fmt.Printf("[Tidal] Cache hit! Using cached track ID: %d\n", cached.TidalTrackID)
+			track, err = downloader.GetTrackInfoByID(cached.TidalTrackID)
+			if err != nil {
+				fmt.Printf("[Tidal] Cache hit but failed to get track info: %v\n", err)
+				track = nil // Fall through to normal search
+			}
+		}
+	}
+
+	// OPTIMIZED: Try ISRC search first (faster than SongLink API)
+	// Strategy 1: Search by ISRC with duration verification (FASTEST)
+	if track == nil && req.ISRC != "" {
+		fmt.Printf("[Tidal] Trying ISRC search first (faster): %s\n", req.ISRC)
+		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.ISRC, expectedDurationSec)
+		// Verify artist for ISRC match
+		if track != nil {
+			tidalArtist := track.Artist.Name
+			if len(track.Artists) > 0 {
+				var artistNames []string
+				for _, a := range track.Artists {
+					artistNames = append(artistNames, a.Name)
+				}
+				tidalArtist = strings.Join(artistNames, ", ")
+			}
+			if !artistsMatch(req.ArtistName, tidalArtist) {
+				fmt.Printf("[Tidal] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n", 
+					req.ArtistName, tidalArtist)
+				track = nil
+			}
+		}
+	}
+
+	// Strategy 2: Try SongLink only if ISRC search failed (slower but more accurate)
+	if track == nil && req.SpotifyID != "" {
+		fmt.Printf("[Tidal] ISRC search failed, trying SongLink...\n")
 		tidalURL, slErr := downloader.GetTidalURLFromSpotify(req.SpotifyID)
 		if slErr == nil && tidalURL != "" {
 			// Extract track ID and get track info
@@ -986,29 +1055,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		}
 	}
 
-	// Strategy 2: Search by ISRC with duration verification
-	if track == nil && req.ISRC != "" {
-		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.ISRC, expectedDurationSec)
-		// Verify artist for ISRC match too
-		if track != nil {
-			tidalArtist := track.Artist.Name
-			if len(track.Artists) > 0 {
-				var artistNames []string
-				for _, a := range track.Artists {
-					artistNames = append(artistNames, a.Name)
-				}
-				tidalArtist = strings.Join(artistNames, ", ")
-			}
-			if !artistsMatch(req.ArtistName, tidalArtist) {
-				fmt.Printf("[Tidal] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n", 
-					req.ArtistName, tidalArtist)
-				track = nil
-			}
-		}
-	}
-
-	// Strategy 3: Search by metadata only (no ISRC requirement)
+	// Strategy 3: Search by metadata only (no ISRC requirement) - last resort
 	if track == nil {
+		fmt.Printf("[Tidal] Trying metadata search as last resort...\n")
 		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, "", expectedDurationSec)
 		// Verify artist for metadata search too
 		if track != nil {
@@ -1047,6 +1096,11 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}
 	fmt.Printf("[Tidal] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, tidalArtist, track.Duration)
 
+	// Cache the track ID for future use
+	if req.ISRC != "" {
+		GetTrackIDCache().SetTidal(req.ISRC, track.ID)
+	}
+
 	// Build filename
 	filename := buildFilenameFromTemplate(req.FilenameFormat, map[string]interface{}{
 		"title":  req.TrackName,
@@ -1080,10 +1134,28 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	// Log actual quality received
 	fmt.Printf("[Tidal] Actual quality: %d-bit/%dHz\n", downloadInfo.BitDepth, downloadInfo.SampleRate)
 
-	// Download file with item ID for progress tracking
+	// START PARALLEL: Fetch cover and lyrics while downloading audio
+	var parallelResult *ParallelDownloadResult
+	parallelDone := make(chan struct{})
+	go func() {
+		defer close(parallelDone)
+		parallelResult = FetchCoverAndLyricsParallel(
+			req.CoverURL,
+			req.EmbedMaxQualityCover,
+			req.SpotifyID,
+			req.TrackName,
+			req.ArtistName,
+			req.EmbedLyrics,
+		)
+	}()
+
+	// Download audio file with item ID for progress tracking
 	if err := downloader.DownloadFile(downloadInfo.URL, outputPath, req.ItemID); err != nil {
 		return TidalDownloadResult{}, fmt.Errorf("download failed: %w", err)
 	}
+
+	// Wait for parallel operations to complete
+	<-parallelDone
 
 	// Set progress to 100% and status to finalizing (before embedding)
 	// This makes the UI show "Finalizing..." while embedding happens
@@ -1105,7 +1177,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		return TidalDownloadResult{}, fmt.Errorf("download completed but file not found at %s or %s", outputPath, m4aPath)
 	}
 
-	// Embed metadata
+	// Embed metadata using parallel-fetched cover data
 	metadata := Metadata{
 		Title:       req.TrackName,
 		Artist:      req.ArtistName,
@@ -1118,17 +1190,11 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		ISRC:        req.ISRC,
 	}
 
-	// Download cover to memory (avoids file permission issues on Android)
+	// Use cover data from parallel fetch
 	var coverData []byte
-	if req.CoverURL != "" {
-		fmt.Println("[Tidal] Downloading cover to memory...")
-		data, err := downloadCoverToMemory(req.CoverURL, req.EmbedMaxQualityCover)
-		if err == nil {
-			coverData = data
-			fmt.Printf("[Tidal] Cover downloaded successfully (%d bytes)\n", len(coverData))
-		} else {
-			fmt.Printf("[Tidal] Warning: failed to download cover: %v\n", err)
-		}
+	if parallelResult != nil && parallelResult.CoverData != nil {
+		coverData = parallelResult.CoverData
+		fmt.Printf("[Tidal] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	// Only embed metadata to FLAC files (M4A will be converted by Flutter)
@@ -1137,24 +1203,16 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 			fmt.Printf("Warning: failed to embed metadata: %v\n", err)
 		}
 
-		// Embed lyrics if enabled
-		if req.EmbedLyrics {
-			fmt.Println("[Tidal] Fetching lyrics...")
-			lyricsClient := NewLyricsClient()
-			lyrics, lyricsErr := lyricsClient.FetchLyricsAllSources(req.SpotifyID, req.TrackName, req.ArtistName)
-			if lyricsErr != nil {
-				fmt.Printf("[Tidal] Warning: lyrics fetch error: %v\n", lyricsErr)
-			} else if lyrics == nil || len(lyrics.Lines) == 0 {
-				fmt.Println("[Tidal] No lyrics found for this track")
+		// Embed lyrics from parallel fetch
+		if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+			fmt.Printf("[Tidal] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+			if embedErr := EmbedLyrics(actualOutputPath, parallelResult.LyricsLRC); embedErr != nil {
+				fmt.Printf("[Tidal] Warning: failed to embed lyrics: %v\n", embedErr)
 			} else {
-				fmt.Printf("[Tidal] Lyrics found (%d lines), embedding...\n", len(lyrics.Lines))
-				lrcContent := convertToLRC(lyrics)
-				if embedErr := EmbedLyrics(actualOutputPath, lrcContent); embedErr != nil {
-					fmt.Printf("[Tidal] Warning: failed to embed lyrics: %v\n", embedErr)
-				} else {
-					fmt.Println("[Tidal] Lyrics embedded successfully")
-				}
+				fmt.Println("[Tidal] Lyrics embedded successfully")
 			}
+		} else if req.EmbedLyrics {
+			fmt.Println("[Tidal] No lyrics available from parallel fetch")
 		}
 	} else {
 		fmt.Printf("[Tidal] Skipping metadata embed for M4A file (will be handled after conversion): %s\n", actualOutputPath)

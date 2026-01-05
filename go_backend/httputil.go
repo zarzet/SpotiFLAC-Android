@@ -43,6 +43,7 @@ const (
 )
 
 // Shared transport with connection pooling to prevent TCP exhaustion
+// Optimized for large file downloads (FLAC ~30-50MB)
 var sharedTransport = &http.Transport{
 	DialContext: (&net.Dialer{
 		Timeout:   30 * time.Second,
@@ -56,6 +57,9 @@ var sharedTransport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 	DisableKeepAlives:     false, // Enable keep-alives for connection reuse
 	ForceAttemptHTTP2:     true,
+	WriteBufferSize:       64 * 1024,  // 64KB write buffer
+	ReadBufferSize:        64 * 1024,  // 64KB read buffer
+	DisableCompression:    true,       // FLAC is already compressed
 }
 
 // Shared HTTP client for general requests (reuses connections)

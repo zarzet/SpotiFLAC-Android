@@ -516,6 +516,56 @@ func EmbedLyricsToFile(filePath, lyrics string) (string, error) {
 	return string(jsonBytes), nil
 }
 
+// PreWarmTrackCacheJSON pre-warms the track ID cache for album/playlist tracks
+// tracksJSON is a JSON array of objects with: isrc, track_name, artist_name, spotify_id, service
+// This runs in background and returns immediately
+func PreWarmTrackCacheJSON(tracksJSON string) (string, error) {
+	var tracks []struct {
+		ISRC       string `json:"isrc"`
+		TrackName  string `json:"track_name"`
+		ArtistName string `json:"artist_name"`
+		SpotifyID  string `json:"spotify_id"`
+		Service    string `json:"service"`
+	}
+
+	if err := json.Unmarshal([]byte(tracksJSON), &tracks); err != nil {
+		return errorResponse("Invalid JSON: " + err.Error())
+	}
+
+	// Convert to PreWarmCacheRequest
+	requests := make([]PreWarmCacheRequest, len(tracks))
+	for i, t := range tracks {
+		requests[i] = PreWarmCacheRequest{
+			ISRC:       t.ISRC,
+			TrackName:  t.TrackName,
+			ArtistName: t.ArtistName,
+			SpotifyID:  t.SpotifyID,
+			Service:    t.Service,
+		}
+	}
+
+	// Run in background
+	go PreWarmTrackCache(requests)
+
+	resp := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Pre-warming cache for %d tracks in background", len(tracks)),
+	}
+
+	jsonBytes, _ := json.Marshal(resp)
+	return string(jsonBytes), nil
+}
+
+// GetTrackCacheSize returns the current track ID cache size
+func GetTrackCacheSize() int {
+	return GetCacheSize()
+}
+
+// ClearTrackIDCache clears the track ID cache
+func ClearTrackIDCache() {
+	ClearTrackCache()
+}
+
 func errorResponse(msg string) (string, error) {
 	resp := DownloadResponse{
 		Success: false,

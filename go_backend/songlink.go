@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -25,11 +26,20 @@ type TrackAvailability struct {
 	QobuzURL  string `json:"qobuz_url,omitempty"`
 }
 
-// NewSongLinkClient creates a new SongLink client
+var (
+	// Global SongLink client instance for connection reuse
+	globalSongLinkClient *SongLinkClient
+	songLinkClientOnce   sync.Once
+)
+
+// NewSongLinkClient creates a new SongLink client (returns singleton for connection reuse)
 func NewSongLinkClient() *SongLinkClient {
-	return &SongLinkClient{
-		client: NewHTTPClientWithTimeout(SongLinkTimeout), // 30s timeout
-	}
+	songLinkClientOnce.Do(func() {
+		globalSongLinkClient = &SongLinkClient{
+			client: NewHTTPClientWithTimeout(SongLinkTimeout), // 30s timeout
+		}
+	})
+	return globalSongLinkClient
 }
 
 // CheckTrackAvailability checks track availability on streaming platforms

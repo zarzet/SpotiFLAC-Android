@@ -211,6 +211,25 @@ class MainActivity: FlutterActivity() {
                             }
                             result.success(null)
                         }
+                        "preWarmTrackCache" -> {
+                            val tracksJson = call.argument<String>("tracks") ?: "[]"
+                            withContext(Dispatchers.IO) {
+                                Gobackend.preWarmTrackCacheJSON(tracksJson)
+                            }
+                            result.success(null)
+                        }
+                        "getTrackCacheSize" -> {
+                            val size = withContext(Dispatchers.IO) {
+                                Gobackend.getTrackCacheSize()
+                            }
+                            result.success(size.toInt())
+                        }
+                        "clearTrackCache" -> {
+                            withContext(Dispatchers.IO) {
+                                Gobackend.clearTrackIDCache()
+                            }
+                            result.success(null)
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {

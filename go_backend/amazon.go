@@ -1,6 +1,7 @@
 package gobackend
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +20,12 @@ type AmazonDownloader struct {
 	client  *http.Client
 	regions []string // us, eu regions for DoubleDouble service
 }
+
+var (
+	// Global Amazon downloader instance for connection reuse
+	globalAmazonDownloader *AmazonDownloader
+	amazonDownloaderOnce   sync.Once
+)
 
 // DoubleDoubleSubmitResponse is the response from DoubleDouble submit endpoint
 type DoubleDoubleSubmitResponse struct {
@@ -93,12 +101,15 @@ func amazonIsASCIIString(s string) bool {
 	return true
 }
 
-// NewAmazonDownloader creates a new Amazon downloader using DoubleDouble service
+// NewAmazonDownloader creates a new Amazon downloader (returns singleton for connection reuse)
 func NewAmazonDownloader() *AmazonDownloader {
-	return &AmazonDownloader{
-		client:  NewHTTPClientWithTimeout(120 * time.Second), // 120s timeout like PC
-		regions: []string{"us", "eu"},                        // Same regions as PC
-	}
+	amazonDownloaderOnce.Do(func() {
+		globalAmazonDownloader = &AmazonDownloader{
+			client:  NewHTTPClientWithTimeout(120 * time.Second), // 120s timeout like PC
+			regions: []string{"us", "eu"},                        // Same regions as PC
+		}
+	})
+	return globalAmazonDownloader
 }
 
 // GetAvailableAPIs returns list of available DoubleDouble regions
@@ -294,14 +305,18 @@ func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) 
 	}
 	defer out.Close()
 
-	// Use item progress writer
+	// Use buffered writer for better performance (256KB buffer)
+	bufWriter := bufio.NewWriterSize(out, 256*1024)
+	defer bufWriter.Flush()
+
+	// Use item progress writer with buffered output
 	var bytesWritten int64
 	if itemID != "" {
-		pw := NewItemProgressWriter(out, itemID)
+		pw := NewItemProgressWriter(bufWriter, itemID)
 		bytesWritten, err = io.Copy(pw, resp.Body)
 	} else {
 		// Fallback: direct copy without progress tracking
-		bytesWritten, err = io.Copy(out, resp.Body)
+		bytesWritten, err = io.Copy(bufWriter, resp.Body)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
@@ -378,10 +393,28 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		return AmazonDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
 	}
 
-	// Download file with item ID for progress tracking
+	// START PARALLEL: Fetch cover and lyrics while downloading audio
+	var parallelResult *ParallelDownloadResult
+	parallelDone := make(chan struct{})
+	go func() {
+		defer close(parallelDone)
+		parallelResult = FetchCoverAndLyricsParallel(
+			req.CoverURL,
+			req.EmbedMaxQualityCover,
+			req.SpotifyID,
+			req.TrackName,
+			req.ArtistName,
+			req.EmbedLyrics,
+		)
+	}()
+
+	// Download audio file with item ID for progress tracking
 	if err := downloader.DownloadFile(downloadURL, outputPath, req.ItemID); err != nil {
 		return AmazonDownloadResult{}, fmt.Errorf("download failed: %w", err)
 	}
+
+	// Wait for parallel operations to complete
+	<-parallelDone
 
 	// Set progress to 100% and status to finalizing (before embedding)
 	// This makes the UI show "Finalizing..." while embedding happens
@@ -408,41 +441,27 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		ISRC:        req.ISRC,
 	}
 
-	// Download cover to memory (avoids file permission issues on Android)
+	// Use cover data from parallel fetch
 	var coverData []byte
-	if req.CoverURL != "" {
-		fmt.Println("[Amazon] Downloading cover to memory...")
-		data, err := downloadCoverToMemory(req.CoverURL, req.EmbedMaxQualityCover)
-		if err == nil {
-			coverData = data
-			fmt.Printf("[Amazon] Cover downloaded successfully (%d bytes)\n", len(coverData))
-		} else {
-			fmt.Printf("[Amazon] Warning: failed to download cover: %v\n", err)
-		}
+	if parallelResult != nil && parallelResult.CoverData != nil {
+		coverData = parallelResult.CoverData
+		fmt.Printf("[Amazon] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	if err := EmbedMetadataWithCoverData(outputPath, metadata, coverData); err != nil {
 		fmt.Printf("Warning: failed to embed metadata: %v\n", err)
 	}
 
-	// Embed lyrics if enabled
-	if req.EmbedLyrics {
-		fmt.Println("[Amazon] Fetching lyrics...")
-		lyricsClient := NewLyricsClient()
-		lyrics, lyricsErr := lyricsClient.FetchLyricsAllSources(req.SpotifyID, req.TrackName, req.ArtistName)
-		if lyricsErr != nil {
-			fmt.Printf("[Amazon] Warning: lyrics fetch error: %v\n", lyricsErr)
-		} else if lyrics == nil || len(lyrics.Lines) == 0 {
-			fmt.Println("[Amazon] No lyrics found for this track")
+	// Embed lyrics from parallel fetch
+	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		fmt.Printf("[Amazon] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+		if embedErr := EmbedLyrics(outputPath, parallelResult.LyricsLRC); embedErr != nil {
+			fmt.Printf("[Amazon] Warning: failed to embed lyrics: %v\n", embedErr)
 		} else {
-			fmt.Printf("[Amazon] Lyrics found (%d lines), embedding...\n", len(lyrics.Lines))
-			lrcContent := convertToLRC(lyrics)
-			if embedErr := EmbedLyrics(outputPath, lrcContent); embedErr != nil {
-				fmt.Printf("[Amazon] Warning: failed to embed lyrics: %v\n", embedErr)
-			} else {
-				fmt.Println("[Amazon] Lyrics embedded successfully")
-			}
+			fmt.Println("[Amazon] Lyrics embedded successfully")
 		}
+	} else if req.EmbedLyrics {
+		fmt.Println("[Amazon] No lyrics available from parallel fetch")
 	}
 
 	fmt.Println("[Amazon] ✓ Downloaded successfully from Amazon Music")

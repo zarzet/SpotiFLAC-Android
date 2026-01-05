@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.1.0-preview] - 2026-01-06
+
+### Performance
+- **Download Speed Optimizations**: Significant improvements to download initialization and throughput
+  - Token caching for Tidal (eliminates redundant auth requests)
+  - Singleton pattern for all downloaders (HTTP connection reuse)
+  - ISRC search first strategy (faster than SongLink API)
+  - Track ID cache with 30 minute TTL for album/playlist downloads
+  - Pre-warm cache when viewing album/playlist
+  - Parallel cover art and lyrics fetching during audio download
+  - 64KB HTTP read/write buffers
+  - 256KB buffered file writer for all downloaders
+  - Progress updates every 64KB (reduced lock contention)
+- **Amazon Music Optimizations**: Same optimizations now applied to Amazon downloader
+
+### Technical
+- New `go_backend/parallel.go` with `TrackIDCache`, `FetchCoverAndLyricsParallel()`, `PreWarmTrackCache()`
+- Flutter: `_preWarmCacheForTracks()` in `track_provider.dart`
+- New method channels: `preWarmTrackCache`, `getTrackCacheSize`, `clearTrackCache`
+
 ## [2.0.7-preview2] - 2026-01-06
 
 ### Fixed

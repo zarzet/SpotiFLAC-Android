@@ -1,6 +1,7 @@
 package gobackend
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // QobuzDownloader handles Qobuz downloads
@@ -18,6 +20,12 @@ type QobuzDownloader struct {
 	appID  string
 	apiURL string
 }
+
+var (
+	// Global Qobuz downloader instance for connection reuse
+	globalQobuzDownloader *QobuzDownloader
+	qobuzDownloaderOnce   sync.Once
+)
 
 // QobuzTrack represents a Qobuz track
 type QobuzTrack struct {
@@ -97,12 +105,15 @@ func qobuzIsASCIIString(s string) bool {
 	return true
 }
 
-// NewQobuzDownloader creates a new Qobuz downloader
+// NewQobuzDownloader creates a new Qobuz downloader (returns singleton for connection reuse)
 func NewQobuzDownloader() *QobuzDownloader {
-	return &QobuzDownloader{
-		client: NewHTTPClientWithTimeout(DefaultTimeout), // 60s timeout
-		appID:  "798273057",
-	}
+	qobuzDownloaderOnce.Do(func() {
+		globalQobuzDownloader = &QobuzDownloader{
+			client: NewHTTPClientWithTimeout(DefaultTimeout), // 60s timeout
+			appID:  "798273057",
+		}
+	})
+	return globalQobuzDownloader
 }
 
 // GetAvailableAPIs returns list of available Qobuz APIs
@@ -473,13 +484,17 @@ func (q *QobuzDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 	}
 	defer out.Close()
 
-	// Use item progress writer
+	// Use buffered writer for better performance (256KB buffer)
+	bufWriter := bufio.NewWriterSize(out, 256*1024)
+	defer bufWriter.Flush()
+
+	// Use item progress writer with buffered output
 	if itemID != "" {
-		progressWriter := NewItemProgressWriter(out, itemID)
+		progressWriter := NewItemProgressWriter(bufWriter, itemID)
 		_, err = io.Copy(progressWriter, resp.Body)
 	} else {
 		// Fallback: direct copy without progress tracking
-		_, err = io.Copy(out, resp.Body)
+		_, err = io.Copy(bufWriter, resp.Body)
 	}
 	return err
 }
@@ -506,8 +521,21 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	var track *QobuzTrack
 	var err error
 
-	// Strategy 1: Search by ISRC with duration verification
+	// OPTIMIZATION: Check cache first for track ID
 	if req.ISRC != "" {
+		if cached := GetTrackIDCache().Get(req.ISRC); cached != nil && cached.QobuzTrackID > 0 {
+			fmt.Printf("[Qobuz] Cache hit! Using cached track ID: %d\n", cached.QobuzTrackID)
+			// For Qobuz we need to search again to get full track info, but we can use the ID
+			track, err = downloader.SearchTrackByISRC(req.ISRC)
+			if err != nil {
+				fmt.Printf("[Qobuz] Cache hit but search failed: %v\n", err)
+				track = nil
+			}
+		}
+	}
+
+	// Strategy 1: Search by ISRC with duration verification
+	if track == nil && req.ISRC != "" {
 		track, err = downloader.SearchTrackByISRCWithDuration(req.ISRC, expectedDurationSec)
 		// Verify artist
 		if track != nil && !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
@@ -536,8 +564,11 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		return QobuzDownloadResult{}, fmt.Errorf("qobuz search failed: %s", errMsg)
 	}
 
-	// Log match found
+	// Log match found and cache the track ID
 	fmt.Printf("[Qobuz] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, track.Performer.Name, track.Duration)
+	if req.ISRC != "" {
+		GetTrackIDCache().SetQobuz(req.ISRC, track.ID)
+	}
 
 	// Build filename
 	filename := buildFilenameFromTemplate(req.FilenameFormat, map[string]interface{}{
@@ -581,10 +612,28 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		return QobuzDownloadResult{}, fmt.Errorf("failed to get download URL: %w", err)
 	}
 
-	// Download file with item ID for progress tracking
+	// START PARALLEL: Fetch cover and lyrics while downloading audio
+	var parallelResult *ParallelDownloadResult
+	parallelDone := make(chan struct{})
+	go func() {
+		defer close(parallelDone)
+		parallelResult = FetchCoverAndLyricsParallel(
+			req.CoverURL,
+			req.EmbedMaxQualityCover,
+			req.SpotifyID,
+			req.TrackName,
+			req.ArtistName,
+			req.EmbedLyrics,
+		)
+	}()
+
+	// Download audio file with item ID for progress tracking
 	if err := downloader.DownloadFile(downloadURL, outputPath, req.ItemID); err != nil {
 		return QobuzDownloadResult{}, fmt.Errorf("download failed: %w", err)
 	}
+
+	// Wait for parallel operations to complete
+	<-parallelDone
 
 	// Set progress to 100% and status to finalizing (before embedding)
 	// This makes the UI show "Finalizing..." while embedding happens
@@ -593,7 +642,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		SetItemFinalizing(req.ItemID)
 	}
 
-	// Embed metadata
+	// Embed metadata using parallel-fetched cover data
 	metadata := Metadata{
 		Title:       req.TrackName,
 		Artist:      req.ArtistName,
@@ -606,41 +655,27 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		ISRC:        req.ISRC,
 	}
 
-	// Download cover to memory (avoids file permission issues on Android)
+	// Use cover data from parallel fetch
 	var coverData []byte
-	if req.CoverURL != "" {
-		fmt.Println("[Qobuz] Downloading cover to memory...")
-		data, err := downloadCoverToMemory(req.CoverURL, req.EmbedMaxQualityCover)
-		if err == nil {
-			coverData = data
-			fmt.Printf("[Qobuz] Cover downloaded successfully (%d bytes)\n", len(coverData))
-		} else {
-			fmt.Printf("[Qobuz] Warning: failed to download cover: %v\n", err)
-		}
+	if parallelResult != nil && parallelResult.CoverData != nil {
+		coverData = parallelResult.CoverData
+		fmt.Printf("[Qobuz] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	if err := EmbedMetadataWithCoverData(outputPath, metadata, coverData); err != nil {
 		fmt.Printf("Warning: failed to embed metadata: %v\n", err)
 	}
 
-	// Embed lyrics if enabled
-	if req.EmbedLyrics {
-		fmt.Println("[Qobuz] Fetching lyrics...")
-		lyricsClient := NewLyricsClient()
-		lyrics, lyricsErr := lyricsClient.FetchLyricsAllSources(req.SpotifyID, req.TrackName, req.ArtistName)
-		if lyricsErr != nil {
-			fmt.Printf("[Qobuz] Warning: lyrics fetch error: %v\n", lyricsErr)
-		} else if lyrics == nil || len(lyrics.Lines) == 0 {
-			fmt.Println("[Qobuz] No lyrics found for this track")
+	// Embed lyrics from parallel fetch
+	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		fmt.Printf("[Qobuz] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+		if embedErr := EmbedLyrics(outputPath, parallelResult.LyricsLRC); embedErr != nil {
+			fmt.Printf("[Qobuz] Warning: failed to embed lyrics: %v\n", embedErr)
 		} else {
-			fmt.Printf("[Qobuz] Lyrics found (%d lines), embedding...\n", len(lyrics.Lines))
-			lrcContent := convertToLRC(lyrics)
-			if embedErr := EmbedLyrics(outputPath, lrcContent); embedErr != nil {
-				fmt.Printf("[Qobuz] Warning: failed to embed lyrics: %v\n", embedErr)
-			} else {
-				fmt.Println("[Qobuz] Lyrics embedded successfully")
-			}
+			fmt.Println("[Qobuz] Lyrics embedded successfully")
 		}
+	} else if req.EmbedLyrics {
+		fmt.Println("[Qobuz] No lyrics available from parallel fetch")
 	}
 
 	return QobuzDownloadResult{

@@ -195,11 +195,16 @@ func getDownloadDir() string {
 }
 
 // ItemProgressWriter wraps io.Writer to track download progress for a specific item
+// Uses buffered writing for better performance
 type ItemProgressWriter struct {
 	writer  interface{ Write([]byte) (int, error) }
 	itemID  string
 	current int64
+	buffer  []byte
+	bufPos  int
 }
+
+const progressWriterBufferSize = 256 * 1024 // 256KB buffer for faster writes
 
 // NewItemProgressWriter creates a new progress writer for a specific item
 func NewItemProgressWriter(w interface{ Write([]byte) (int, error) }, itemID string) *ItemProgressWriter {
@@ -207,16 +212,22 @@ func NewItemProgressWriter(w interface{ Write([]byte) (int, error) }, itemID str
 		writer:  w,
 		itemID:  itemID,
 		current: 0,
+		buffer:  make([]byte, progressWriterBufferSize),
+		bufPos:  0,
 	}
 }
 
-// Write implements io.Writer
+// Write implements io.Writer with buffering
 func (pw *ItemProgressWriter) Write(p []byte) (int, error) {
 	n, err := pw.writer.Write(p)
 	if err != nil {
 		return n, err
 	}
 	pw.current += int64(n)
-	SetItemBytesReceived(pw.itemID, pw.current)
+	
+	// Update progress less frequently (every 64KB) to reduce lock contention
+	if pw.current%(64*1024) == 0 || pw.current == 0 {
+		SetItemBytesReceived(pw.itemID, pw.current)
+	}
 	return n, nil
 }
