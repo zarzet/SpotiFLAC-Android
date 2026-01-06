@@ -168,8 +168,8 @@ class PlaylistScreen extends ConsumerWidget {
   void _downloadTrack(BuildContext context, WidgetRef ref, Track track) {
     final settings = ref.read(settingsProvider);
     if (settings.askQualityBeforeDownload) {
-      _showQualityPicker(context, (quality) {
-        ref.read(downloadQueueProvider.notifier).addToQueue(track, settings.defaultService, qualityOverride: quality);
+      _showQualityPicker(context, ref, (quality, service) {
+        ref.read(downloadQueueProvider.notifier).addToQueue(track, service, qualityOverride: quality);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added "${track.name}" to queue')));
       }, trackName: track.name, artistName: track.artistName, coverUrl: track.coverUrl);
     } else {
@@ -182,8 +182,8 @@ class PlaylistScreen extends ConsumerWidget {
     if (tracks.isEmpty) return;
     final settings = ref.read(settingsProvider);
     if (settings.askQualityBeforeDownload) {
-      _showQualityPicker(context, (quality) {
-        ref.read(downloadQueueProvider.notifier).addMultipleToQueue(tracks, settings.defaultService, qualityOverride: quality);
+      _showQualityPicker(context, ref, (quality, service) {
+        ref.read(downloadQueueProvider.notifier).addMultipleToQueue(tracks, service, qualityOverride: quality);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${tracks.length} tracks to queue')));
       }, trackName: '${tracks.length} tracks', artistName: playlistName);
     } else {
@@ -192,41 +192,66 @@ class PlaylistScreen extends ConsumerWidget {
     }
   }
 
-  void _showQualityPicker(BuildContext context, void Function(String quality) onSelect, {String? trackName, String? artistName, String? coverUrl}) {
+  void _showQualityPicker(BuildContext context, WidgetRef ref, void Function(String quality, String service) onSelect, {String? trackName, String? artistName, String? coverUrl}) {
     final colorScheme = Theme.of(context).colorScheme;
+    final settings = ref.read(settingsProvider);
+    String selectedService = settings.defaultService;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (trackName != null) ...[
-              _TrackInfoHeader(trackName: trackName, artistName: artistName, coverUrl: coverUrl),
-              Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-            ] else ...[
-              const SizedBox(height: 8),
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2)))),
-            ],
-            Padding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 8), child: Text('Select Quality', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
-            // Disclaimer
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-              child: Text(
-                'Actual quality depends on track availability. Hi-Res may not be available for all tracks.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (trackName != null) ...[
+                  _TrackInfoHeader(trackName: trackName, artistName: artistName, coverUrl: coverUrl),
+                  Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2)))),
+                ],
+                // Service selector
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                  child: Text('Download From', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      _ServiceChip(label: 'Tidal', isSelected: selectedService == 'tidal', onTap: () => setModalState(() => selectedService = 'tidal')),
+                      const SizedBox(width: 8),
+                      _ServiceChip(label: 'Qobuz', isSelected: selectedService == 'qobuz', onTap: () => setModalState(() => selectedService = 'qobuz')),
+                      const SizedBox(width: 8),
+                      _ServiceChip(label: 'Amazon', isSelected: selectedService == 'amazon', onTap: () => setModalState(() => selectedService = 'amazon')),
+                    ],
+                  ),
+                ),
+                Padding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 8), child: Text('Select Quality', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+                // Disclaimer
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: Text(
+                    'Actual quality depends on track availability. Hi-Res may not be available for all tracks.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+                _QualityOption(title: 'FLAC Lossless', subtitle: '16-bit / 44.1kHz', icon: Icons.music_note, onTap: () { Navigator.pop(context); onSelect('LOSSLESS', selectedService); }),
+                _QualityOption(title: 'Hi-Res FLAC', subtitle: '24-bit / up to 96kHz', icon: Icons.high_quality, onTap: () { Navigator.pop(context); onSelect('HI_RES', selectedService); }),
+                _QualityOption(title: 'Hi-Res FLAC Max', subtitle: '24-bit / up to 192kHz', icon: Icons.four_k, onTap: () { Navigator.pop(context); onSelect('HI_RES_LOSSLESS', selectedService); }),
+                const SizedBox(height: 16),
+              ],
             ),
-            _QualityOption(title: 'FLAC Lossless', subtitle: '16-bit / 44.1kHz', icon: Icons.music_note, onTap: () { Navigator.pop(context); onSelect('LOSSLESS'); }),
-            _QualityOption(title: 'Hi-Res FLAC', subtitle: '24-bit / up to 96kHz', icon: Icons.high_quality, onTap: () { Navigator.pop(context); onSelect('HI_RES'); }),
-            _QualityOption(title: 'Hi-Res FLAC Max', subtitle: '24-bit / up to 192kHz', icon: Icons.four_k, onTap: () { Navigator.pop(context); onSelect('HI_RES_LOSSLESS'); }),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -250,6 +275,40 @@ class _QualityOption extends StatelessWidget {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(color: colorScheme.onSurfaceVariant)),
       onTap: onTap,
+    );
+  }
+}
+
+class _ServiceChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _ServiceChip({required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: isSelected ? null : Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

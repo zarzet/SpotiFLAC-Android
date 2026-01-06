@@ -40,12 +40,32 @@ class DynamicColorWrapper extends ConsumerWidget {
           );
         }
 
+        // Apply AMOLED mode if enabled (pure black background)
+        if (themeSettings.useAmoled) {
+          darkScheme = _applyAmoledColors(darkScheme);
+        }
+
         // Build themes
         final lightTheme = AppTheme.light(dynamicScheme: lightScheme);
-        final darkTheme = AppTheme.dark(dynamicScheme: darkScheme);
+        final darkTheme = AppTheme.dark(dynamicScheme: darkScheme, isAmoled: themeSettings.useAmoled);
 
         return builder(lightTheme, darkTheme, themeSettings.themeMode);
       },
+    );
+  }
+
+  /// Apply AMOLED colors - pure black background with adjusted surface colors
+  ColorScheme _applyAmoledColors(ColorScheme scheme) {
+    return scheme.copyWith(
+      surface: Colors.black,
+      onSurface: Colors.white,
+      surfaceContainerLowest: Colors.black,
+      surfaceContainerLow: const Color(0xFF0A0A0A),
+      surfaceContainer: const Color(0xFF121212),
+      surfaceContainerHigh: const Color(0xFF1A1A1A),
+      surfaceContainerHighest: const Color(0xFF222222),
+      inverseSurface: Colors.white,
+      onInverseSurface: Colors.black,
     );
   }
 }

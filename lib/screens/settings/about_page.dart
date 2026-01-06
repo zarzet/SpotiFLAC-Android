@@ -123,6 +123,24 @@ class AboutPage extends StatelessWidget {
             ),
           ),
 
+          // Support section
+          const SliverToBoxAdapter(
+            child: SettingsSectionHeader(title: 'Support'),
+          ),
+          SliverToBoxAdapter(
+            child: SettingsGroup(
+              children: [
+                SettingsItem(
+                  icon: Icons.coffee_outlined,
+                  title: 'Buy me a coffee',
+                  subtitle: 'Support development on Ko-fi',
+                  onTap: () => _launchUrl(AppInfo.kofiUrl),
+                  showDivider: false,
+                ),
+              ],
+            ),
+          ),
+
           // App info section
           const SliverToBoxAdapter(
             child: SettingsSectionHeader(title: 'App'),

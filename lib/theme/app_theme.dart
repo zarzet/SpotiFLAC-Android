@@ -43,6 +43,7 @@ class AppTheme {
   static ThemeData dark({
     ColorScheme? dynamicScheme,
     Color? seedColor,
+    bool isAmoled = false,
   }) {
     final scheme = dynamicScheme ??
         ColorScheme.fromSeed(
@@ -53,7 +54,8 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      appBarTheme: _appBarTheme(scheme),
+      scaffoldBackgroundColor: isAmoled ? Colors.black : null,
+      appBarTheme: _appBarTheme(scheme, isAmoled: isAmoled),
       cardTheme: _cardTheme(scheme),
       elevatedButtonTheme: _elevatedButtonTheme(scheme),
       filledButtonTheme: _filledButtonTheme(scheme),
@@ -63,7 +65,7 @@ class AppTheme {
       inputDecorationTheme: _inputDecorationTheme(scheme),
       listTileTheme: _listTileTheme(scheme),
       dialogTheme: _dialogTheme(scheme),
-      navigationBarTheme: _navigationBarTheme(scheme),
+      navigationBarTheme: _navigationBarTheme(scheme, isAmoled: isAmoled),
       snackBarTheme: _snackBarTheme(scheme),
       progressIndicatorTheme: _progressIndicatorTheme(scheme),
       switchTheme: _switchTheme(scheme),
@@ -73,12 +75,12 @@ class AppTheme {
   }
 
   /// AppBar theme
-  static AppBarTheme _appBarTheme(ColorScheme scheme) => AppBarTheme(
+  static AppBarTheme _appBarTheme(ColorScheme scheme, {bool isAmoled = false}) => AppBarTheme(
         elevation: 0,
-        scrolledUnderElevation: 3,
-        backgroundColor: scheme.surface,
+        scrolledUnderElevation: isAmoled ? 0 : 3,
+        backgroundColor: isAmoled ? Colors.black : scheme.surface,
         foregroundColor: scheme.onSurface,
-        surfaceTintColor: scheme.surfaceTint,
+        surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
         centerTitle: true,
         titleTextStyle: TextStyle(
           color: scheme.onSurface,
@@ -180,12 +182,12 @@ class AppTheme {
       );
 
   /// Navigation bar theme
-  static NavigationBarThemeData _navigationBarTheme(ColorScheme scheme) =>
+  static NavigationBarThemeData _navigationBarTheme(ColorScheme scheme, {bool isAmoled = false}) =>
       NavigationBarThemeData(
         elevation: 0,
-        backgroundColor: scheme.surfaceContainer,
+        backgroundColor: isAmoled ? Colors.black : scheme.surfaceContainer,
         indicatorColor: scheme.secondaryContainer,
-        surfaceTintColor: scheme.surfaceTint,
+        surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       );
 

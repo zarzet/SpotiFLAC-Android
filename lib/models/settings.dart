@@ -14,6 +14,7 @@ class AppSettings {
   final bool isFirstLaunch;
   final int concurrentDownloads; // 1 = sequential (default), max 3
   final bool checkForUpdates; // Check for updates on app start
+  final String updateChannel; // stable, preview
   final bool hasSearchedBefore; // Hide helper text after first search
   final String folderOrganization; // none, artist, album, artist_album
   final String historyViewMode; // list, grid
@@ -33,6 +34,7 @@ class AppSettings {
     this.isFirstLaunch = true,
     this.concurrentDownloads = 1, // Default: sequential (off)
     this.checkForUpdates = true, // Default: enabled
+    this.updateChannel = 'stable', // Default: stable releases only
     this.hasSearchedBefore = false, // Default: show helper text
     this.folderOrganization = 'none', // Default: no folder organization
     this.historyViewMode = 'grid', // Default: grid view
@@ -53,6 +55,7 @@ class AppSettings {
     bool? isFirstLaunch,
     int? concurrentDownloads,
     bool? checkForUpdates,
+    String? updateChannel,
     bool? hasSearchedBefore,
     String? folderOrganization,
     String? historyViewMode,
@@ -72,6 +75,7 @@ class AppSettings {
       isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,
       concurrentDownloads: concurrentDownloads ?? this.concurrentDownloads,
       checkForUpdates: checkForUpdates ?? this.checkForUpdates,
+      updateChannel: updateChannel ?? this.updateChannel,
       hasSearchedBefore: hasSearchedBefore ?? this.hasSearchedBefore,
       folderOrganization: folderOrganization ?? this.folderOrganization,
       historyViewMode: historyViewMode ?? this.historyViewMode,

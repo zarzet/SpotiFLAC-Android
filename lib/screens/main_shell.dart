@@ -85,7 +85,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final settings = ref.read(settingsProvider);
     if (!settings.checkForUpdates) return;
 
-    final updateInfo = await UpdateChecker.checkForUpdate();
+    final updateInfo = await UpdateChecker.checkForUpdate(channel: settings.updateChannel);
     if (updateInfo != null && mounted) {
       showUpdateDialog(
         context,

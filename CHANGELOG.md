@@ -1,5 +1,81 @@
 # Changelog
 
+## [2.1.0] - 2026-01-06
+
+### Added
+- **Service Switcher in Quality Picker**: Choose download service (Tidal/Qobuz/Amazon) directly when selecting quality
+  - Service selector chips appear above quality options
+  - Defaults to your preferred service from settings
+  - Change service on-the-fly without going to settings
+  - Available in Home, Album, and Playlist screens
+- **AMOLED Dark Theme**: Pure black background for OLED screens
+  - Toggle in Settings > Appearance > Theme
+  - Saves battery on OLED/AMOLED displays
+  - All surface colors adjusted for true black background
+- **Update Channel Setting**: Choose between Stable and Preview release channels
+  - Stable: Only receive stable release notifications
+  - Preview: Get notified about preview/beta releases too
+  - Configure in Settings > Options > App
+
+### Changed
+- **Reduced APK Size**: Replaced FFmpeg plugin with custom AAR containing only required codecs
+  - arm64 APK: 46.6 MB (previously 51 MB)
+  - arm32 APK: 59 MB (previously 64 MB)
+  - Only includes FLAC, MP3 (LAME), and AAC codecs
+  - Custom FFmpeg AAR with arm64-v8a and armeabi-v7a only
+  - Native MethodChannel bridge for FFmpeg operations
+  - Separate iOS build configuration with ffmpeg_kit_flutter plugin
+
+### Fixed
+- **Retry Failed Downloads**: Fixed issue where retrying failed downloads sometimes did nothing
+  - Now properly handles retry when queue processing has finished
+  - Also allows retrying skipped (cancelled) downloads
+- **Lyrics Loading Timeout**: Added 20 second timeout for lyrics fetching
+  - Shows "Lyrics not available" instead of loading forever
+- **iOS Directory Picker**: Fixed unable to select download folder on iOS
+  - iOS limitation: Empty folders cannot be selected via document picker
+  - Added "App Documents Folder" option as recommended default
+  - Files saved to app Documents folder are accessible via iOS Files app
+
+### Performance
+- **Download Speed Optimizations**: Significant improvements to download initialization and throughput
+  - Token caching for Tidal (eliminates redundant auth requests)
+  - Singleton pattern for all downloaders (HTTP connection reuse)
+  - ISRC search first strategy (faster than SongLink API)
+  - Track ID cache with 30 minute TTL for album/playlist downloads
+  - Pre-warm cache when viewing album/playlist
+  - Parallel cover art and lyrics fetching during audio download
+  - 64KB HTTP read/write buffers
+  - 256KB buffered file writer for all downloaders
+  - Progress updates every 64KB (reduced lock contention)
+- **Amazon Music Optimizations**: Same optimizations now applied to Amazon downloader
+
+## [2.1.0-preview2] - 2026-01-06
+
+### Added
+- **Service Switcher in Quality Picker**: Choose download service (Tidal/Qobuz/Amazon) directly when selecting quality
+  - Service selector chips appear above quality options
+  - Defaults to your preferred service from settings
+  - Change service on-the-fly without going to settings
+  - Available in Home, Album, and Playlist screens
+- **AMOLED Dark Theme**: Pure black background for OLED screens
+  - Toggle in Settings > Appearance > Theme
+  - Saves battery on OLED/AMOLED displays
+  - All surface colors adjusted for true black background
+- **Update Channel Setting**: Choose between Stable and Preview release channels
+  - Stable: Only receive stable release notifications
+  - Preview: Get notified about preview/beta releases too
+  - Configure in Settings > Options > App
+
+### Fixed
+- **Retry Failed Downloads**: Fixed issue where retrying failed downloads sometimes did nothing
+  - Now properly handles retry when queue processing has finished
+  - Also allows retrying skipped (cancelled) downloads
+  - Added logging for better debugging
+- **Lyrics Loading Timeout**: Added 20 second timeout for lyrics fetching
+  - Shows "Lyrics not available" instead of loading forever
+  - Better error messages for timeout and not found cases
+
 ## [2.1.0-preview] - 2026-01-06
 
 ### Performance

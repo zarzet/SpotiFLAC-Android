@@ -1,8 +1,8 @@
 /// App version and info constants
 /// Update version here only - all other files will reference this
 class AppInfo {
-  static const String version = '2.1.0-preview';
-  static const String buildNumber = '39';
+  static const String version = '2.1.0';
+  static const String buildNumber = '41';
   static const String fullVersion = '$version+$buildNumber';
   
   
@@ -15,4 +15,6 @@ class AppInfo {
   static const String githubRepo = 'zarzet/SpotiFLAC-Mobile';
   static const String githubUrl = 'https://github.com/$githubRepo';
   static const String originalGithubUrl = 'https://github.com/afkarxyz/SpotiFLAC';
+  
+  static const String kofiUrl = 'https://ko-fi.com/zarzet';
 }

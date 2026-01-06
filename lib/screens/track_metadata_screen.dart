@@ -759,17 +759,21 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     });
 
     try {
+      // Add timeout to prevent infinite loading
       final result = await PlatformBridge.getLyricsLRC(
         item.spotifyId ?? '',
         item.trackName,
         item.artistName,
         filePath: _fileExists ? item.filePath : null, // Try embedded lyrics first
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => '', // Return empty string on timeout
       );
       
       if (mounted) {
         if (result.isEmpty) {
           setState(() {
-            _lyricsError = 'Lyrics not found';
+            _lyricsError = 'Lyrics not available for this track';
             _lyricsLoading = false;
           });
         } else {
@@ -783,8 +787,11 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = e.toString().contains('TimeoutException') 
+            ? 'Request timed out. Try again later.'
+            : 'Failed to load lyrics';
         setState(() {
-          _lyricsError = 'Failed to load lyrics';
+          _lyricsError = errorMsg;
           _lyricsLoading = false;
         });
       }

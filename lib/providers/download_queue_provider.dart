@@ -686,20 +686,37 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
   }
 
-  /// Retry a failed download
+  /// Retry a failed or skipped download
   void retryItem(String id) {
-    final items = state.items.map((item) {
-      if (item.id == id && item.status == DownloadStatus.failed) {
-        return item.copyWith(status: DownloadStatus.queued, progress: 0, error: null);
+    final item = state.items.where((i) => i.id == id).firstOrNull;
+    if (item == null) {
+      _log.w('retryItem: Item not found: $id');
+      return;
+    }
+    
+    // Only retry if status is failed or skipped
+    if (item.status != DownloadStatus.failed && item.status != DownloadStatus.skipped) {
+      _log.w('retryItem: Item status is ${item.status}, not retrying');
+      return;
+    }
+    
+    _log.i('Retrying item: ${item.track.name} (id: $id)');
+    
+    final items = state.items.map((i) {
+      if (i.id == id) {
+        return i.copyWith(status: DownloadStatus.queued, progress: 0, error: null);
       }
-      return item;
+      return i;
     }).toList();
     state = state.copyWith(items: items);
     _saveQueueToStorage(); // Persist queue
     
-    // Start processing if not already
+    // Start processing if not already running
     if (!state.isProcessing) {
+      _log.d('Starting queue processing for retry');
       Future.microtask(() => _processQueue());
+    } else {
+      _log.d('Queue already processing, item will be picked up');
     }
   }
 
@@ -851,6 +868,13 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     
     _log.i('Queue processing finished');
     state = state.copyWith(isProcessing: false, currentDownload: null);
+    
+    // Check if there are new queued items (e.g., from retry) and restart if needed
+    final hasQueuedItems = state.items.any((item) => item.status == DownloadStatus.queued);
+    if (hasQueuedItems) {
+      _log.i('Found queued items after processing finished, restarting queue...');
+      Future.microtask(() => _processQueue());
+    }
   }
 
   /// Sequential download processing (uses multi-progress system with single item)
@@ -866,7 +890,9 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         continue;
       }
       
-      final nextItem = state.items.firstWhere(
+      // Re-read state to get latest items (important for retry)
+      final currentItems = state.items;
+      final nextItem = currentItems.firstWhere(
         (item) => item.status == DownloadStatus.queued,
         orElse: () => DownloadItem(
           id: '',
@@ -877,10 +903,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       );
 
       if (nextItem.id.isEmpty) {
-        _log.d('No more items to process');
+        _log.d('No more items to process (checked ${currentItems.length} items)');
         break;
       }
 
+      _log.d('Processing next item: ${nextItem.track.name} (id: ${nextItem.id})');
       await _downloadSingleItem(nextItem);
       
       // Clear item progress after download completes

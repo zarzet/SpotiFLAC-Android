@@ -96,6 +96,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setUpdateChannel(String channel) {
+    state = state.copyWith(updateChannel: channel);
+    _saveSettings();
+  }
+
   void setHasSearchedBefore() {
     if (!state.hasSearchedBefore) {
       state = state.copyWith(hasSearchedBefore: true);

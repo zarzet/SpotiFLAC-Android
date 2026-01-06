@@ -24,11 +24,13 @@ class ThemeNotifier extends Notifier<ThemeSettings> {
       final modeString = prefs.getString(kThemeModeKey);
       final useDynamic = prefs.getBool(kUseDynamicColorKey);
       final seedColor = prefs.getInt(kSeedColorKey);
+      final useAmoled = prefs.getBool(kUseAmoledKey);
 
       state = ThemeSettings(
         themeMode: _themeModeFromString(modeString),
         useDynamicColor: useDynamic ?? true,
         seedColorValue: seedColor ?? kDefaultSeedColor,
+        useAmoled: useAmoled ?? false,
       );
     } catch (e) {
       debugPrint('Error loading theme settings: $e');
@@ -43,6 +45,7 @@ class ThemeNotifier extends Notifier<ThemeSettings> {
       await prefs.setString(kThemeModeKey, state.themeMode.name);
       await prefs.setBool(kUseDynamicColorKey, state.useDynamicColor);
       await prefs.setInt(kSeedColorKey, state.seedColorValue);
+      await prefs.setBool(kUseAmoledKey, state.useAmoled);
     } catch (e) {
       debugPrint('Error saving theme settings: $e');
     }
@@ -69,6 +72,12 @@ class ThemeNotifier extends Notifier<ThemeSettings> {
   /// Set seed color from int value
   Future<void> setSeedColorValue(int colorValue) async {
     state = state.copyWith(seedColorValue: colorValue);
+    await _saveToStorage();
+  }
+
+  /// Enable or disable AMOLED mode (pure black background)
+  Future<void> setUseAmoled(bool value) async {
+    state = state.copyWith(useAmoled: value);
     await _saveToStorage();
   }
 

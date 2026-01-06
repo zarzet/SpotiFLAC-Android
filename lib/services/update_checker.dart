@@ -12,6 +12,7 @@ class UpdateInfo {
   final String downloadUrl;
   final String? apkDownloadUrl;
   final DateTime publishedAt;
+  final bool isPrerelease;
 
   const UpdateInfo({
     required this.version,
@@ -19,11 +20,13 @@ class UpdateInfo {
     required this.downloadUrl,
     this.apkDownloadUrl,
     required this.publishedAt,
+    this.isPrerelease = false,
   });
 }
 
 class UpdateChecker {
-  static const String _apiUrl = 'https://api.github.com/repos/${AppInfo.githubRepo}/releases/latest';
+  static const String _latestApiUrl = 'https://api.github.com/repos/${AppInfo.githubRepo}/releases/latest';
+  static const String _allReleasesApiUrl = 'https://api.github.com/repos/${AppInfo.githubRepo}/releases';
 
   static Future<String> _getDeviceArch() async {
     if (!Platform.isAndroid) return 'unknown';
@@ -55,30 +58,59 @@ class UpdateChecker {
     }
   }
 
-  static Future<UpdateInfo?> checkForUpdate() async {
+  /// Check for updates based on channel preference
+  /// [channel] can be 'stable' or 'preview'
+  static Future<UpdateInfo?> checkForUpdate({String channel = 'stable'}) async {
     try {
-      final response = await http.get(
-        Uri.parse(_apiUrl),
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      ).timeout(const Duration(seconds: 10));
+      Map<String, dynamic>? releaseData;
+      
+      if (channel == 'preview') {
+        // For preview channel, get all releases and find the latest (including prereleases)
+        final response = await http.get(
+          Uri.parse('$_allReleasesApiUrl?per_page=10'),
+          headers: {'Accept': 'application/vnd.github.v3+json'},
+        ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode != 200) {
-        _log.w('GitHub API returned ${response.statusCode}');
-        return null;
+        if (response.statusCode != 200) {
+          _log.w('GitHub API returned ${response.statusCode}');
+          return null;
+        }
+
+        final releases = jsonDecode(response.body) as List<dynamic>;
+        if (releases.isEmpty) {
+          _log.i('No releases found');
+          return null;
+        }
+        
+        // First release is the latest (including prereleases)
+        releaseData = releases.first as Map<String, dynamic>;
+      } else {
+        // For stable channel, use /latest endpoint (excludes prereleases)
+        final response = await http.get(
+          Uri.parse(_latestApiUrl),
+          headers: {'Accept': 'application/vnd.github.v3+json'},
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode != 200) {
+          _log.w('GitHub API returned ${response.statusCode}');
+          return null;
+        }
+
+        releaseData = jsonDecode(response.body) as Map<String, dynamic>;
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final tagName = data['tag_name'] as String? ?? '';
+      final tagName = releaseData['tag_name'] as String? ?? '';
       final latestVersion = tagName.replaceFirst('v', '');
+      final isPrerelease = releaseData['prerelease'] as bool? ?? false;
       
       if (!_isNewerVersion(latestVersion, AppInfo.version)) {
-        _log.i('No update available (current: ${AppInfo.version}, latest: $latestVersion)');
+        _log.i('No update available (current: ${AppInfo.version}, latest: $latestVersion, channel: $channel)');
         return null;
       }
 
-      final body = data['body'] as String? ?? 'No changelog available';
-      final htmlUrl = data['html_url'] as String? ?? '${AppInfo.githubUrl}/releases';
-      final publishedAt = DateTime.tryParse(data['published_at'] as String? ?? '') ?? DateTime.now();
+      final body = releaseData['body'] as String? ?? 'No changelog available';
+      final htmlUrl = releaseData['html_url'] as String? ?? '${AppInfo.githubUrl}/releases';
+      final publishedAt = DateTime.tryParse(releaseData['published_at'] as String? ?? '') ?? DateTime.now();
 
       final deviceArch = await _getDeviceArch();
       _log.d('Device architecture: $deviceArch');
@@ -87,7 +119,7 @@ class UpdateChecker {
       String? arm32Url;
       String? universalUrl;
       
-      final assets = data['assets'] as List<dynamic>? ?? [];
+      final assets = releaseData['assets'] as List<dynamic>? ?? [];
       for (final asset in assets) {
         final name = (asset['name'] as String? ?? '').toLowerCase();
         if (name.endsWith('.apk')) {
@@ -117,7 +149,7 @@ class UpdateChecker {
         apkUrl = universalUrl ?? arm64Url ?? arm32Url;
       }
 
-      _log.i('Update available: $latestVersion, APK URL: $apkUrl');
+      _log.i('Update available: $latestVersion (prerelease: $isPrerelease), APK URL: $apkUrl');
       
       return UpdateInfo(
         version: latestVersion,
@@ -125,6 +157,7 @@ class UpdateChecker {
         downloadUrl: htmlUrl,
         apkDownloadUrl: apkUrl,
         publishedAt: publishedAt,
+        isPrerelease: isPrerelease,
       );
     } catch (e) {
       _log.e('Error checking for updates: $e');
