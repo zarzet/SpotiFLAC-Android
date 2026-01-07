@@ -20,10 +20,8 @@
   - Progress now updates smoothly every 64KB of data received
   - First progress update happens immediately when download starts
 - **Incomplete Downloads**: Fixed bug where interrupted downloads could result in corrupted/incomplete files
-  - Downloads now use temporary files (`.tmp`) during transfer
   - File size is validated against server's Content-Length header
   - Incomplete files are automatically deleted and error is reported
-  - Final file is only created after successful download completion
   - Applies to all services: Tidal, Qobuz, and Amazon
 
 ### Technical

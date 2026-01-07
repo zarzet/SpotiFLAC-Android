@@ -300,9 +300,7 @@ func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) 
 		SetItemBytesTotal(itemID, expectedSize)
 	}
 
-	// Use temp file to avoid incomplete downloads
-	tempPath := outputPath + ".tmp"
-	out, err := os.Create(tempPath)
+	out, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
@@ -326,28 +324,22 @@ func (a *AmazonDownloader) DownloadFile(downloadURL, outputPath, itemID string) 
 
 	// Check for any errors
 	if err != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("download interrupted: %w", err)
 	}
 	if flushErr != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("failed to flush buffer: %w", flushErr)
 	}
 	if closeErr != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("failed to close file: %w", closeErr)
 	}
 
 	// Verify file size if Content-Length was provided
 	if expectedSize > 0 && written != expectedSize {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("incomplete download: expected %d bytes, got %d bytes", expectedSize, written)
-	}
-
-	// Rename temp file to final path
-	if err := os.Rename(tempPath, outputPath); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	fmt.Printf("\r[Amazon] Downloaded: %.2f MB (Complete)\n", float64(written)/(1024*1024))

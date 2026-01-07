@@ -282,6 +282,8 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 		preferredService = "tidal"
 	}
 	
+	fmt.Printf("[DownloadWithFallback] Preferred service from request: '%s'\n", req.Service)
+	
 	// Create ordered list: preferred first, then others
 	services := []string{preferredService}
 	for _, s := range allServices {
@@ -290,9 +292,12 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 		}
 	}
 	
+	fmt.Printf("[DownloadWithFallback] Service order: %v\n", services)
+	
 	var lastErr error
 	
 	for _, service := range services {
+		fmt.Printf("[DownloadWithFallback] Trying service: %s\n", service)
 		req.Service = service
 		
 		var result DownloadResult

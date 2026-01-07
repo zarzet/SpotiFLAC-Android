@@ -752,9 +752,7 @@ func (t *TidalDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 		SetItemBytesTotal(itemID, expectedSize)
 	}
 
-	// Use temp file to avoid incomplete downloads
-	tempPath := outputPath + ".tmp"
-	out, err := os.Create(tempPath)
+	out, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
@@ -778,28 +776,22 @@ func (t *TidalDownloader) DownloadFile(downloadURL, outputPath, itemID string) e
 
 	// Check for any errors
 	if err != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("download interrupted: %w", err)
 	}
 	if flushErr != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("failed to flush buffer: %w", flushErr)
 	}
 	if closeErr != nil {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("failed to close file: %w", closeErr)
 	}
 
 	// Verify file size if Content-Length was provided
 	if expectedSize > 0 && written != expectedSize {
-		os.Remove(tempPath)
+		os.Remove(outputPath)
 		return fmt.Errorf("incomplete download: expected %d bytes, got %d bytes", expectedSize, written)
-	}
-
-	// Rename temp file to final path
-	if err := os.Rename(tempPath, outputPath); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil
@@ -844,9 +836,7 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 			SetItemBytesTotal(itemID, expectedSize)
 		}
 
-		// Use temp file to avoid incomplete downloads
-		tempPath := outputPath + ".tmp"
-		out, err := os.Create(tempPath)
+		out, err := os.Create(outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
@@ -863,24 +853,18 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 		closeErr := out.Close()
 
 		if err != nil {
-			os.Remove(tempPath)
+			os.Remove(outputPath)
 			return fmt.Errorf("download interrupted: %w", err)
 		}
 		if closeErr != nil {
-			os.Remove(tempPath)
+			os.Remove(outputPath)
 			return fmt.Errorf("failed to close file: %w", closeErr)
 		}
 
 		// Verify file size if Content-Length was provided
 		if expectedSize > 0 && written != expectedSize {
-			os.Remove(tempPath)
+			os.Remove(outputPath)
 			return fmt.Errorf("incomplete download: expected %d bytes, got %d bytes", expectedSize, written)
-		}
-
-		// Rename temp file to final path
-		if err := os.Rename(tempPath, outputPath); err != nil {
-			os.Remove(tempPath)
-			return fmt.Errorf("failed to rename temp file: %w", err)
 		}
 
 		return nil
