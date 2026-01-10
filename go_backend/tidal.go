@@ -477,7 +477,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 
 		if len(result.Items) > 0 {
 			GoLog("[Tidal] Found %d results for '%s'\n", len(result.Items), cleanQuery)
-			
+
 			// OPTIMIZATION: If ISRC provided, check for match immediately and return early
 			if spotifyISRC != "" {
 				for i := range result.Items {
@@ -494,7 +494,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 								return track, nil
 							}
 							// Duration mismatch, continue searching
-							GoLog("[Tidal] ISRC match but duration mismatch (expected %ds, got %ds), continuing...\n", 
+							GoLog("[Tidal] ISRC match but duration mismatch (expected %ds, got %ds), continuing...\n",
 								expectedDuration, track.Duration)
 						} else {
 							GoLog("[Tidal] ✓ ISRC match: '%s'\n", track.Title)
@@ -503,7 +503,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 					}
 				}
 			}
-			
+
 			allTracks = append(allTracks, result.Items...)
 		}
 	}
@@ -638,7 +638,154 @@ type TidalDownloadInfo struct {
 	SampleRate int
 }
 
-// getDownloadURLSequential requests download URL from APIs sequentially
+// tidalAPIResult holds the result from a parallel API request
+type tidalAPIResult struct {
+	apiURL   string
+	info     TidalDownloadInfo
+	err      error
+	duration time.Duration
+}
+
+// getDownloadURLParallel requests download URL from all APIs in parallel
+// Returns the first successful result (supports both v1 and v2 API formats)
+func getDownloadURLParallel(apis []string, trackID int64, quality string) (string, TidalDownloadInfo, error) {
+	if len(apis) == 0 {
+		return "", TidalDownloadInfo{}, fmt.Errorf("no APIs available")
+	}
+
+	GoLog("[Tidal] Requesting download URL from %d APIs in parallel...\n", len(apis))
+
+	resultChan := make(chan tidalAPIResult, len(apis))
+	startTime := time.Now()
+
+	// Start all requests in parallel
+	for _, apiURL := range apis {
+		go func(api string) {
+			reqStart := time.Now()
+
+			// Create client with longer timeout for parallel requests
+			client := &http.Client{
+				Timeout: 15 * time.Second,
+			}
+
+			reqURL := fmt.Sprintf("%s/track/?id=%d&quality=%s", api, trackID, quality)
+			GoLog("[Tidal] [Parallel] Starting request to: %s\n", api)
+
+			req, err := http.NewRequest("GET", reqURL, nil)
+			if err != nil {
+				GoLog("[Tidal] [Parallel] %s - Failed to create request: %v\n", api, err)
+				resultChan <- tidalAPIResult{apiURL: api, err: err, duration: time.Since(reqStart)}
+				return
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				GoLog("[Tidal] [Parallel] %s - Request failed: %v\n", api, err)
+				resultChan <- tidalAPIResult{apiURL: api, err: err, duration: time.Since(reqStart)}
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != 200 {
+				GoLog("[Tidal] [Parallel] %s - HTTP %d\n", api, resp.StatusCode)
+				resultChan <- tidalAPIResult{apiURL: api, err: fmt.Errorf("HTTP %d", resp.StatusCode), duration: time.Since(reqStart)}
+				return
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				GoLog("[Tidal] [Parallel] %s - Failed to read body: %v\n", api, err)
+				resultChan <- tidalAPIResult{apiURL: api, err: err, duration: time.Since(reqStart)}
+				return
+			}
+
+			// Try v2 format first (object with manifest)
+			var v2Response TidalAPIResponseV2
+			if err := json.Unmarshal(body, &v2Response); err == nil && v2Response.Data.Manifest != "" {
+				// IMPORTANT: Reject PREVIEW responses - we need FULL tracks
+				if v2Response.Data.AssetPresentation == "PREVIEW" {
+					GoLog("[Tidal] [Parallel] %s - Rejecting PREVIEW response\n", api)
+					resultChan <- tidalAPIResult{apiURL: api, err: fmt.Errorf("returned PREVIEW instead of FULL"), duration: time.Since(reqStart)}
+					return
+				}
+
+				GoLog("[Tidal] [Parallel] %s - Got FULL track (v2): %d-bit/%dHz in %v\n",
+					api, v2Response.Data.BitDepth, v2Response.Data.SampleRate, time.Since(reqStart))
+
+				info := TidalDownloadInfo{
+					URL:        "MANIFEST:" + v2Response.Data.Manifest,
+					BitDepth:   v2Response.Data.BitDepth,
+					SampleRate: v2Response.Data.SampleRate,
+				}
+				resultChan <- tidalAPIResult{apiURL: api, info: info, err: nil, duration: time.Since(reqStart)}
+				return
+			}
+
+			// Fallback to v1 format (array with OriginalTrackUrl)
+			var v1Responses []struct {
+				OriginalTrackURL string `json:"OriginalTrackUrl"`
+			}
+			if err := json.Unmarshal(body, &v1Responses); err == nil {
+				for _, item := range v1Responses {
+					if item.OriginalTrackURL != "" {
+						GoLog("[Tidal] [Parallel] %s - Got direct URL (v1) in %v\n", api, time.Since(reqStart))
+						info := TidalDownloadInfo{
+							URL:        item.OriginalTrackURL,
+							BitDepth:   16,
+							SampleRate: 44100,
+						}
+						resultChan <- tidalAPIResult{apiURL: api, info: info, err: nil, duration: time.Since(reqStart)}
+						return
+					}
+				}
+			}
+
+			GoLog("[Tidal] [Parallel] %s - No download URL in response\n", api)
+			resultChan <- tidalAPIResult{apiURL: api, err: fmt.Errorf("no download URL or manifest in response"), duration: time.Since(reqStart)}
+		}(apiURL)
+	}
+
+	// Collect results - return first success
+	var errors []string
+	successCount := 0
+	failCount := 0
+
+	for i := 0; i < len(apis); i++ {
+		result := <-resultChan
+		if result.err == nil {
+			successCount++
+			if successCount == 1 {
+				// First success - use this one
+				GoLog("[Tidal] [Parallel] ✓ Using response from %s (took %v, total %v)\n",
+					result.apiURL, result.duration, time.Since(startTime))
+
+				// Don't return immediately - let other goroutines finish to avoid leaks
+				// But we'll use this result
+				go func() {
+					// Drain remaining results
+					for j := i + 1; j < len(apis); j++ {
+						<-resultChan
+					}
+				}()
+
+				return result.apiURL, result.info, nil
+			}
+		} else {
+			failCount++
+			errMsg := result.err.Error()
+			if len(errMsg) > 50 {
+				errMsg = errMsg[:50] + "..."
+			}
+			errors = append(errors, fmt.Sprintf("%s: %s", result.apiURL, errMsg))
+			GoLog("[Tidal] [Parallel] ✗ %s failed: %s (took %v)\n", result.apiURL, errMsg, result.duration)
+		}
+	}
+
+	GoLog("[Tidal] [Parallel] All %d APIs failed in %v\n", len(apis), time.Since(startTime))
+	return "", TidalDownloadInfo{}, fmt.Errorf("all %d Tidal APIs failed. Errors: %v", len(apis), errors)
+}
+
+// getDownloadURLSequential requests download URL from APIs sequentially (fallback)
 // Returns the first successful result (supports both v1 and v2 API formats)
 func getDownloadURLSequential(apis []string, trackID int64, quality string) (string, TidalDownloadInfo, error) {
 	if len(apis) == 0 {
@@ -1390,7 +1537,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		GoLog("[Tidal] ISRC search failed, trying SongLink...\n")
 		var tidalURL string
 		var slErr error
-		
+
 		// Check if SpotifyID is actually a Deezer ID (format: "deezer:xxxxx")
 		if strings.HasPrefix(req.SpotifyID, "deezer:") {
 			deezerID := strings.TrimPrefix(req.SpotifyID, "deezer:")
@@ -1400,7 +1547,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		} else {
 			tidalURL, slErr = downloader.GetTidalURLFromSpotify(req.SpotifyID)
 		}
-		
+
 		if slErr == nil && tidalURL != "" {
 			// Extract track ID and get track info
 			trackID, idErr := downloader.GetTrackIDFromURL(tidalURL)
@@ -1456,7 +1603,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 				}
 				tidalArtist = strings.Join(artistNames, ", ")
 			}
-			
+
 			// Verify title first
 			if !titlesMatch(req.TrackName, track.Title) {
 				GoLog("[Tidal] Title mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",

@@ -128,7 +128,7 @@ func qobuzTitlesMatch(expectedTitle, foundTitle string) bool {
 	// Extract core title (before any parentheses/brackets)
 	coreExpected := qobuzExtractCoreTitle(normExpected)
 	coreFound := qobuzExtractCoreTitle(normFound)
-	
+
 	if coreExpected != "" && coreFound != "" && coreExpected == coreFound {
 		return true
 	}
@@ -151,7 +151,7 @@ func qobuzExtractCoreTitle(title string) string {
 	parenIdx := strings.Index(title, "(")
 	bracketIdx := strings.Index(title, "[")
 	dashIdx := strings.Index(title, " - ")
-	
+
 	cutIdx := len(title)
 	if parenIdx > 0 && parenIdx < cutIdx {
 		cutIdx = parenIdx
@@ -162,7 +162,7 @@ func qobuzExtractCoreTitle(title string) string {
 	if dashIdx > 0 && dashIdx < cutIdx {
 		cutIdx = dashIdx
 	}
-	
+
 	return strings.TrimSpace(title[:cutIdx])
 }
 
@@ -173,11 +173,11 @@ func qobuzCleanTitle(title string) string {
 	// Remove content in parentheses/brackets that are version indicators
 	// This helps match "Song (Remastered)" with "Song" or "Song (2024 Remaster)"
 	versionPatterns := []string{
-		"remaster", "remastered", "deluxe", "bonus", "single", 
+		"remaster", "remastered", "deluxe", "bonus", "single",
 		"album version", "radio edit", "original mix", "extended",
 		"club mix", "remix", "live", "acoustic", "demo",
 	}
-	
+
 	// Remove parenthetical content if it contains version indicators
 	for {
 		startParen := strings.LastIndex(cleaned, "(")
@@ -198,7 +198,7 @@ func qobuzCleanTitle(title string) string {
 		}
 		break
 	}
-	
+
 	// Same for brackets
 	for {
 		startBracket := strings.LastIndex(cleaned, "[")
@@ -370,7 +370,7 @@ func (q *QobuzDownloader) SearchTrackByISRC(isrc string) (*QobuzTrack, error) {
 // expectedDurationSec is the expected duration in seconds (0 to skip verification)
 func (q *QobuzDownloader) SearchTrackByISRCWithDuration(isrc string, expectedDurationSec int) (*QobuzTrack, error) {
 	GoLog("[Qobuz] Searching by ISRC: %s\n", isrc)
-	
+
 	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly93d3cucW9idXouY29tL2FwaS5qc29uLzAuMi90cmFjay9zZWFyY2g/cXVlcnk9")
 	searchURL := fmt.Sprintf("%s%s&limit=50&app_id=%s", string(apiBase), url.QueryEscape(isrc), q.appID)
 
@@ -602,12 +602,12 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 			// Return best quality among duration matches
 			for _, track := range durationMatches {
 				if track.MaximumBitDepth >= 24 {
-					GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified, hi-res)\n", 
+					GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified, hi-res)\n",
 						track.Title, track.Performer.Name)
 					return track, nil
 				}
 			}
-			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified)\n", 
+			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified)\n",
 				durationMatches[0].Title, durationMatches[0].Performer.Name)
 			return durationMatches[0], nil
 		}
@@ -619,18 +619,18 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 	// No duration verification, return best quality from title matches
 	for _, track := range tracksToCheck {
 		if track.MaximumBitDepth >= 24 {
-			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified, hi-res)\n", 
+			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified, hi-res)\n",
 				track.Title, track.Performer.Name)
 			return track, nil
 		}
 	}
-	
+
 	if len(tracksToCheck) > 0 {
-		GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified)\n", 
+		GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified)\n",
 			tracksToCheck[0].Title, tracksToCheck[0].Performer.Name)
 		return tracksToCheck[0], nil
 	}
-	
+
 	return nil, fmt.Errorf("no matching track found for: %s - %s", artistName, trackName)
 }
 

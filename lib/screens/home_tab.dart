@@ -328,13 +328,27 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
                   : Column(
                       children: [
                         SizedBox(height: screenHeight * 0.06),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 96,
+                            height: 96,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 96,
+                              height: 96,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Icon(
+                                Icons.music_note,
+                                size: 48,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
                           ),
-                          child: Icon(Icons.music_note, size: 48, color: colorScheme.primary),
                         ),
                         const SizedBox(height: 16),
                         Text(

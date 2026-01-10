@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/logger.dart';
+
+final _log = AppLogger('TrackProvider');
 
 class TrackState {
   final List<Track> tracks;
@@ -210,54 +213,60 @@ class TrackNotifier extends Notifier<TrackState> {
       // Use Deezer or Spotify based on settings
       final source = metadataSource ?? 'deezer';
       
-      // Debug log to show which source is being used
-      // ignore: avoid_print
-      print('[Search] Using metadata source: $source for query: "$query"');
+      _log.i('Search started: source=$source, query="$query"');
       
       Map<String, dynamic> results;
       if (source == 'deezer') {
+        _log.d('Calling Deezer search API...');
         results = await PlatformBridge.searchDeezerAll(query, trackLimit: 20, artistLimit: 5);
-        // ignore: avoid_print
-        print('[Search] Deezer returned ${(results['tracks'] as List?)?.length ?? 0} tracks');
+        _log.i('Deezer returned ${(results['tracks'] as List?)?.length ?? 0} tracks, ${(results['artists'] as List?)?.length ?? 0} artists');
       } else {
+        _log.d('Calling Spotify search API...');
         results = await PlatformBridge.searchSpotifyAll(query, trackLimit: 20, artistLimit: 5);
-        // ignore: avoid_print
-        print('[Search] Spotify returned ${(results['tracks'] as List?)?.length ?? 0} tracks');
+        _log.i('Spotify returned ${(results['tracks'] as List?)?.length ?? 0} tracks, ${(results['artists'] as List?)?.length ?? 0} artists');
       }
       
-      if (!_isRequestValid(requestId)) return; // Request cancelled
+      if (!_isRequestValid(requestId)) {
+        _log.w('Search request cancelled (requestId=$requestId)');
+        return;
+      }
       
       final trackList = results['tracks'] as List<dynamic>? ?? [];
       final artistList = results['artists'] as List<dynamic>? ?? [];
       
+      _log.d('Raw results: ${trackList.length} tracks, ${artistList.length} artists');
+      
       // Parse tracks with error handling per item
       final tracks = <Track>[];
-      for (final t in trackList) {
+      for (int i = 0; i < trackList.length; i++) {
+        final t = trackList[i];
         try {
           if (t is Map<String, dynamic>) {
             tracks.add(_parseSearchTrack(t));
+          } else {
+            _log.w('Track[$i] is not a Map: ${t.runtimeType}');
           }
         } catch (e) {
-          // ignore: avoid_print
-          print('[Search] Failed to parse track: $e');
+          _log.e('Failed to parse track[$i]: $e', e);
         }
       }
       
       // Parse artists with error handling per item
       final artists = <SearchArtist>[];
-      for (final a in artistList) {
+      for (int i = 0; i < artistList.length; i++) {
+        final a = artistList[i];
         try {
           if (a is Map<String, dynamic>) {
             artists.add(_parseSearchArtist(a));
+          } else {
+            _log.w('Artist[$i] is not a Map: ${a.runtimeType}');
           }
         } catch (e) {
-          // ignore: avoid_print
-          print('[Search] Failed to parse artist: $e');
+          _log.e('Failed to parse artist[$i]: $e', e);
         }
       }
       
-      // ignore: avoid_print
-      print('[Search] Parsed ${tracks.length} tracks, ${artists.length} artists');
+      _log.i('Search complete: ${tracks.length} tracks, ${artists.length} artists parsed successfully');
       
       state = TrackState(
         tracks: tracks,
@@ -265,9 +274,9 @@ class TrackNotifier extends Notifier<TrackState> {
         isLoading: false,
         hasSearchText: state.hasSearchText,
       );
-    } catch (e) {
-      if (!_isRequestValid(requestId)) return; // Request cancelled
-      // Preserve hasSearchText on error so user stays on search screen
+    } catch (e, stackTrace) {
+      if (!_isRequestValid(requestId)) return;
+      _log.e('Search failed: $e', e, stackTrace);
       state = TrackState(isLoading: false, error: e.toString(), hasSearchText: state.hasSearchText);
     }
   }

@@ -50,6 +50,7 @@ class LogBuffer extends ChangeNotifier {
   int _lastGoLogIndex = 0;
   
   /// Whether logging is enabled (controlled by settings)
+  /// User must enable "Detailed Logging" in settings to capture logs
   static bool _loggingEnabled = false;
   static bool get loggingEnabled => _loggingEnabled;
   static set loggingEnabled(bool value) {
@@ -242,39 +243,63 @@ final log = Logger(
 
 /// Logger with class/tag prefix for better traceability
 /// Now also writes to LogBuffer for in-app viewing
+/// Works in both debug and release mode
 class AppLogger {
   final String _tag;
-  late final Logger _logger;
+  late final Logger? _logger;
 
   AppLogger(this._tag) {
-    _logger = Logger(
-      printer: SimplePrinter(printTime: false, colors: false),
-      output: BufferedOutput(_tag),
-      level: Level.debug,
-    );
+    // Only create Logger instance in debug mode
+    // In release mode, we write directly to LogBuffer
+    if (kDebugMode) {
+      _logger = Logger(
+        printer: SimplePrinter(printTime: false, colors: false),
+        output: BufferedOutput(_tag),
+        level: Level.debug,
+      );
+    } else {
+      _logger = null;
+    }
+  }
+
+  void _addToBuffer(String level, String message, {String? error}) {
+    LogBuffer().add(LogEntry(
+      timestamp: DateTime.now(),
+      level: level,
+      tag: _tag,
+      message: message,
+      error: error,
+    ));
   }
 
   void d(String message) {
-    _logger.d(message);
+    if (kDebugMode) {
+      _logger?.d(message);
+    } else {
+      // In release mode, write directly to buffer
+      _addToBuffer('DEBUG', message);
+    }
   }
 
   void i(String message) {
-    _logger.i(message);
+    if (kDebugMode) {
+      _logger?.i(message);
+    } else {
+      _addToBuffer('INFO', message);
+    }
   }
 
   void w(String message) {
-    _logger.w(message);
+    if (kDebugMode) {
+      _logger?.w(message);
+    } else {
+      _addToBuffer('WARN', message);
+    }
   }
 
   void e(String message, [Object? error, StackTrace? stackTrace]) {
     if (error != null) {
-      LogBuffer().add(LogEntry(
-        timestamp: DateTime.now(),
-        level: 'ERROR',
-        tag: _tag,
-        message: message,
-        error: error.toString(),
-      ));
+      _addToBuffer('ERROR', message, error: error.toString());
       if (kDebugMode) {
         debugPrint('[$_tag] ERROR: $message | $error');
         if (stackTrace != null) {
@@ -282,7 +307,11 @@ class AppLogger {
         }
       }
     } else {
-      _logger.e(message);
+      if (kDebugMode) {
+        _logger?.e(message);
+      } else {
+        _addToBuffer('ERROR', message);
+      }
     }
   }
 }

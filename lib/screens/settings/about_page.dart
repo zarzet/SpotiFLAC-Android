@@ -109,14 +109,14 @@ class AboutPage extends StatelessWidget {
                   githubUsername: 'sachinsenal0x64',
                   showDivider: true,
                 ),
-                SettingsItem(
+                _AboutSettingsItem(
                   icon: Icons.cloud_outlined,
                   title: 'DoubleDouble',
                   subtitle: 'Amazing API for Amazon Music downloads. Thank you for making it free!',
                   onTap: () => _launchUrl('https://doubledouble.top'),
                   showDivider: true,
                 ),
-                SettingsItem(
+                _AboutSettingsItem(
                   icon: Icons.music_note_outlined,
                   title: 'DAB Music',
                   subtitle: 'The best Qobuz streaming API. Hi-Res downloads wouldn\'t be possible without this!',
@@ -250,26 +250,21 @@ class _AppHeaderCard extends StatelessWidget {
       child: Column(
         children: [
           // App logo
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.2),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 88,
+              height: 88,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(24),
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Icon(
+                child: Icon(
                   Icons.music_note,
                   size: 48,
                   color: colorScheme.onPrimaryContainer,
@@ -415,5 +410,82 @@ class _ContributorItem extends StatelessWidget {
   Future<void> _launchGitHub(String username) async {
     final uri = Uri.parse('https://github.com/$username');
     await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+  }
+}
+
+/// Settings item with 40x40 icon area to align with contributor avatars
+class _AboutSettingsItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool showDivider;
+
+  const _AboutSettingsItem({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.showDivider = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onTap,
+          splashColor: colorScheme.primary.withValues(alpha: 0.12),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              children: [
+                // Icon with 40x40 size to match avatar
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(icon, color: colorScheme.onSurfaceVariant, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: 76, // 20 + 40 + 16 = 76 (same as contributor item)
+            endIndent: 20,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+      ],
+    );
   }
 }

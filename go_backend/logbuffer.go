@@ -35,7 +35,7 @@ func GetLogBuffer() *LogBuffer {
 		globalLogBuffer = &LogBuffer{
 			entries:        make([]LogEntry, 0, 500),
 			maxSize:        500,
-			loggingEnabled: false, // Default: disabled for performance
+			loggingEnabled: false, // Default: disabled for performance (user can enable in settings)
 		}
 	})
 	return globalLogBuffer
@@ -143,11 +143,11 @@ func LogError(tag, format string, args ...interface{}) {
 func GoLog(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	message = strings.TrimSuffix(message, "\n")
-	
+
 	// Extract tag from message if present (e.g., "[Tidal] message")
 	tag := "Go"
 	level := "INFO"
-	
+
 	if strings.HasPrefix(message, "[") {
 		endBracket := strings.Index(message, "]")
 		if endBracket > 1 {
@@ -155,7 +155,7 @@ func GoLog(format string, args ...interface{}) {
 			message = strings.TrimSpace(message[endBracket+1:])
 		}
 	}
-	
+
 	// Determine level from message content
 	msgLower := strings.ToLower(message)
 	if strings.Contains(msgLower, "error") || strings.Contains(msgLower, "failed") || strings.HasPrefix(message, "✗") {
@@ -167,7 +167,7 @@ func GoLog(format string, args ...interface{}) {
 	} else if strings.Contains(msgLower, "searching") || strings.Contains(msgLower, "trying") || strings.Contains(msgLower, "found") {
 		level = "DEBUG"
 	}
-	
+
 	GetLogBuffer().Add(level, tag, message)
 }
 
