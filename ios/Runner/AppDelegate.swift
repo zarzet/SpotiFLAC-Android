@@ -256,6 +256,31 @@ import Gobackend  // Import Go framework
             GobackendSetSpotifyAPICredentials(clientId, clientSecret)
             return nil
             
+        // Log methods
+        case "getLogs":
+            let response = GobackendGetLogs()
+            return response
+            
+        case "getLogsSince":
+            let args = call.arguments as! [String: Any]
+            let index = args["index"] as? Int ?? 0
+            let response = GobackendGetLogsSince(Int(index))
+            return response
+            
+        case "clearLogs":
+            GobackendClearLogs()
+            return nil
+            
+        case "getLogCount":
+            let response = GobackendGetLogCount()
+            return response
+            
+        case "setLoggingEnabled":
+            let args = call.arguments as! [String: Any]
+            let enabled = args["enabled"] as? Bool ?? false
+            GobackendSetLoggingEnabled(enabled)
+            return nil
+            
         default:
             throw NSError(
                 domain: "SpotiFLAC",

@@ -88,7 +88,7 @@ func amazonArtistsMatch(expectedArtist, foundArtist string) bool {
 	expectedASCII := amazonIsASCIIString(expectedArtist)
 	foundASCII := amazonIsASCIIString(foundArtist)
 	if expectedASCII != foundASCII {
-		fmt.Printf("[Amazon] Artist names in different scripts, assuming match: '%s' vs '%s'\n", expectedArtist, foundArtist)
+		GoLog("[Amazon] Artist names in different scripts, assuming match: '%s' vs '%s'\n", expectedArtist, foundArtist)
 		return true
 	}
 
@@ -135,7 +135,7 @@ func (a *AmazonDownloader) waitForRateLimit() {
 	if a.apiCallCount >= 9 {
 		waitTime := time.Minute - now.Sub(a.apiCallResetTime)
 		if waitTime > 0 {
-			fmt.Printf("[Amazon] Rate limit reached, waiting %v...\n", waitTime.Round(time.Second))
+			GoLog("[Amazon] Rate limit reached, waiting %v...\n", waitTime.Round(time.Second))
 			time.Sleep(waitTime)
 			a.apiCallCount = 0
 			a.apiCallResetTime = time.Now()
@@ -148,7 +148,7 @@ func (a *AmazonDownloader) waitForRateLimit() {
 		minDelay := 7 * time.Second
 		if timeSinceLastCall < minDelay {
 			waitTime := minDelay - timeSinceLastCall
-			fmt.Printf("[Amazon] Rate limiting: waiting %v...\n", waitTime.Round(time.Second))
+			GoLog("[Amazon] Rate limiting: waiting %v...\n", waitTime.Round(time.Second))
 			time.Sleep(waitTime)
 		}
 	}
@@ -177,7 +177,7 @@ func (a *AmazonDownloader) downloadFromDoubleDoubleService(amazonURL, outputDir 
 	var lastError error
 
 	for _, region := range a.regions {
-		fmt.Printf("[Amazon] Trying region: %s...\n", region)
+		GoLog("[Amazon] Trying region: %s...\n", region)
 
 		// Build base URL for DoubleDouble service
 		// Decode base64 service URL (same as PC)
@@ -216,7 +216,7 @@ func (a *AmazonDownloader) downloadFromDoubleDoubleService(amazonURL, outputDir 
 				resp.Body.Close()
 				if retry < maxRetries-1 {
 					waitTime := 15 * time.Second
-					fmt.Printf("[Amazon] Rate limited (429), waiting %v before retry %d/%d...\n", waitTime, retry+2, maxRetries)
+					GoLog("[Amazon] Rate limited (429), waiting %v before retry %d/%d...\n", waitTime, retry+2, maxRetries)
 					time.Sleep(waitTime)
 					continue
 				}
@@ -255,7 +255,7 @@ func (a *AmazonDownloader) downloadFromDoubleDoubleService(amazonURL, outputDir 
 		}
 
 		downloadID := submitResp.ID
-		fmt.Printf("[Amazon] Download ID: %s\n", downloadID)
+		GoLog("[Amazon] Download ID: %s\n", downloadID)
 
 		// Step 2: Poll for completion
 		statusURL := fmt.Sprintf("%s/dl/%s", baseURL, downloadID)
@@ -310,7 +310,7 @@ func (a *AmazonDownloader) downloadFromDoubleDoubleService(amazonURL, outputDir 
 				trackName := status.Current.Name
 				artist := status.Current.Artist
 
-				fmt.Printf("[Amazon] Downloading: %s - %s\n", artist, trackName)
+				GoLog("[Amazon] Downloading: %s - %s\n", artist, trackName)
 				return fileURL, trackName, artist, nil
 
 			} else if status.Status == "error" {
@@ -454,7 +454,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	if strings.HasPrefix(req.SpotifyID, "deezer:") {
 		// Extract Deezer ID and use Deezer-based lookup
 		deezerID := strings.TrimPrefix(req.SpotifyID, "deezer:")
-		fmt.Printf("[Amazon] Using Deezer ID for SongLink lookup: %s\n", deezerID)
+		GoLog("[Amazon] Using Deezer ID for SongLink lookup: %s\n", deezerID)
 		availability, err = songlink.CheckAvailabilityFromDeezer(deezerID)
 	} else if req.SpotifyID != "" {
 		// Use Spotify ID
@@ -486,12 +486,12 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 
 	// Verify artist matches
 	if artistName != "" && !amazonArtistsMatch(req.ArtistName, artistName) {
-		fmt.Printf("[Amazon] Artist mismatch: expected '%s', got '%s'. Rejecting.\n", req.ArtistName, artistName)
+		GoLog("[Amazon] Artist mismatch: expected '%s', got '%s'. Rejecting.\n", req.ArtistName, artistName)
 		return AmazonDownloadResult{}, fmt.Errorf("artist mismatch: expected '%s', got '%s'", req.ArtistName, artistName)
 	}
 
 	// Log match found
-	fmt.Printf("[Amazon] Match found: '%s' by '%s'\n", trackName, artistName)
+	GoLog("[Amazon] Match found: '%s' by '%s'\n", trackName, artistName)
 
 	// Build filename using Spotify metadata (more accurate)
 	filename := buildFilenameFromTemplate(req.FilenameFormat, map[string]interface{}{
@@ -542,7 +542,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 
 	// Log track info from DoubleDouble (for debugging)
 	if trackName != "" && artistName != "" {
-		fmt.Printf("[Amazon] DoubleDouble returned: %s - %s\n", artistName, trackName)
+		GoLog("[Amazon] DoubleDouble returned: %s - %s\n", artistName, trackName)
 	}
 
 	// Read existing metadata from downloaded file BEFORE embedding
@@ -555,11 +555,11 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		// Use file metadata if it has valid track/disc numbers and request doesn't have them
 		if existingMeta.TrackNumber > 0 && (req.TrackNumber == 0 || req.TrackNumber == 1) {
 			actualTrackNum = existingMeta.TrackNumber
-			fmt.Printf("[Amazon] Using track number from file: %d (request had: %d)\n", actualTrackNum, req.TrackNumber)
+			GoLog("[Amazon] Using track number from file: %d (request had: %d)\n", actualTrackNum, req.TrackNumber)
 		}
 		if existingMeta.DiscNumber > 0 && (req.DiscNumber == 0 || req.DiscNumber == 1) {
 			actualDiscNum = existingMeta.DiscNumber
-			fmt.Printf("[Amazon] Using disc number from file: %d (request had: %d)\n", actualDiscNum, req.DiscNumber)
+			GoLog("[Amazon] Using disc number from file: %d (request had: %d)\n", actualDiscNum, req.DiscNumber)
 		}
 	}
 
@@ -581,7 +581,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	var coverData []byte
 	if parallelResult != nil && parallelResult.CoverData != nil {
 		coverData = parallelResult.CoverData
-		fmt.Printf("[Amazon] Using parallel-fetched cover (%d bytes)\n", len(coverData))
+		GoLog("[Amazon] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	if err := EmbedMetadataWithCoverData(outputPath, metadata, coverData); err != nil {
@@ -590,9 +590,9 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 
 	// Embed lyrics from parallel fetch
 	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
-		fmt.Printf("[Amazon] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+		GoLog("[Amazon] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
 		if embedErr := EmbedLyrics(outputPath, parallelResult.LyricsLRC); embedErr != nil {
-			fmt.Printf("[Amazon] Warning: failed to embed lyrics: %v\n", embedErr)
+			GoLog("[Amazon] Warning: failed to embed lyrics: %v\n", embedErr)
 		} else {
 			fmt.Println("[Amazon] Lyrics embedded successfully")
 		}
@@ -606,16 +606,16 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	// Amazon API doesn't provide quality info, but we can read it from the file itself
 	quality, err := GetAudioQuality(outputPath)
 	if err != nil {
-		fmt.Printf("[Amazon] Warning: couldn't read quality from file: %v\n", err)
+		GoLog("[Amazon] Warning: couldn't read quality from file: %v\n", err)
 	} else {
-		fmt.Printf("[Amazon] Actual quality: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
+		GoLog("[Amazon] Actual quality: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
 	}
 
 	// Read metadata from file AFTER embedding to get accurate values
 	// This ensures we return what's actually in the file
 	finalMeta, metaReadErr := ReadMetadata(outputPath)
 	if metaReadErr == nil && finalMeta != nil {
-		fmt.Printf("[Amazon] Final metadata from file - Track: %d, Disc: %d, Date: %s\n",
+		GoLog("[Amazon] Final metadata from file - Track: %d, Disc: %d, Date: %s\n",
 			finalMeta.TrackNumber, finalMeta.DiscNumber, finalMeta.Date)
 		actualTrackNum = finalMeta.TrackNumber
 		actualDiscNum = finalMeta.DiscNumber

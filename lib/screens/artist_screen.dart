@@ -159,6 +159,11 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+    // Validate image URL - must be non-null, non-empty, and have a valid host
+    final hasValidImage = widget.coverUrl != null && 
+                          widget.coverUrl!.isNotEmpty &&
+                          Uri.tryParse(widget.coverUrl!)?.hasAuthority == true;
+    
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
@@ -169,8 +174,15 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            if (widget.coverUrl != null)
-              CachedNetworkImage(imageUrl: widget.coverUrl!, fit: BoxFit.cover, color: Colors.black.withValues(alpha: 0.5), colorBlendMode: BlendMode.darken, memCacheWidth: 600),
+            if (hasValidImage)
+              CachedNetworkImage(
+                imageUrl: widget.coverUrl!, 
+                fit: BoxFit.cover, 
+                color: Colors.black.withValues(alpha: 0.5), 
+                colorBlendMode: BlendMode.darken, 
+                memCacheWidth: 600,
+                errorWidget: (context, url, error) => Container(color: colorScheme.surfaceContainerHighest),
+              ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -192,8 +204,16 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
                   ),
                   child: ClipOval(
-                    child: widget.coverUrl != null
-                        ? CachedNetworkImage(imageUrl: widget.coverUrl!, fit: BoxFit.cover, memCacheWidth: 280)
+                    child: hasValidImage
+                        ? CachedNetworkImage(
+                            imageUrl: widget.coverUrl!, 
+                            fit: BoxFit.cover, 
+                            memCacheWidth: 280,
+                            errorWidget: (context, url, error) => Container(
+                              color: colorScheme.surfaceContainerHighest, 
+                              child: Icon(Icons.person, size: 48, color: colorScheme.onSurfaceVariant),
+                            ),
+                          )
                         : Container(color: colorScheme.surfaceContainerHighest, child: Icon(Icons.person, size: 48, color: colorScheme.onSurfaceVariant)),
                   ),
                 ),

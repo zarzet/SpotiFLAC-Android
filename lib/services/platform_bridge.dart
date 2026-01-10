@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:spotiflac_android/utils/logger.dart';
+
+final _log = AppLogger('PlatformBridge');
 
 /// Bridge to communicate with Go backend via platform channels
 class PlatformBridge {
@@ -7,18 +10,21 @@ class PlatformBridge {
 
   /// Parse and validate Spotify URL
   static Future<Map<String, dynamic>> parseSpotifyUrl(String url) async {
+    _log.d('parseSpotifyUrl: $url');
     final result = await _channel.invokeMethod('parseSpotifyUrl', {'url': url});
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
 
   /// Get Spotify metadata from URL
   static Future<Map<String, dynamic>> getSpotifyMetadata(String url) async {
+    _log.d('getSpotifyMetadata: $url');
     final result = await _channel.invokeMethod('getSpotifyMetadata', {'url': url});
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
 
   /// Search Spotify
   static Future<Map<String, dynamic>> searchSpotify(String query, {int limit = 10}) async {
+    _log.d('searchSpotify: "$query" (limit: $limit)');
     final result = await _channel.invokeMethod('searchSpotify', {
       'query': query,
       'limit': limit,
@@ -28,6 +34,7 @@ class PlatformBridge {
 
   /// Search Spotify for tracks and artists
   static Future<Map<String, dynamic>> searchSpotifyAll(String query, {int trackLimit = 15, int artistLimit = 3}) async {
+    _log.d('searchSpotifyAll: "$query"');
     final result = await _channel.invokeMethod('searchSpotifyAll', {
       'query': query,
       'track_limit': trackLimit,
@@ -38,6 +45,7 @@ class PlatformBridge {
 
   /// Check track availability on streaming services
   static Future<Map<String, dynamic>> checkAvailability(String spotifyId, String isrc) async {
+    _log.d('checkAvailability: $spotifyId (ISRC: $isrc)');
     final result = await _channel.invokeMethod('checkAvailability', {
       'spotify_id': spotifyId,
       'isrc': isrc,
@@ -67,6 +75,7 @@ class PlatformBridge {
     String? itemId,
     int durationMs = 0,
   }) async {
+    _log.i('downloadTrack: "$trackName" by $artistName via $service');
     final request = jsonEncode({
       'isrc': isrc,
       'service': service,
@@ -90,7 +99,13 @@ class PlatformBridge {
     });
     
     final result = await _channel.invokeMethod('downloadTrack', request);
-    return jsonDecode(result as String) as Map<String, dynamic>;
+    final response = jsonDecode(result as String) as Map<String, dynamic>;
+    if (response['success'] == true) {
+      _log.i('Download success: ${response['file_path']}');
+    } else {
+      _log.w('Download failed: ${response['error']}');
+    }
+    return response;
   }
 
   /// Download with automatic fallback to other services
@@ -115,6 +130,7 @@ class PlatformBridge {
     String? itemId,
     int durationMs = 0,
   }) async {
+    _log.i('downloadWithFallback: "$trackName" by $artistName (preferred: $preferredService)');
     final request = jsonEncode({
       'isrc': isrc,
       'service': preferredService,
@@ -138,7 +154,22 @@ class PlatformBridge {
     });
     
     final result = await _channel.invokeMethod('downloadWithFallback', request);
-    return jsonDecode(result as String) as Map<String, dynamic>;
+    final response = jsonDecode(result as String) as Map<String, dynamic>;
+    if (response['success'] == true) {
+      final service = response['service'] ?? 'unknown';
+      final filePath = response['file_path'] ?? '';
+      final bitDepth = response['actual_bit_depth'];
+      final sampleRate = response['actual_sample_rate'];
+      final qualityStr = bitDepth != null && sampleRate != null 
+          ? ' ($bitDepth-bit/${(sampleRate / 1000).toStringAsFixed(1)}kHz)'
+          : '';
+      _log.i('Download success via $service$qualityStr: $filePath');
+    } else {
+      final error = response['error'] ?? 'Unknown error';
+      final errorType = response['error_type'] ?? '';
+      _log.e('Download failed: $error (type: $errorType)');
+    }
+    return response;
   }
 
   /// Get download progress (legacy single download)
@@ -376,5 +407,36 @@ class PlatformBridge {
   static Future<Map<String, dynamic>> getSpotifyMetadataWithFallback(String url) async {
     final result = await _channel.invokeMethod('getSpotifyMetadataWithFallback', {'url': url});
     return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  // ==================== GO BACKEND LOGS ====================
+
+  /// Get all logs from Go backend
+  static Future<List<Map<String, dynamic>>> getGoLogs() async {
+    final result = await _channel.invokeMethod('getLogs');
+    final logs = jsonDecode(result as String) as List<dynamic>;
+    return logs.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Get logs since a specific index (for incremental updates)
+  static Future<Map<String, dynamic>> getGoLogsSince(int index) async {
+    final result = await _channel.invokeMethod('getLogsSince', {'index': index});
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  /// Clear Go backend logs
+  static Future<void> clearGoLogs() async {
+    await _channel.invokeMethod('clearLogs');
+  }
+
+  /// Get Go backend log count
+  static Future<int> getGoLogCount() async {
+    final result = await _channel.invokeMethod('getLogCount');
+    return result as int;
+  }
+
+  /// Enable or disable Go backend logging
+  static Future<void> setGoLoggingEnabled(bool enabled) async {
+    await _channel.invokeMethod('setLoggingEnabled', {'enabled': enabled});
   }
 }

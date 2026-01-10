@@ -284,6 +284,39 @@ class MainActivity: FlutterActivity() {
                             }
                             result.success(response)
                         }
+                        // Log methods
+                        "getLogs" -> {
+                            val response = withContext(Dispatchers.IO) {
+                                Gobackend.getLogs()
+                            }
+                            result.success(response)
+                        }
+                        "getLogsSince" -> {
+                            val index = call.argument<Int>("index") ?: 0
+                            val response = withContext(Dispatchers.IO) {
+                                Gobackend.getLogsSince(index.toLong())
+                            }
+                            result.success(response)
+                        }
+                        "clearLogs" -> {
+                            withContext(Dispatchers.IO) {
+                                Gobackend.clearLogs()
+                            }
+                            result.success(null)
+                        }
+                        "getLogCount" -> {
+                            val count = withContext(Dispatchers.IO) {
+                                Gobackend.getLogCount()
+                            }
+                            result.success(count.toInt())
+                        }
+                        "setLoggingEnabled" -> {
+                            val enabled = call.argument<Boolean>("enabled") ?: false
+                            withContext(Dispatchers.IO) {
+                                Gobackend.setLoggingEnabled(enabled)
+                            }
+                            result.success(null)
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {

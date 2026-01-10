@@ -286,9 +286,9 @@ func DownloadTrack(requestJSON string) (string, error) {
 	if qErr == nil {
 		result.BitDepth = quality.BitDepth
 		result.SampleRate = quality.SampleRate
-		fmt.Printf("[Download] Actual quality from file: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
+		GoLog("[Download] Actual quality from file: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
 	} else {
-		fmt.Printf("[Download] Could not read quality from file: %v\n", qErr)
+		GoLog("[Download] Could not read quality from file: %v\n", qErr)
 	}
 
 	resp := DownloadResponse{
@@ -333,7 +333,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 		preferredService = "tidal"
 	}
 
-	fmt.Printf("[DownloadWithFallback] Preferred service from request: '%s'\n", req.Service)
+	GoLog("[DownloadWithFallback] Preferred service from request: '%s'\n", req.Service)
 
 	// Create ordered list: preferred first, then others
 	services := []string{preferredService}
@@ -343,12 +343,12 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 		}
 	}
 
-	fmt.Printf("[DownloadWithFallback] Service order: %v\n", services)
+	GoLog("[DownloadWithFallback] Service order: %v\n", services)
 
 	var lastErr error
 
 	for _, service := range services {
-		fmt.Printf("[DownloadWithFallback] Trying service: %s\n", service)
+		GoLog("[DownloadWithFallback] Trying service: %s\n", service)
 		req.Service = service
 
 		var result DownloadResult
@@ -371,7 +371,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					ISRC:        tidalResult.ISRC,
 				}
 			} else {
-				fmt.Printf("[DownloadWithFallback] Tidal error: %v\n", tidalErr)
+				GoLog("[DownloadWithFallback] Tidal error: %v\n", tidalErr)
 			}
 			err = tidalErr
 		case "qobuz":
@@ -390,7 +390,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					ISRC:        qobuzResult.ISRC,
 				}
 			} else {
-				fmt.Printf("[DownloadWithFallback] Qobuz error: %v\n", qobuzErr)
+				GoLog("[DownloadWithFallback] Qobuz error: %v\n", qobuzErr)
 			}
 			err = qobuzErr
 		case "amazon":
@@ -409,7 +409,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					ISRC:        amazonResult.ISRC,
 				}
 			} else {
-				fmt.Printf("[DownloadWithFallback] Amazon error: %v\n", amazonErr)
+				GoLog("[DownloadWithFallback] Amazon error: %v\n", amazonErr)
 			}
 			err = amazonErr
 		}
@@ -449,9 +449,9 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 			if qErr == nil {
 				result.BitDepth = quality.BitDepth
 				result.SampleRate = quality.SampleRate
-				fmt.Printf("[Download] Actual quality from file: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
+				GoLog("[Download] Actual quality from file: %d-bit/%dHz\n", quality.BitDepth, quality.SampleRate)
 			} else {
-				fmt.Printf("[Download] Could not read quality from file: %v\n", qErr)
+				GoLog("[Download] Could not read quality from file: %v\n", qErr)
 			}
 
 			resp := DownloadResponse{
@@ -904,7 +904,7 @@ func GetSpotifyMetadataWithDeezerFallback(spotifyURL string) (string, error) {
 		return "", fmt.Errorf("spotify rate limited and failed to parse URL: %w", parseErr)
 	}
 
-	fmt.Printf("[Fallback] Spotify rate limited for %s, trying Deezer...\n", parsed.Type)
+	GoLog("[Fallback] Spotify rate limited for %s, trying Deezer...\n", parsed.Type)
 
 	if parsed.Type == "track" || parsed.Type == "album" {
 		// Convert to Deezer
@@ -980,7 +980,11 @@ func errorResponse(msg string) (string, error) {
 	errorType := "unknown"
 	lowerMsg := strings.ToLower(msg)
 
-	if strings.Contains(lowerMsg, "not found") ||
+	if strings.Contains(lowerMsg, "isp blocking") || 
+		strings.Contains(lowerMsg, "try using vpn") ||
+		strings.Contains(lowerMsg, "change dns") {
+		errorType = "isp_blocked"
+	} else if strings.Contains(lowerMsg, "not found") ||
 		strings.Contains(lowerMsg, "not available") ||
 		strings.Contains(lowerMsg, "no results") ||
 		strings.Contains(lowerMsg, "track not found") ||

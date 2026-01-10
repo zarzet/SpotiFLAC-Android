@@ -1,5 +1,62 @@
 # Changelog
 
+## [2.2.5] - 2026-01-10
+
+### Added
+
+- **In-App Log Viewer with Go Backend Logs**: Complete logging system for debugging
+  - Go backend logs now captured and displayed in app
+  - Circular buffer stores up to 500 log entries
+  - Real-time polling (500ms) for Go backend logs
+  - Logs include timestamp, level, tag, and message
+  - "Go" badge indicates logs from backend
+- **Detailed Logging Toggle**: Control logging in Settings > Options > Debug
+  - Disabled by default for performance
+  - Errors are always logged regardless of setting
+  - Enable before reproducing bugs for detailed logs
+- **Log Issue Summary**: Automatic detection of common issues in logs
+  - ISP Blocking detection with affected domains
+  - Rate limiting detection
+  - Network error detection
+  - Track not found detection
+  - Shows suggestions for each issue type
+- **ISP Blocking Detection**: Detects when ISP blocks download services
+  - DNS resolution failure detection
+  - Connection reset/refused detection
+  - TLS handshake failure detection
+  - HTTP 403/451 blocking page detection
+  - Suggests VPN or DNS change (1.1.1.1 / 8.8.8.8)
+
+### Fixed
+
+- **Artist Profile Placeholder**: Shows person icon when artist has no profile image
+  - Validates image URL before loading
+  - Fallback icon on load error
+- **Latin Extended Character Detection**: Fixed wrong track downloads for Polish, Czech, French, Spanish songs
+  - Characters like Ł, ę, ć, ñ, é now correctly treated as Latin script
+  - Previously treated as "different script" causing false matches
+  - Affects both Tidal and Qobuz search
+
+### Changed
+
+- **Log Screen UI Improvements**:
+  - Copy button moved to app bar (left of menu)
+  - Removed redundant info card
+  - Cleaner interface
+- **Issue Templates Updated**: Instructions for enabling detailed logging before submitting bug reports
+
+### Technical
+
+- New file: `go_backend/logbuffer.go` with circular buffer and GoLog function
+- Updated `go_backend/httputil.go` with ISP blocking detection
+- Updated `go_backend/tidal.go` and `go_backend/qobuz.go` with `isLatinScript()` function
+- Updated `lib/utils/logger.dart` with Go log polling
+- Updated `lib/screens/settings/log_screen.dart` with issue summary
+- Added method channel handlers for logging in Android and iOS
+- New error type: `isp_blocked` for ISP blocking errors
+
+---
+
 ## [2.2.0] - 2026-01-10
 
 ### Fixed

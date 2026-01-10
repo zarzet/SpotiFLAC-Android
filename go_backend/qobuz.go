@@ -83,16 +83,191 @@ func qobuzArtistsMatch(expectedArtist, foundArtist string) bool {
 		return true
 	}
 
-	// If scripts are different (one is ASCII, one is non-ASCII like Japanese/Chinese/Korean),
-	// assume they're the same artist with different transliteration
-	expectedASCII := qobuzIsASCIIString(expectedArtist)
-	foundASCII := qobuzIsASCIIString(foundArtist)
-	if expectedASCII != foundASCII {
-		fmt.Printf("[Qobuz] Artist names in different scripts, assuming match: '%s' vs '%s'\n", expectedArtist, foundArtist)
+	// If scripts are TRULY different (Latin vs CJK/Arabic/Cyrillic), assume match (transliteration)
+	// Don't treat Latin Extended (Polish, French, etc.) as different script
+	expectedLatin := qobuzIsLatinScript(expectedArtist)
+	foundLatin := qobuzIsLatinScript(foundArtist)
+	if expectedLatin != foundLatin {
+		GoLog("[Qobuz] Artist names in different scripts, assuming match: '%s' vs '%s'\n", expectedArtist, foundArtist)
 		return true
 	}
 
 	return false
+}
+
+// qobuzTitlesMatch checks if track titles are similar enough
+func qobuzTitlesMatch(expectedTitle, foundTitle string) bool {
+	normExpected := strings.ToLower(strings.TrimSpace(expectedTitle))
+	normFound := strings.ToLower(strings.TrimSpace(foundTitle))
+
+	// Exact match
+	if normExpected == normFound {
+		return true
+	}
+
+	// Check if one contains the other
+	if strings.Contains(normExpected, normFound) || strings.Contains(normFound, normExpected) {
+		return true
+	}
+
+	// Clean BOTH titles and compare (removes suffixes like remaster, remix, etc)
+	cleanExpected := qobuzCleanTitle(normExpected)
+	cleanFound := qobuzCleanTitle(normFound)
+
+	if cleanExpected == cleanFound {
+		return true
+	}
+
+	// Check if cleaned versions contain each other
+	if cleanExpected != "" && cleanFound != "" {
+		if strings.Contains(cleanExpected, cleanFound) || strings.Contains(cleanFound, cleanExpected) {
+			return true
+		}
+	}
+
+	// Extract core title (before any parentheses/brackets)
+	coreExpected := qobuzExtractCoreTitle(normExpected)
+	coreFound := qobuzExtractCoreTitle(normFound)
+	
+	if coreExpected != "" && coreFound != "" && coreExpected == coreFound {
+		return true
+	}
+
+	// If scripts are TRULY different (Latin vs CJK/Arabic/Cyrillic), assume match (transliteration)
+	// Don't treat Latin Extended (Polish, French, etc.) as different script
+	expectedLatin := qobuzIsLatinScript(expectedTitle)
+	foundLatin := qobuzIsLatinScript(foundTitle)
+	if expectedLatin != foundLatin {
+		GoLog("[Qobuz] Titles in different scripts, assuming match: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return true
+	}
+
+	return false
+}
+
+// qobuzExtractCoreTitle extracts the main title before any parentheses or brackets
+func qobuzExtractCoreTitle(title string) string {
+	// Find first occurrence of ( or [
+	parenIdx := strings.Index(title, "(")
+	bracketIdx := strings.Index(title, "[")
+	dashIdx := strings.Index(title, " - ")
+	
+	cutIdx := len(title)
+	if parenIdx > 0 && parenIdx < cutIdx {
+		cutIdx = parenIdx
+	}
+	if bracketIdx > 0 && bracketIdx < cutIdx {
+		cutIdx = bracketIdx
+	}
+	if dashIdx > 0 && dashIdx < cutIdx {
+		cutIdx = dashIdx
+	}
+	
+	return strings.TrimSpace(title[:cutIdx])
+}
+
+// qobuzCleanTitle removes common suffixes from track titles for comparison
+func qobuzCleanTitle(title string) string {
+	cleaned := title
+
+	// Remove content in parentheses/brackets that are version indicators
+	// This helps match "Song (Remastered)" with "Song" or "Song (2024 Remaster)"
+	versionPatterns := []string{
+		"remaster", "remastered", "deluxe", "bonus", "single", 
+		"album version", "radio edit", "original mix", "extended",
+		"club mix", "remix", "live", "acoustic", "demo",
+	}
+	
+	// Remove parenthetical content if it contains version indicators
+	for {
+		startParen := strings.LastIndex(cleaned, "(")
+		endParen := strings.LastIndex(cleaned, ")")
+		if startParen >= 0 && endParen > startParen {
+			content := strings.ToLower(cleaned[startParen+1 : endParen])
+			isVersionIndicator := false
+			for _, pattern := range versionPatterns {
+				if strings.Contains(content, pattern) {
+					isVersionIndicator = true
+					break
+				}
+			}
+			if isVersionIndicator {
+				cleaned = strings.TrimSpace(cleaned[:startParen]) + cleaned[endParen+1:]
+				continue
+			}
+		}
+		break
+	}
+	
+	// Same for brackets
+	for {
+		startBracket := strings.LastIndex(cleaned, "[")
+		endBracket := strings.LastIndex(cleaned, "]")
+		if startBracket >= 0 && endBracket > startBracket {
+			content := strings.ToLower(cleaned[startBracket+1 : endBracket])
+			isVersionIndicator := false
+			for _, pattern := range versionPatterns {
+				if strings.Contains(content, pattern) {
+					isVersionIndicator = true
+					break
+				}
+			}
+			if isVersionIndicator {
+				cleaned = strings.TrimSpace(cleaned[:startBracket]) + cleaned[endBracket+1:]
+				continue
+			}
+		}
+		break
+	}
+
+	// Remove trailing " - version" patterns
+	dashPatterns := []string{
+		" - remaster", " - remastered", " - single version", " - radio edit",
+		" - live", " - acoustic", " - demo", " - remix",
+	}
+	for _, pattern := range dashPatterns {
+		if strings.HasSuffix(strings.ToLower(cleaned), pattern) {
+			cleaned = cleaned[:len(cleaned)-len(pattern)]
+		}
+	}
+
+	// Remove multiple spaces
+	for strings.Contains(cleaned, "  ") {
+		cleaned = strings.ReplaceAll(cleaned, "  ", " ")
+	}
+
+	return strings.TrimSpace(cleaned)
+}
+
+// qobuzIsLatinScript checks if a string is primarily Latin script
+// Returns true for ASCII and Latin Extended characters (European languages)
+// Returns false for CJK, Arabic, Cyrillic, etc.
+func qobuzIsLatinScript(s string) bool {
+	for _, r := range s {
+		// Skip common punctuation and numbers
+		if r < 128 {
+			continue
+		}
+		// Latin Extended-A: U+0100 to U+017F (Polish, Czech, etc.)
+		// Latin Extended-B: U+0180 to U+024F
+		// Latin Extended Additional: U+1E00 to U+1EFF
+		// Latin Extended-C/D/E: various ranges
+		if (r >= 0x0100 && r <= 0x024F) || // Latin Extended A & B
+			(r >= 0x1E00 && r <= 0x1EFF) || // Latin Extended Additional
+			(r >= 0x00C0 && r <= 0x00FF) { // Latin-1 Supplement (accented chars)
+			continue
+		}
+		// CJK ranges - definitely different script
+		if (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
+			(r >= 0x3040 && r <= 0x309F) || // Hiragana
+			(r >= 0x30A0 && r <= 0x30FF) || // Katakana
+			(r >= 0xAC00 && r <= 0xD7AF) || // Hangul (Korean)
+			(r >= 0x0600 && r <= 0x06FF) || // Arabic
+			(r >= 0x0400 && r <= 0x04FF) { // Cyrillic
+			return false
+		}
+	}
+	return true
 }
 
 // qobuzIsASCIIString checks if a string contains only ASCII characters
@@ -194,7 +369,7 @@ func (q *QobuzDownloader) SearchTrackByISRC(isrc string) (*QobuzTrack, error) {
 // SearchTrackByISRCWithTitle searches for a track by ISRC with duration verification
 // expectedDurationSec is the expected duration in seconds (0 to skip verification)
 func (q *QobuzDownloader) SearchTrackByISRCWithDuration(isrc string, expectedDurationSec int) (*QobuzTrack, error) {
-	fmt.Printf("[Qobuz] Searching by ISRC: %s\n", isrc)
+	GoLog("[Qobuz] Searching by ISRC: %s\n", isrc)
 	
 	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly93d3cucW9idXouY29tL2FwaS5qc29uLzAuMi90cmFjay9zZWFyY2g/cXVlcnk9")
 	searchURL := fmt.Sprintf("%s%s&limit=50&app_id=%s", string(apiBase), url.QueryEscape(isrc), q.appID)
@@ -223,7 +398,7 @@ func (q *QobuzDownloader) SearchTrackByISRCWithDuration(isrc string, expectedDur
 		return nil, err
 	}
 
-	fmt.Printf("[Qobuz] ISRC search returned %d results\n", len(result.Tracks.Items))
+	GoLog("[Qobuz] ISRC search returned %d results\n", len(result.Tracks.Items))
 
 	// Find ISRC matches
 	var isrcMatches []*QobuzTrack
@@ -233,7 +408,7 @@ func (q *QobuzDownloader) SearchTrackByISRCWithDuration(isrc string, expectedDur
 		}
 	}
 
-	fmt.Printf("[Qobuz] Found %d exact ISRC matches\n", len(isrcMatches))
+	GoLog("[Qobuz] Found %d exact ISRC matches\n", len(isrcMatches))
 
 	if len(isrcMatches) > 0 {
 		// Verify duration if provided
@@ -251,20 +426,20 @@ func (q *QobuzDownloader) SearchTrackByISRCWithDuration(isrc string, expectedDur
 			}
 
 			if len(durationVerifiedMatches) > 0 {
-				fmt.Printf("[Qobuz] ISRC match with duration verification: '%s' (expected %ds, found %ds)\n",
+				GoLog("[Qobuz] ISRC match with duration verification: '%s' (expected %ds, found %ds)\n",
 					durationVerifiedMatches[0].Title, expectedDurationSec, durationVerifiedMatches[0].Duration)
 				return durationVerifiedMatches[0], nil
 			}
 
 			// ISRC matches but duration doesn't
-			fmt.Printf("[Qobuz] WARNING: ISRC %s found but duration mismatch. Expected=%ds, Found=%ds. Rejecting.\n",
+			GoLog("[Qobuz] WARNING: ISRC %s found but duration mismatch. Expected=%ds, Found=%ds. Rejecting.\n",
 				isrc, expectedDurationSec, isrcMatches[0].Duration)
 			return nil, fmt.Errorf("ISRC found but duration mismatch: expected %ds, found %ds (likely different version)",
 				expectedDurationSec, isrcMatches[0].Duration)
 		}
 
 		// No duration to verify, return first match
-		fmt.Printf("[Qobuz] ISRC match (no duration verification): '%s'\n", isrcMatches[0].Title)
+		GoLog("[Qobuz] ISRC match (no duration verification): '%s'\n", isrcMatches[0].Title)
 		return isrcMatches[0], nil
 	}
 
@@ -287,6 +462,7 @@ func (q *QobuzDownloader) SearchTrackByMetadata(trackName, artistName string) (*
 
 // SearchTrackByMetadataWithDuration searches for a track with duration verification
 // Now includes romaji conversion for Japanese text (same as Tidal)
+// Also includes title verification to prevent wrong song downloads
 func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistName string, expectedDurationSec int) (*QobuzTrack, error) {
 	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly93d3cucW9idXouY29tL2FwaS5qc29uLzAuMi90cmFjay9zZWFyY2g/cXVlcnk9")
 
@@ -318,7 +494,7 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 			romajiQuery := cleanRomajiArtist + " " + cleanRomajiTrack
 			if !containsQueryQobuz(queries, romajiQuery) {
 				queries = append(queries, romajiQuery)
-				fmt.Printf("[Qobuz] Japanese detected, adding romaji query: %s\n", romajiQuery)
+				GoLog("[Qobuz] Japanese detected, adding romaji query: %s\n", romajiQuery)
 			}
 		}
 
@@ -348,7 +524,7 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 		}
 		searchedQueries[cleanQuery] = true
 
-		fmt.Printf("[Qobuz] Searching for: %s\n", cleanQuery)
+		GoLog("[Qobuz] Searching for: %s\n", cleanQuery)
 
 		searchURL := fmt.Sprintf("%s%s&limit=50&app_id=%s", string(apiBase), url.QueryEscape(cleanQuery), q.appID)
 
@@ -359,7 +535,7 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 
 		resp, err := DoRequestWithUserAgent(q.client, req)
 		if err != nil {
-			fmt.Printf("[Qobuz] Search error for '%s': %v\n", cleanQuery, err)
+			GoLog("[Qobuz] Search error for '%s': %v\n", cleanQuery, err)
 			continue
 		}
 
@@ -380,7 +556,7 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 		resp.Body.Close()
 
 		if len(result.Tracks.Items) > 0 {
-			fmt.Printf("[Qobuz] Found %d results for '%s'\n", len(result.Tracks.Items), cleanQuery)
+			GoLog("[Qobuz] Found %d results for '%s'\n", len(result.Tracks.Items), cleanQuery)
 			allTracks = append(allTracks, result.Tracks.Items...)
 		}
 	}
@@ -389,11 +565,30 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 		return nil, fmt.Errorf("no tracks found for: %s - %s", artistName, trackName)
 	}
 
+	// Filter by title match first (NEW - like Tidal)
+	var titleMatches []*QobuzTrack
+	for i := range allTracks {
+		track := &allTracks[i]
+		if qobuzTitlesMatch(trackName, track.Title) {
+			titleMatches = append(titleMatches, track)
+		}
+	}
+
+	GoLog("[Qobuz] Title matches: %d out of %d results\n", len(titleMatches), len(allTracks))
+
+	// If no title matches, log warning but continue with all tracks
+	tracksToCheck := titleMatches
+	if len(titleMatches) == 0 {
+		GoLog("[Qobuz] WARNING: No title matches for '%s', checking all %d results\n", trackName, len(allTracks))
+		for i := range allTracks {
+			tracksToCheck = append(tracksToCheck, &allTracks[i])
+		}
+	}
+
 	// If duration verification is requested
 	if expectedDurationSec > 0 {
 		var durationMatches []*QobuzTrack
-		for i := range allTracks {
-			track := &allTracks[i]
+		for _, track := range tracksToCheck {
 			durationDiff := track.Duration - expectedDurationSec
 			if durationDiff < 0 {
 				durationDiff = -durationDiff
@@ -407,24 +602,36 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 			// Return best quality among duration matches
 			for _, track := range durationMatches {
 				if track.MaximumBitDepth >= 24 {
+					GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified, hi-res)\n", 
+						track.Title, track.Performer.Name)
 					return track, nil
 				}
 			}
+			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title+duration verified)\n", 
+				durationMatches[0].Title, durationMatches[0].Performer.Name)
 			return durationMatches[0], nil
 		}
 
 		// No duration match found
-		return nil, fmt.Errorf("no tracks found with matching duration (expected %ds)", expectedDurationSec)
+		return nil, fmt.Errorf("no tracks found with matching title and duration (expected '%s', %ds)", trackName, expectedDurationSec)
 	}
 
-	// No duration verification, return best quality
-	for i := range allTracks {
-		track := &allTracks[i]
+	// No duration verification, return best quality from title matches
+	for _, track := range tracksToCheck {
 		if track.MaximumBitDepth >= 24 {
+			GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified, hi-res)\n", 
+				track.Title, track.Performer.Name)
 			return track, nil
 		}
 	}
-	return &allTracks[0], nil
+	
+	if len(tracksToCheck) > 0 {
+		GoLog("[Qobuz] ✓ Match found: '%s' by '%s' (title verified)\n", 
+			tracksToCheck[0].Title, tracksToCheck[0].Performer.Name)
+		return tracksToCheck[0], nil
+	}
+	
+	return nil, fmt.Errorf("no matching track found for: %s - %s", artistName, trackName)
 }
 
 // getQobuzDownloadURLSequential requests download URL from APIs sequentially
@@ -443,7 +650,7 @@ func getQobuzDownloadURLSequential(apis []string, trackID int64, quality string)
 		// The apiURL already includes the path, just append trackID and quality
 		reqURL := fmt.Sprintf("%s%d&quality=%s", apiURL, trackID, quality)
 
-		fmt.Printf("[Qobuz] Trying: %s\n", reqURL)
+		GoLog("[Qobuz] Trying: %s\n", reqURL)
 
 		req, err := http.NewRequest("GET", reqURL, nil)
 		if err != nil {
@@ -488,7 +695,7 @@ func getQobuzDownloadURLSequential(apis []string, trackID int64, quality string)
 		}
 
 		if result.URL != "" {
-			fmt.Printf("[Qobuz] Got download URL from: %s\n", apiURL)
+			GoLog("[Qobuz] Got download URL from: %s\n", apiURL)
 			return apiURL, result.URL, nil
 		}
 
@@ -619,11 +826,11 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	// OPTIMIZATION: Check cache first for track ID
 	if req.ISRC != "" {
 		if cached := GetTrackIDCache().Get(req.ISRC); cached != nil && cached.QobuzTrackID > 0 {
-			fmt.Printf("[Qobuz] Cache hit! Using cached track ID: %d\n", cached.QobuzTrackID)
+			GoLog("[Qobuz] Cache hit! Using cached track ID: %d\n", cached.QobuzTrackID)
 			// For Qobuz we need to search again to get full track info, but we can use the ID
 			track, err = downloader.SearchTrackByISRC(req.ISRC)
 			if err != nil {
-				fmt.Printf("[Qobuz] Cache hit but search failed: %v\n", err)
+				GoLog("[Qobuz] Cache hit but search failed: %v\n", err)
 				track = nil
 			}
 		}
@@ -631,22 +838,28 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 
 	// Strategy 1: Search by ISRC with duration verification
 	if track == nil && req.ISRC != "" {
-		fmt.Printf("[Qobuz] Trying ISRC search: %s\n", req.ISRC)
+		GoLog("[Qobuz] Trying ISRC search: %s\n", req.ISRC)
 		track, err = downloader.SearchTrackByISRCWithDuration(req.ISRC, expectedDurationSec)
-		// Verify artist
-		if track != nil && !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
-			fmt.Printf("[Qobuz] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n",
-				req.ArtistName, track.Performer.Name)
-			track = nil
+		// Verify artist AND title
+		if track != nil {
+			if !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
+				GoLog("[Qobuz] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n",
+					req.ArtistName, track.Performer.Name)
+				track = nil
+			} else if !qobuzTitlesMatch(req.TrackName, track.Title) {
+				GoLog("[Qobuz] Title mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n",
+					req.TrackName, track.Title)
+				track = nil
+			}
 		}
 	}
 
-	// Strategy 2: Search by metadata with duration verification
+	// Strategy 2: Search by metadata with duration verification (includes title verification)
 	if track == nil {
 		track, err = downloader.SearchTrackByMetadataWithDuration(req.TrackName, req.ArtistName, expectedDurationSec)
-		// Verify artist
+		// Verify artist (title already verified in SearchTrackByMetadataWithDuration)
 		if track != nil && !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
-			fmt.Printf("[Qobuz] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
+			GoLog("[Qobuz] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
 				req.ArtistName, track.Performer.Name)
 			track = nil
 		}
@@ -661,7 +874,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	}
 
 	// Log match found and cache the track ID
-	fmt.Printf("[Qobuz] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, track.Performer.Name, track.Duration)
+	GoLog("[Qobuz] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, track.Performer.Name, track.Duration)
 	if req.ISRC != "" {
 		GetTrackIDCache().SetQobuz(req.ISRC, track.ID)
 	}
@@ -695,12 +908,12 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	case "HI_RES_LOSSLESS":
 		qobuzQuality = "27" // 24-bit 192kHz
 	}
-	fmt.Printf("[Qobuz] Using quality: %s (mapped from %s)\n", qobuzQuality, req.Quality)
+	GoLog("[Qobuz] Using quality: %s (mapped from %s)\n", qobuzQuality, req.Quality)
 
 	// Get actual quality from track metadata
 	actualBitDepth := track.MaximumBitDepth
 	actualSampleRate := int(track.MaximumSamplingRate * 1000) // Convert kHz to Hz
-	fmt.Printf("[Qobuz] Actual quality: %d-bit/%.1fkHz\n", actualBitDepth, track.MaximumSamplingRate)
+	GoLog("[Qobuz] Actual quality: %d-bit/%.1fkHz\n", actualBitDepth, track.MaximumSamplingRate)
 
 	// Get download URL using parallel API requests
 	downloadURL, err := downloader.GetDownloadURL(track.ID, qobuzQuality)
@@ -762,7 +975,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	var coverData []byte
 	if parallelResult != nil && parallelResult.CoverData != nil {
 		coverData = parallelResult.CoverData
-		fmt.Printf("[Qobuz] Using parallel-fetched cover (%d bytes)\n", len(coverData))
+		GoLog("[Qobuz] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	if err := EmbedMetadataWithCoverData(outputPath, metadata, coverData); err != nil {
@@ -771,9 +984,9 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 
 	// Embed lyrics from parallel fetch
 	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
-		fmt.Printf("[Qobuz] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+		GoLog("[Qobuz] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
 		if embedErr := EmbedLyrics(outputPath, parallelResult.LyricsLRC); embedErr != nil {
-			fmt.Printf("[Qobuz] Warning: failed to embed lyrics: %v\n", embedErr)
+			GoLog("[Qobuz] Warning: failed to embed lyrics: %v\n", embedErr)
 		} else {
 			fmt.Println("[Qobuz] Lyrics embedded successfully")
 		}

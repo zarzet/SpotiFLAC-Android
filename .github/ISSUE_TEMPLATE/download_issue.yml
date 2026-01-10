@@ -100,5 +100,12 @@ body:
     id: screenshots
     attributes:
       label: Screenshots / Logs
-      description: If applicable, add screenshots or logs
-      placeholder: Drag & drop screenshots here...
+      description: |
+        If applicable, add screenshots or logs.
+        
+        **To get logs:**
+        1. Go to Settings > Options > Detailed Logging (turn ON)
+        2. Try downloading the track again
+        3. Go to Settings > Logs
+        4. Tap Share button to export logs
+      placeholder: Drag & drop screenshots or paste logs here...

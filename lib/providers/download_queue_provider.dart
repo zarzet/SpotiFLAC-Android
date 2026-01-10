@@ -770,7 +770,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   Future<void> _embedMetadataAndCover(String flacPath, Track track) async {
     // Download cover first
     String? coverPath;
-    if (track.coverUrl != null && track.coverUrl!.isNotEmpty) {
+    final coverUrl = track.coverUrl;
+    if (coverUrl != null && coverUrl.isNotEmpty) {
       try {
         final tempDir = await getTemporaryDirectory();
         final uniqueId = '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(10000)}';
@@ -778,10 +779,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         
         // Download cover using HTTP
         final httpClient = HttpClient();
-        final request = await httpClient.getUrl(Uri.parse(track.coverUrl!));
+        final request = await httpClient.getUrl(Uri.parse(coverUrl));
         final response = await request.close();
         if (response.statusCode == 200) {
-          final file = File(coverPath!);
+          final file = File(coverPath);
           final sink = file.openWrite();
           await response.pipe(sink);
           await sink.close();
@@ -845,7 +846,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           filePath: '', // No local file path yet (processed in memory)
         );
         
-        if (lrcContent != null && lrcContent.isNotEmpty) {
+        if (lrcContent.isNotEmpty) {
           metadata['LYRICS'] = lrcContent;
           metadata['UNSYNCEDLYRICS'] = lrcContent; // Fallback for some players
           _log.d('Lyrics fetched for embedding (${lrcContent.length} chars)');
@@ -1250,11 +1251,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         
         // M4A files from Tidal DASH streams - try to convert to FLAC
         // M4A files from Tidal DASH streams - try to convert to FLAC
-        if (filePath != null && filePath!.endsWith('.m4a')) {
+        if (filePath != null && filePath.endsWith('.m4a')) {
           _log.d('M4A file detected (Hi-Res DASH stream), attempting conversion to FLAC...');
           
           try {
-            final file = File(filePath!);
+            final file = File(filePath);
             if (!await file.exists()) {
                _log.e('File does not exist at path: $filePath');
             } else {
@@ -1265,7 +1266,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                  _log.w('File is too small (<1KB), skipping conversion. Download might be corrupt.');
               } else {
                 updateItemStatus(item.id, DownloadStatus.downloading, progress: 0.95);
-                final flacPath = await FFmpegService.convertM4aToFlac(filePath!);
+                final flacPath = await FFmpegService.convertM4aToFlac(filePath);
                 
                 if (flacPath != null) {
                   filePath = flacPath;

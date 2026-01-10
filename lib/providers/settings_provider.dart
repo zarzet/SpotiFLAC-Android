@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spotiflac_android/models/settings.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/logger.dart';
 
 const _settingsKey = 'app_settings';
 const _migrationVersionKey = 'settings_migration_version';
@@ -26,6 +27,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
       
       // Apply Spotify credentials to Go backend on load
       _applySpotifyCredentials();
+      
+      // Sync logging state
+      LogBuffer.loggingEnabled = state.enableLogging;
     }
   }
 
@@ -186,6 +190,13 @@ class SettingsNotifier extends Notifier<AppSettings> {
   void setMetadataSource(String source) {
     state = state.copyWith(metadataSource: source);
     _saveSettings();
+  }
+
+  void setEnableLogging(bool enabled) {
+    state = state.copyWith(enableLogging: enabled);
+    _saveSettings();
+    // Sync logging state to LogBuffer
+    LogBuffer.loggingEnabled = enabled;
   }
 }
 

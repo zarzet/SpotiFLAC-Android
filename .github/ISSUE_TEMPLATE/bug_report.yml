@@ -105,7 +105,14 @@ body:
     id: logs
     attributes:
       label: Logs / Screenshots
-      description: If applicable, add logs or screenshots to help explain your problem
+      description: |
+        If applicable, add logs or screenshots to help explain your problem.
+        
+        **To get logs:**
+        1. Go to Settings > Options > Detailed Logging (turn ON)
+        2. Reproduce the bug
+        3. Go to Settings > Logs
+        4. Tap Share button to export logs
       placeholder: Paste logs or drag & drop screenshots here...
 
   - type: textarea

@@ -5,6 +5,7 @@ import 'package:spotiflac_android/screens/settings/appearance_settings_page.dart
 import 'package:spotiflac_android/screens/settings/download_settings_page.dart';
 import 'package:spotiflac_android/screens/settings/options_settings_page.dart';
 import 'package:spotiflac_android/screens/settings/about_page.dart';
+import 'package:spotiflac_android/screens/settings/log_screen.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class SettingsTab extends ConsumerWidget {
@@ -67,10 +68,16 @@ class SettingsTab extends ConsumerWidget {
           ),
         ),
 
-        // Second group: About
+        // Second group: Logs & About
         SliverToBoxAdapter(
           child: SettingsGroup(
             children: [
+              SettingsItem(
+                icon: Icons.article_outlined,
+                title: 'Logs',
+                subtitle: 'View app logs for debugging',
+                onTap: () => _navigateTo(context, const LogScreen()),
+              ),
               SettingsItem(
                 icon: Icons.info_outline,
                 title: 'About',

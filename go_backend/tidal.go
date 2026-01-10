@@ -403,7 +403,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 			romajiQuery := cleanRomajiArtist + " " + cleanRomajiTrack
 			if !containsQuery(queries, romajiQuery) {
 				queries = append(queries, romajiQuery)
-				fmt.Printf("[Tidal] Japanese detected, adding romaji query: %s\n", romajiQuery)
+				GoLog("[Tidal] Japanese detected, adding romaji query: %s\n", romajiQuery)
 			}
 		}
 
@@ -444,7 +444,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 		}
 		searchedQueries[cleanQuery] = true
 
-		fmt.Printf("[Tidal] Searching for: %s\n", cleanQuery)
+		GoLog("[Tidal] Searching for: %s\n", cleanQuery)
 
 		searchURL := fmt.Sprintf("%s%s&limit=100&countryCode=US", string(searchBase), url.QueryEscape(cleanQuery))
 
@@ -457,7 +457,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 
 		resp, err := DoRequestWithUserAgent(t.client, req)
 		if err != nil {
-			fmt.Printf("[Tidal] Search error for '%s': %v\n", cleanQuery, err)
+			GoLog("[Tidal] Search error for '%s': %v\n", cleanQuery, err)
 			continue
 		}
 
@@ -476,7 +476,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 		resp.Body.Close()
 
 		if len(result.Items) > 0 {
-			fmt.Printf("[Tidal] Found %d results for '%s'\n", len(result.Items), cleanQuery)
+			GoLog("[Tidal] Found %d results for '%s'\n", len(result.Items), cleanQuery)
 			
 			// OPTIMIZATION: If ISRC provided, check for match immediately and return early
 			if spotifyISRC != "" {
@@ -490,14 +490,14 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 								durationDiff = -durationDiff
 							}
 							if durationDiff <= 3 {
-								fmt.Printf("[Tidal] ✓ ISRC match: '%s' (duration verified)\n", track.Title)
+								GoLog("[Tidal] ✓ ISRC match: '%s' (duration verified)\n", track.Title)
 								return track, nil
 							}
 							// Duration mismatch, continue searching
-							fmt.Printf("[Tidal] ISRC match but duration mismatch (expected %ds, got %ds), continuing...\n", 
+							GoLog("[Tidal] ISRC match but duration mismatch (expected %ds, got %ds), continuing...\n", 
 								expectedDuration, track.Duration)
 						} else {
-							fmt.Printf("[Tidal] ✓ ISRC match: '%s'\n", track.Title)
+							GoLog("[Tidal] ✓ ISRC match: '%s'\n", track.Title)
 							return track, nil
 						}
 					}
@@ -514,7 +514,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 
 	// Priority 1: Match by ISRC (exact match) WITH title verification
 	if spotifyISRC != "" {
-		fmt.Printf("[Tidal] Looking for ISRC match: %s\n", spotifyISRC)
+		GoLog("[Tidal] Looking for ISRC match: %s\n", spotifyISRC)
 		var isrcMatches []*TidalTrack
 		for i := range allTracks {
 			track := &allTracks[i]
@@ -540,25 +540,25 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 
 				if len(durationVerifiedMatches) > 0 {
 					// Return first duration-verified match
-					fmt.Printf("[Tidal] ✓ ISRC match with duration verification: '%s' (expected %ds, found %ds)\n",
+					GoLog("[Tidal] ✓ ISRC match with duration verification: '%s' (expected %ds, found %ds)\n",
 						durationVerifiedMatches[0].Title, expectedDuration, durationVerifiedMatches[0].Duration)
 					return durationVerifiedMatches[0], nil
 				}
 
 				// ISRC matches but duration doesn't - this is likely wrong version
-				fmt.Printf("[Tidal] WARNING: ISRC %s found but duration mismatch. Expected=%ds, Found=%ds. Rejecting.\n",
+				GoLog("[Tidal] WARNING: ISRC %s found but duration mismatch. Expected=%ds, Found=%ds. Rejecting.\n",
 					spotifyISRC, expectedDuration, isrcMatches[0].Duration)
 				return nil, fmt.Errorf("ISRC found but duration mismatch: expected %ds, found %ds (likely different version/edit)",
 					expectedDuration, isrcMatches[0].Duration)
 			}
 
 			// No duration to verify, just return first ISRC match
-			fmt.Printf("[Tidal] ✓ ISRC match (no duration verification): '%s'\n", isrcMatches[0].Title)
+			GoLog("[Tidal] ✓ ISRC match (no duration verification): '%s'\n", isrcMatches[0].Title)
 			return isrcMatches[0], nil
 		}
 
 		// If ISRC was provided but no match found, return error
-		fmt.Printf("[Tidal] ✗ No ISRC match found for: %s\n", spotifyISRC)
+		GoLog("[Tidal] ✗ No ISRC match found for: %s\n", spotifyISRC)
 		return nil, fmt.Errorf("ISRC mismatch: no track found with ISRC %s on Tidal", spotifyISRC)
 	}
 
@@ -589,7 +589,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 					}
 				}
 			}
-			fmt.Printf("[Tidal] Found via duration match: %s - %s (%s)\n",
+			GoLog("[Tidal] Found via duration match: %s - %s (%s)\n",
 				bestMatch.Artist.Name, bestMatch.Title, bestMatch.AudioQuality)
 			return bestMatch, nil
 		}
@@ -610,7 +610,7 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 		}
 	}
 
-	fmt.Printf("[Tidal] Found via search (no ISRC provided): %s - %s (ISRC: %s, Quality: %s)\n",
+	GoLog("[Tidal] Found via search (no ISRC provided): %s - %s (ISRC: %s, Quality: %s)\n",
 		bestMatch.Artist.Name, bestMatch.Title, bestMatch.ISRC, bestMatch.AudioQuality)
 
 	return bestMatch, nil
@@ -651,7 +651,7 @@ func getDownloadURLSequential(apis []string, trackID int64, quality string) (str
 
 	for _, apiURL := range apis {
 		reqURL := fmt.Sprintf("%s/track/?id=%d&quality=%s", apiURL, trackID, quality)
-		fmt.Printf("[Tidal] Trying API: %s\n", reqURL)
+		GoLog("[Tidal] Trying API: %s\n", reqURL)
 
 		req, err := http.NewRequest("GET", reqURL, nil)
 		if err != nil {
@@ -661,7 +661,7 @@ func getDownloadURLSequential(apis []string, trackID int64, quality string) (str
 
 		resp, err := DoRequestWithRetry(client, req, retryConfig)
 		if err != nil {
-			fmt.Printf("[Tidal] API error: %v\n", err)
+			GoLog("[Tidal] API error: %v\n", err)
 			errors = append(errors, BuildErrorMessage(apiURL, 0, err.Error()))
 			continue
 		}
@@ -669,7 +669,7 @@ func getDownloadURLSequential(apis []string, trackID int64, quality string) (str
 		body, err := ReadResponseBody(resp)
 		resp.Body.Close()
 		if err != nil {
-			fmt.Printf("[Tidal] Read body error: %v\n", err)
+			GoLog("[Tidal] Read body error: %v\n", err)
 			errors = append(errors, BuildErrorMessage(apiURL, resp.StatusCode, err.Error()))
 			continue
 		}
@@ -679,22 +679,22 @@ func getDownloadURLSequential(apis []string, trackID int64, quality string) (str
 		if len(bodyPreview) > 300 {
 			bodyPreview = bodyPreview[:300] + "..."
 		}
-		fmt.Printf("[Tidal] API response (HTTP %d): %s\n", resp.StatusCode, bodyPreview)
+		GoLog("[Tidal] API response (HTTP %d): %s\n", resp.StatusCode, bodyPreview)
 
 		// Try v2 format first (object with manifest)
 		var v2Response TidalAPIResponseV2
 		if err := json.Unmarshal(body, &v2Response); err == nil && v2Response.Data.Manifest != "" {
-			fmt.Printf("[Tidal] Got v2 response from %s - Quality: %d-bit/%dHz, AssetPresentation: %s\n",
+			GoLog("[Tidal] Got v2 response from %s - Quality: %d-bit/%dHz, AssetPresentation: %s\n",
 				apiURL, v2Response.Data.BitDepth, v2Response.Data.SampleRate, v2Response.Data.AssetPresentation)
 
 			// IMPORTANT: Reject PREVIEW responses - we need FULL tracks
 			if v2Response.Data.AssetPresentation == "PREVIEW" {
-				fmt.Printf("[Tidal] ✗ Rejecting PREVIEW response from %s, trying next API...\n", apiURL)
+				GoLog("[Tidal] ✗ Rejecting PREVIEW response from %s, trying next API...\n", apiURL)
 				errors = append(errors, BuildErrorMessage(apiURL, resp.StatusCode, "returned PREVIEW instead of FULL"))
 				continue
 			}
 
-			fmt.Printf("[Tidal] ✓ Got FULL track from %s\n", apiURL)
+			GoLog("[Tidal] ✓ Got FULL track from %s\n", apiURL)
 			info := TidalDownloadInfo{
 				URL:        "MANIFEST:" + v2Response.Data.Manifest,
 				BitDepth:   v2Response.Data.BitDepth,
@@ -756,7 +756,7 @@ func parseManifest(manifestB64 string) (directURL string, initURL string, mediaU
 	if len(manifestPreview) > 500 {
 		manifestPreview = manifestPreview[:500] + "..."
 	}
-	fmt.Printf("[Tidal] Manifest content: %s\n", manifestPreview)
+	GoLog("[Tidal] Manifest content: %s\n", manifestPreview)
 
 	// Check if it's BTS format (JSON) or DASH format (XML)
 	if strings.HasPrefix(manifestStr, "{") {
@@ -806,12 +806,12 @@ func parseManifest(manifestB64 string) (directURL string, initURL string, mediaU
 
 	// Calculate segment count from timeline
 	segmentCount := 0
-	fmt.Printf("[Tidal] XML parsed segments: %d entries in timeline\n", len(segTemplate.Timeline.Segments))
+	GoLog("[Tidal] XML parsed segments: %d entries in timeline\n", len(segTemplate.Timeline.Segments))
 	for i, seg := range segTemplate.Timeline.Segments {
-		fmt.Printf("[Tidal] Segment[%d]: d=%d, r=%d\n", i, seg.Duration, seg.Repeat)
+		GoLog("[Tidal] Segment[%d]: d=%d, r=%d\n", i, seg.Duration, seg.Repeat)
 		segmentCount += seg.Repeat + 1
 	}
-	fmt.Printf("[Tidal] Segment count from XML: %d\n", segmentCount)
+	GoLog("[Tidal] Segment count from XML: %d\n", segmentCount)
 
 	// If no segments found via XML, try regex
 	if segmentCount == 0 {
@@ -819,18 +819,18 @@ func parseManifest(manifestB64 string) (directURL string, initURL string, mediaU
 		// Match <S d="..." /> or <S d="..." r="..." />
 		segRe := regexp.MustCompile(`<S\s+d="(\d+)"(?:\s+r="(\d+)")?`)
 		matches := segRe.FindAllStringSubmatch(manifestStr, -1)
-		fmt.Printf("[Tidal] Regex found %d segment entries\n", len(matches))
+		GoLog("[Tidal] Regex found %d segment entries\n", len(matches))
 		for i, match := range matches {
 			repeat := 0
 			if len(match) > 2 && match[2] != "" {
 				fmt.Sscanf(match[2], "%d", &repeat)
 			}
 			if i < 5 || i == len(matches)-1 {
-				fmt.Printf("[Tidal] Regex segment[%d]: d=%s, r=%d\n", i, match[1], repeat)
+				GoLog("[Tidal] Regex segment[%d]: d=%s, r=%d\n", i, match[1], repeat)
 			}
 			segmentCount += repeat + 1
 		}
-		fmt.Printf("[Tidal] Total segments from regex: %d\n", segmentCount)
+		GoLog("[Tidal] Total segments from regex: %d\n", segmentCount)
 	}
 
 	// Generate media URLs for each segment
@@ -930,10 +930,10 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 	fmt.Println("[Tidal] Parsing manifest...")
 	directURL, initURL, mediaURLs, err := parseManifest(manifestB64)
 	if err != nil {
-		fmt.Printf("[Tidal] Manifest parse error: %v\n", err)
+		GoLog("[Tidal] Manifest parse error: %v\n", err)
 		return fmt.Errorf("failed to parse manifest: %w", err)
 	}
-	fmt.Printf("[Tidal] Manifest parsed - directURL: %v, initURL: %v, mediaURLs count: %d\n",
+	GoLog("[Tidal] Manifest parsed - directURL: %v, initURL: %v, mediaURLs count: %d\n",
 		directURL != "", initURL != "", len(mediaURLs))
 
 	client := &http.Client{
@@ -942,27 +942,27 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 
 	// If we have a direct URL (BTS format), download directly with progress tracking
 	if directURL != "" {
-		fmt.Printf("[Tidal] BTS format - downloading from direct URL: %s...\n", directURL[:min(80, len(directURL))])
+		GoLog("[Tidal] BTS format - downloading from direct URL: %s...\n", directURL[:min(80, len(directURL))])
 		// Note: Progress tracking is initialized by the caller (DownloadFile)
 
 		req, err := http.NewRequest("GET", directURL, nil)
 		if err != nil {
-			fmt.Printf("[Tidal] BTS request creation failed: %v\n", err)
+			GoLog("[Tidal] BTS request creation failed: %v\n", err)
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("[Tidal] BTS download failed: %v\n", err)
+			GoLog("[Tidal] BTS download failed: %v\n", err)
 			return fmt.Errorf("failed to download file: %w", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			fmt.Printf("[Tidal] BTS download HTTP error: %d\n", resp.StatusCode)
+			GoLog("[Tidal] BTS download HTTP error: %d\n", resp.StatusCode)
 			return fmt.Errorf("download failed with status %d", resp.StatusCode)
 		}
-		fmt.Printf("[Tidal] BTS response OK, Content-Length: %d\n", resp.ContentLength)
+		GoLog("[Tidal] BTS response OK, Content-Length: %d\n", resp.ContentLength)
 
 		expectedSize := resp.ContentLength
 		// Set total bytes for progress tracking
@@ -1007,31 +1007,31 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 	// DASH format - download segments directly to M4A file (no temp file to avoid Android permission issues)
 	// On Android, we can't use ffmpeg, so we save as M4A directly
 	m4aPath := strings.TrimSuffix(outputPath, ".flac") + ".m4a"
-	fmt.Printf("[Tidal] DASH format - downloading %d segments directly to: %s\n", len(mediaURLs), m4aPath)
+	GoLog("[Tidal] DASH format - downloading %d segments directly to: %s\n", len(mediaURLs), m4aPath)
 
 	// Note: Progress tracking is initialized by the caller (DownloadFile or downloadFromTidal)
 	// We just update progress here based on segment count
 
 	out, err := os.Create(m4aPath)
 	if err != nil {
-		fmt.Printf("[Tidal] Failed to create M4A file: %v\n", err)
+		GoLog("[Tidal] Failed to create M4A file: %v\n", err)
 		return fmt.Errorf("failed to create M4A file: %w", err)
 	}
 
 	// Download initialization segment
-	fmt.Printf("[Tidal] Downloading init segment...\n")
+	GoLog("[Tidal] Downloading init segment...\n")
 	resp, err := client.Get(initURL)
 	if err != nil {
 		out.Close()
 		os.Remove(m4aPath)
-		fmt.Printf("[Tidal] Init segment download failed: %v\n", err)
+		GoLog("[Tidal] Init segment download failed: %v\n", err)
 		return fmt.Errorf("failed to download init segment: %w", err)
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
 		out.Close()
 		os.Remove(m4aPath)
-		fmt.Printf("[Tidal] Init segment HTTP error: %d\n", resp.StatusCode)
+		GoLog("[Tidal] Init segment HTTP error: %d\n", resp.StatusCode)
 		return fmt.Errorf("init segment download failed with status %d", resp.StatusCode)
 	}
 	_, err = io.Copy(out, resp.Body)
@@ -1039,7 +1039,7 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 	if err != nil {
 		out.Close()
 		os.Remove(m4aPath)
-		fmt.Printf("[Tidal] Init segment write failed: %v\n", err)
+		GoLog("[Tidal] Init segment write failed: %v\n", err)
 		return fmt.Errorf("failed to write init segment: %w", err)
 	}
 
@@ -1047,7 +1047,7 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 	totalSegments := len(mediaURLs)
 	for i, mediaURL := range mediaURLs {
 		if i%10 == 0 || i == totalSegments-1 {
-			fmt.Printf("[Tidal] Downloading segment %d/%d...\n", i+1, totalSegments)
+			GoLog("[Tidal] Downloading segment %d/%d...\n", i+1, totalSegments)
 		}
 
 		// Update progress based on segment count
@@ -1060,14 +1060,14 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 		if err != nil {
 			out.Close()
 			os.Remove(m4aPath)
-			fmt.Printf("[Tidal] Segment %d download failed: %v\n", i+1, err)
+			GoLog("[Tidal] Segment %d download failed: %v\n", i+1, err)
 			return fmt.Errorf("failed to download segment %d: %w", i+1, err)
 		}
 		if resp.StatusCode != 200 {
 			resp.Body.Close()
 			out.Close()
 			os.Remove(m4aPath)
-			fmt.Printf("[Tidal] Segment %d HTTP error: %d\n", i+1, resp.StatusCode)
+			GoLog("[Tidal] Segment %d HTTP error: %d\n", i+1, resp.StatusCode)
 			return fmt.Errorf("segment %d download failed with status %d", i+1, resp.StatusCode)
 		}
 		_, err = io.Copy(out, resp.Body)
@@ -1075,18 +1075,18 @@ func (t *TidalDownloader) downloadFromManifest(manifestB64, outputPath, itemID s
 		if err != nil {
 			out.Close()
 			os.Remove(m4aPath)
-			fmt.Printf("[Tidal] Segment %d write failed: %v\n", i+1, err)
+			GoLog("[Tidal] Segment %d write failed: %v\n", i+1, err)
 			return fmt.Errorf("failed to write segment %d: %w", i+1, err)
 		}
 	}
 
 	if err := out.Close(); err != nil {
 		os.Remove(m4aPath)
-		fmt.Printf("[Tidal] Failed to close M4A file: %v\n", err)
+		GoLog("[Tidal] Failed to close M4A file: %v\n", err)
 		return fmt.Errorf("failed to close M4A file: %w", err)
 	}
 
-	fmt.Printf("[Tidal] DASH download completed: %s\n", m4aPath)
+	GoLog("[Tidal] DASH download completed: %s\n", m4aPath)
 	return nil
 }
 
@@ -1139,17 +1139,190 @@ func artistsMatch(spotifyArtist, tidalArtist string) bool {
 		return true
 	}
 
-	// If scripts are different (one is ASCII, one is non-ASCII like Japanese/Chinese/Korean),
-	// assume they're the same artist with different transliteration
+	// If scripts are TRULY different (Latin vs CJK/Arabic/Cyrillic), assume match (transliteration)
+	// Don't treat Latin Extended (Polish, French, etc.) as different script
 	// This handles cases like "鈴木雅之" vs "Masayuki Suzuki"
-	spotifyASCII := isASCIIString(spotifyArtist)
-	tidalASCII := isASCIIString(tidalArtist)
-	if spotifyASCII != tidalASCII {
-		fmt.Printf("[Tidal] Artist names in different scripts, assuming match: '%s' vs '%s'\n", spotifyArtist, tidalArtist)
+	spotifyLatin := isLatinScript(spotifyArtist)
+	tidalLatin := isLatinScript(tidalArtist)
+	if spotifyLatin != tidalLatin {
+		GoLog("[Tidal] Artist names in different scripts, assuming match: '%s' vs '%s'\n", spotifyArtist, tidalArtist)
 		return true
 	}
 
 	return false
+}
+
+// titlesMatch checks if track titles are similar enough
+func titlesMatch(expectedTitle, foundTitle string) bool {
+	normExpected := strings.ToLower(strings.TrimSpace(expectedTitle))
+	normFound := strings.ToLower(strings.TrimSpace(foundTitle))
+
+	// Exact match
+	if normExpected == normFound {
+		return true
+	}
+
+	// Check if one contains the other
+	if strings.Contains(normExpected, normFound) || strings.Contains(normFound, normExpected) {
+		return true
+	}
+
+	// Clean both titles and compare
+	cleanExpected := cleanTitle(normExpected)
+	cleanFound := cleanTitle(normFound)
+
+	if cleanExpected == cleanFound {
+		return true
+	}
+
+	// Check if cleaned versions contain each other
+	if cleanExpected != "" && cleanFound != "" {
+		if strings.Contains(cleanExpected, cleanFound) || strings.Contains(cleanFound, cleanExpected) {
+			return true
+		}
+	}
+
+	// Extract core title (before any parentheses/brackets)
+	coreExpected := extractCoreTitle(normExpected)
+	coreFound := extractCoreTitle(normFound)
+
+	if coreExpected != "" && coreFound != "" && coreExpected == coreFound {
+		return true
+	}
+
+	// If scripts are TRULY different (Latin vs CJK/Arabic/Cyrillic), assume match (transliteration)
+	// Don't treat Latin Extended (Polish, French, etc.) as different script
+	expectedLatin := isLatinScript(expectedTitle)
+	foundLatin := isLatinScript(foundTitle)
+	if expectedLatin != foundLatin {
+		GoLog("[Tidal] Titles in different scripts, assuming match: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return true
+	}
+
+	return false
+}
+
+// extractCoreTitle extracts the main title before any parentheses or brackets
+func extractCoreTitle(title string) string {
+	// Find first occurrence of ( or [
+	parenIdx := strings.Index(title, "(")
+	bracketIdx := strings.Index(title, "[")
+	dashIdx := strings.Index(title, " - ")
+
+	cutIdx := len(title)
+	if parenIdx > 0 && parenIdx < cutIdx {
+		cutIdx = parenIdx
+	}
+	if bracketIdx > 0 && bracketIdx < cutIdx {
+		cutIdx = bracketIdx
+	}
+	if dashIdx > 0 && dashIdx < cutIdx {
+		cutIdx = dashIdx
+	}
+
+	return strings.TrimSpace(title[:cutIdx])
+}
+
+// cleanTitle removes common suffixes from track titles for comparison
+func cleanTitle(title string) string {
+	cleaned := title
+
+	// Version indicators to remove from parentheses/brackets
+	versionPatterns := []string{
+		"remaster", "remastered", "deluxe", "bonus", "single",
+		"album version", "radio edit", "original mix", "extended",
+		"club mix", "remix", "live", "acoustic", "demo",
+	}
+
+	// Remove parenthetical content if it contains version indicators
+	for {
+		startParen := strings.LastIndex(cleaned, "(")
+		endParen := strings.LastIndex(cleaned, ")")
+		if startParen >= 0 && endParen > startParen {
+			content := strings.ToLower(cleaned[startParen+1 : endParen])
+			isVersionIndicator := false
+			for _, pattern := range versionPatterns {
+				if strings.Contains(content, pattern) {
+					isVersionIndicator = true
+					break
+				}
+			}
+			if isVersionIndicator {
+				cleaned = strings.TrimSpace(cleaned[:startParen]) + cleaned[endParen+1:]
+				continue
+			}
+		}
+		break
+	}
+
+	// Same for brackets
+	for {
+		startBracket := strings.LastIndex(cleaned, "[")
+		endBracket := strings.LastIndex(cleaned, "]")
+		if startBracket >= 0 && endBracket > startBracket {
+			content := strings.ToLower(cleaned[startBracket+1 : endBracket])
+			isVersionIndicator := false
+			for _, pattern := range versionPatterns {
+				if strings.Contains(content, pattern) {
+					isVersionIndicator = true
+					break
+				}
+			}
+			if isVersionIndicator {
+				cleaned = strings.TrimSpace(cleaned[:startBracket]) + cleaned[endBracket+1:]
+				continue
+			}
+		}
+		break
+	}
+
+	// Remove trailing " - version" patterns
+	dashPatterns := []string{
+		" - remaster", " - remastered", " - single version", " - radio edit",
+		" - live", " - acoustic", " - demo", " - remix",
+	}
+	for _, pattern := range dashPatterns {
+		if strings.HasSuffix(strings.ToLower(cleaned), pattern) {
+			cleaned = cleaned[:len(cleaned)-len(pattern)]
+		}
+	}
+
+	// Remove multiple spaces
+	for strings.Contains(cleaned, "  ") {
+		cleaned = strings.ReplaceAll(cleaned, "  ", " ")
+	}
+
+	return strings.TrimSpace(cleaned)
+}
+
+// isLatinScript checks if a string is primarily Latin script
+// Returns true for ASCII and Latin Extended characters (European languages)
+// Returns false for CJK, Arabic, Cyrillic, etc.
+func isLatinScript(s string) bool {
+	for _, r := range s {
+		// Skip common punctuation and numbers
+		if r < 128 {
+			continue
+		}
+		// Latin Extended-A: U+0100 to U+017F (Polish, Czech, etc.)
+		// Latin Extended-B: U+0180 to U+024F
+		// Latin Extended Additional: U+1E00 to U+1EFF
+		if (r >= 0x0100 && r <= 0x024F) || // Latin Extended A & B
+			(r >= 0x1E00 && r <= 0x1EFF) || // Latin Extended Additional
+			(r >= 0x00C0 && r <= 0x00FF) { // Latin-1 Supplement (accented chars)
+			continue
+		}
+		// CJK ranges - definitely different script
+		if (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
+			(r >= 0x3040 && r <= 0x309F) || // Hiragana
+			(r >= 0x30A0 && r <= 0x30FF) || // Katakana
+			(r >= 0xAC00 && r <= 0xD7AF) || // Hangul (Korean)
+			(r >= 0x0600 && r <= 0x06FF) || // Arabic
+			(r >= 0x0400 && r <= 0x04FF) { // Cyrillic
+			return false
+		}
+	}
+	return true
 }
 
 // isASCIIString checks if a string contains only ASCII characters
@@ -1180,10 +1353,10 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	// OPTIMIZATION: Check cache first for track ID
 	if req.ISRC != "" {
 		if cached := GetTrackIDCache().Get(req.ISRC); cached != nil && cached.TidalTrackID > 0 {
-			fmt.Printf("[Tidal] Cache hit! Using cached track ID: %d\n", cached.TidalTrackID)
+			GoLog("[Tidal] Cache hit! Using cached track ID: %d\n", cached.TidalTrackID)
 			track, err = downloader.GetTrackInfoByID(cached.TidalTrackID)
 			if err != nil {
-				fmt.Printf("[Tidal] Cache hit but failed to get track info: %v\n", err)
+				GoLog("[Tidal] Cache hit but failed to get track info: %v\n", err)
 				track = nil // Fall through to normal search
 			}
 		}
@@ -1192,10 +1365,10 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	// OPTIMIZED: Try ISRC search with metadata (search by name, filter by ISRC)
 	// Strategy 1: Search by metadata, match by ISRC (most accurate)
 	if track == nil && req.ISRC != "" {
-		fmt.Printf("[Tidal] Trying ISRC search: %s\n", req.ISRC)
+		GoLog("[Tidal] Trying ISRC search: %s\n", req.ISRC)
 		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.ISRC, expectedDurationSec)
 		if track != nil {
-			// Verify artist
+			// Verify artist only (ISRC match is already accurate)
 			tidalArtist := track.Artist.Name
 			if len(track.Artists) > 0 {
 				var artistNames []string
@@ -1205,7 +1378,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 				tidalArtist = strings.Join(artistNames, ", ")
 			}
 			if !artistsMatch(req.ArtistName, tidalArtist) {
-				fmt.Printf("[Tidal] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n",
+				GoLog("[Tidal] Artist mismatch from ISRC search: expected '%s', got '%s'. Rejecting.\n",
 					req.ArtistName, tidalArtist)
 				track = nil
 			}
@@ -1214,14 +1387,14 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 
 	// Strategy 2: Try SongLink only if ISRC search failed (slower but more accurate)
 	if track == nil && req.SpotifyID != "" {
-		fmt.Printf("[Tidal] ISRC search failed, trying SongLink...\n")
+		GoLog("[Tidal] ISRC search failed, trying SongLink...\n")
 		var tidalURL string
 		var slErr error
 		
 		// Check if SpotifyID is actually a Deezer ID (format: "deezer:xxxxx")
 		if strings.HasPrefix(req.SpotifyID, "deezer:") {
 			deezerID := strings.TrimPrefix(req.SpotifyID, "deezer:")
-			fmt.Printf("[Tidal] Using Deezer ID for SongLink lookup: %s\n", deezerID)
+			GoLog("[Tidal] Using Deezer ID for SongLink lookup: %s\n", deezerID)
 			songlink := NewSongLinkClient()
 			tidalURL, slErr = songlink.GetTidalURLFromDeezer(deezerID)
 		} else {
@@ -1244,9 +1417,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 						tidalArtist = strings.Join(artistNames, ", ")
 					}
 
-					// Verify artist matches
+					// Verify artist matches (SongLink is already accurate, no title check needed)
 					if !artistsMatch(req.ArtistName, tidalArtist) {
-						fmt.Printf("[Tidal] Artist mismatch from SongLink: expected '%s', got '%s'. Rejecting.\n",
+						GoLog("[Tidal] Artist mismatch from SongLink: expected '%s', got '%s'. Rejecting.\n",
 							req.ArtistName, tidalArtist)
 						track = nil
 					}
@@ -1259,7 +1432,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 						}
 						// Allow 3 seconds tolerance (same as PC version)
 						if durationDiff > 3 {
-							fmt.Printf("[Tidal] Duration mismatch from SongLink: expected %ds, got %ds. Rejecting.\n",
+							GoLog("[Tidal] Duration mismatch from SongLink: expected %ds, got %ds. Rejecting.\n",
 								expectedDurationSec, track.Duration)
 							track = nil // Reject this match
 						}
@@ -1271,9 +1444,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 
 	// Strategy 3: Search by metadata only (no ISRC requirement) - last resort
 	if track == nil {
-		fmt.Printf("[Tidal] Trying metadata search as last resort...\n")
+		GoLog("[Tidal] Trying metadata search as last resort...\n")
 		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, "", expectedDurationSec)
-		// Verify artist for metadata search too
+		// Verify artist AND title for metadata search
 		if track != nil {
 			tidalArtist := track.Artist.Name
 			if len(track.Artists) > 0 {
@@ -1283,8 +1456,14 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 				}
 				tidalArtist = strings.Join(artistNames, ", ")
 			}
-			if !artistsMatch(req.ArtistName, tidalArtist) {
-				fmt.Printf("[Tidal] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
+			
+			// Verify title first
+			if !titlesMatch(req.TrackName, track.Title) {
+				GoLog("[Tidal] Title mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
+					req.TrackName, track.Title)
+				track = nil
+			} else if !artistsMatch(req.ArtistName, tidalArtist) {
+				GoLog("[Tidal] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
 					req.ArtistName, tidalArtist)
 				track = nil
 			}
@@ -1308,7 +1487,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		}
 		tidalArtist = strings.Join(artistNames, ", ")
 	}
-	fmt.Printf("[Tidal] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, tidalArtist, track.Duration)
+	GoLog("[Tidal] Match found: '%s' by '%s' (duration: %ds)\n", track.Title, tidalArtist, track.Duration)
 
 	// Cache the track ID for future use
 	if req.ISRC != "" {
@@ -1339,7 +1518,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	// Clean up any leftover .tmp files from previous failed downloads
 	tmpPath := outputPath + ".m4a.tmp"
 	if _, err := os.Stat(tmpPath); err == nil {
-		fmt.Printf("[Tidal] Cleaning up leftover temp file: %s\n", tmpPath)
+		GoLog("[Tidal] Cleaning up leftover temp file: %s\n", tmpPath)
 		os.Remove(tmpPath)
 	}
 
@@ -1348,7 +1527,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	if quality == "" {
 		quality = "LOSSLESS"
 	}
-	fmt.Printf("[Tidal] Using quality: %s\n", quality)
+	GoLog("[Tidal] Using quality: %s\n", quality)
 
 	// Get download URL using parallel API requests
 	downloadInfo, err := downloader.GetDownloadURL(track.ID, quality)
@@ -1357,7 +1536,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}
 
 	// Log actual quality received
-	fmt.Printf("[Tidal] Actual quality: %d-bit/%dHz\n", downloadInfo.BitDepth, downloadInfo.SampleRate)
+	GoLog("[Tidal] Actual quality: %d-bit/%dHz\n", downloadInfo.BitDepth, downloadInfo.SampleRate)
 
 	// START PARALLEL: Fetch cover and lyrics while downloading audio
 	var parallelResult *ParallelDownloadResult
@@ -1375,8 +1554,8 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}()
 
 	// Download audio file with item ID for progress tracking
-	fmt.Printf("[Tidal] Starting download to: %s\n", outputPath)
-	fmt.Printf("[Tidal] Download URL type: %s\n", func() string {
+	GoLog("[Tidal] Starting download to: %s\n", outputPath)
+	GoLog("[Tidal] Download URL type: %s\n", func() string {
 		if strings.HasPrefix(downloadInfo.URL, "MANIFEST:") {
 			return "MANIFEST (DASH/BTS)"
 		}
@@ -1384,7 +1563,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}())
 
 	if err := downloader.DownloadFile(downloadInfo.URL, outputPath, req.ItemID); err != nil {
-		fmt.Printf("[Tidal] Download failed with error: %v\n", err)
+		GoLog("[Tidal] Download failed with error: %v\n", err)
 		return TidalDownloadResult{}, fmt.Errorf("download failed: %w", err)
 	}
 	fmt.Println("[Tidal] Download completed successfully")
@@ -1405,7 +1584,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	if _, err := os.Stat(m4aPath); err == nil {
 		// File was saved as M4A, use that path
 		actualOutputPath = m4aPath
-		fmt.Printf("[Tidal] File saved as M4A (DASH stream): %s\n", actualOutputPath)
+		GoLog("[Tidal] File saved as M4A (DASH stream): %s\n", actualOutputPath)
 	} else if _, err := os.Stat(outputPath); err != nil {
 		// Neither FLAC nor M4A exists
 		return TidalDownloadResult{}, fmt.Errorf("download completed but file not found at %s or %s", outputPath, m4aPath)
@@ -1428,7 +1607,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	var coverData []byte
 	if parallelResult != nil && parallelResult.CoverData != nil {
 		coverData = parallelResult.CoverData
-		fmt.Printf("[Tidal] Using parallel-fetched cover (%d bytes)\n", len(coverData))
+		GoLog("[Tidal] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
 	// Embed metadata based on file type
@@ -1439,9 +1618,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 
 		// Embed lyrics from parallel fetch
 		if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
-			fmt.Printf("[Tidal] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
+			GoLog("[Tidal] Embedding parallel-fetched lyrics (%d lines)...\n", len(parallelResult.LyricsData.Lines))
 			if embedErr := EmbedLyrics(actualOutputPath, parallelResult.LyricsLRC); embedErr != nil {
-				fmt.Printf("[Tidal] Warning: failed to embed lyrics: %v\n", embedErr)
+				GoLog("[Tidal] Warning: failed to embed lyrics: %v\n", embedErr)
 			} else {
 				fmt.Println("[Tidal] Lyrics embedded successfully")
 			}
@@ -1450,7 +1629,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		}
 	} else if strings.HasSuffix(actualOutputPath, ".m4a") {
 		// Embed metadata to M4A file
-		// fmt.Printf("[Tidal] Embedding metadata to M4A file...\n")
+		// GoLog("[Tidal] Embedding metadata to M4A file...\n")
 
 		// Add lyrics to metadata if available
 		// if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
@@ -1464,7 +1643,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		fmt.Println("[Tidal] Skipping metadata embedding for M4A file (will be handled after FFmpeg conversion)")
 
 		// if err := EmbedM4AMetadata(actualOutputPath, metadata, coverData); err != nil {
-		// 	fmt.Printf("[Tidal] Warning: failed to embed M4A metadata: %v\n", err)
+		// 	GoLog("[Tidal] Warning: failed to embed M4A metadata: %v\n", err)
 		// } else {
 		// 	fmt.Println("[Tidal] M4A metadata embedded successfully")
 		// }

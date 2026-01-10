@@ -168,6 +168,25 @@ class OptionsSettingsPage extends ConsumerWidget {
             ),
           ),
 
+          // Debug section
+          const SliverToBoxAdapter(child: SettingsSectionHeader(title: 'Debug')),
+          SliverToBoxAdapter(
+            child: SettingsGroup(
+              children: [
+                SettingsSwitchItem(
+                  icon: Icons.bug_report,
+                  title: 'Detailed Logging',
+                  subtitle: settings.enableLogging 
+                      ? 'Detailed logs are being recorded' 
+                      : 'Enable for bug reports',
+                  value: settings.enableLogging,
+                  onChanged: (v) => ref.read(settingsProvider.notifier).setEnableLogging(v),
+                  showDivider: false,
+                ),
+              ],
+            ),
+          ),
+
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),

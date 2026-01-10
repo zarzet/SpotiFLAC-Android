@@ -651,6 +651,11 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   Widget _buildArtistCard(SearchArtist artist, ColorScheme colorScheme) {
+    // Validate image URL - must be non-null, non-empty, and have a valid host
+    final hasValidImage = artist.imageUrl != null && 
+                          artist.imageUrl!.isNotEmpty &&
+                          Uri.tryParse(artist.imageUrl!)?.hasAuthority == true;
+    
     return GestureDetector(
       onTap: () => _navigateToArtist(artist.id, artist.name, artist.imageUrl),
       child: Container(
@@ -666,12 +671,17 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
                 color: colorScheme.surfaceContainerHighest,
               ),
               child: ClipOval(
-                child: artist.imageUrl != null
+                child: hasValidImage
                     ? CachedNetworkImage(
                         imageUrl: artist.imageUrl!,
                         fit: BoxFit.cover,
                         memCacheWidth: 200,
                         memCacheHeight: 200,
+                        errorWidget: (context, url, error) => Icon(
+                          Icons.person,
+                          color: colorScheme.onSurfaceVariant,
+                          size: 44,
+                        ),
                       )
                     : Icon(Icons.person, color: colorScheme.onSurfaceVariant, size: 44),
               ),

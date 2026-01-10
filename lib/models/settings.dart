@@ -23,6 +23,7 @@ class AppSettings {
   final String spotifyClientSecret; // Custom Spotify client secret (empty = use default)
   final bool useCustomSpotifyCredentials; // Whether to use custom credentials (if set)
   final String metadataSource; // spotify, deezer - source for search and metadata
+  final bool enableLogging; // Enable detailed logging for debugging
 
   const AppSettings({
     this.defaultService = 'tidal',
@@ -44,6 +45,7 @@ class AppSettings {
     this.spotifyClientSecret = '', // Default: use built-in credentials
     this.useCustomSpotifyCredentials = true, // Default: use custom if set
     this.metadataSource = 'deezer', // Default: Deezer (no rate limit)
+    this.enableLogging = false, // Default: disabled for performance
   });
 
   AppSettings copyWith({
@@ -66,6 +68,7 @@ class AppSettings {
     String? spotifyClientSecret,
     bool? useCustomSpotifyCredentials,
     String? metadataSource,
+    bool? enableLogging,
   }) {
     return AppSettings(
       defaultService: defaultService ?? this.defaultService,
@@ -87,6 +90,7 @@ class AppSettings {
       spotifyClientSecret: spotifyClientSecret ?? this.spotifyClientSecret,
       useCustomSpotifyCredentials: useCustomSpotifyCredentials ?? this.useCustomSpotifyCredentials,
       metadataSource: metadataSource ?? this.metadataSource,
+      enableLogging: enableLogging ?? this.enableLogging,
     );
   }
 
