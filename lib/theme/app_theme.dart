@@ -7,11 +7,9 @@ class AppTheme {
   static const Color defaultSeedColor = Color(kDefaultSeedColor);
 
   /// Create light theme
-  static ThemeData light({
-    ColorScheme? dynamicScheme,
-    Color? seedColor,
-  }) {
-    final scheme = dynamicScheme ??
+  static ThemeData light({ColorScheme? dynamicScheme, Color? seedColor}) {
+    final scheme =
+        dynamicScheme ??
         ColorScheme.fromSeed(
           seedColor: seedColor ?? defaultSeedColor,
           brightness: Brightness.light,
@@ -45,7 +43,8 @@ class AppTheme {
     Color? seedColor,
     bool isAmoled = false,
   }) {
-    final scheme = dynamicScheme ??
+    final scheme =
+        dynamicScheme ??
         ColorScheme.fromSeed(
           seedColor: seedColor ?? defaultSeedColor,
           brightness: Brightness.dark,
@@ -75,34 +74,41 @@ class AppTheme {
   }
 
   /// AppBar theme
-  static AppBarTheme _appBarTheme(ColorScheme scheme, {bool isAmoled = false}) => AppBarTheme(
-        elevation: 0,
-        scrolledUnderElevation: isAmoled ? 0 : 3,
-        backgroundColor: isAmoled ? Colors.black : scheme.surface,
-        foregroundColor: scheme.onSurface,
-        surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: scheme.onSurface,
-          fontSize: 22,
-          fontWeight: FontWeight.w500,
-        ),
-      );
+  static AppBarTheme _appBarTheme(
+    ColorScheme scheme, {
+    bool isAmoled = false,
+  }) => AppBarTheme(
+    elevation: 0,
+    scrolledUnderElevation: isAmoled ? 0 : 3,
+    backgroundColor: isAmoled ? Colors.black : scheme.surface,
+    foregroundColor: scheme.onSurface,
+    surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
+    centerTitle: true,
+    titleTextStyle: TextStyle(
+      color: scheme.onSurface,
+      fontSize: 22,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 
   /// Card theme
   static CardThemeData _cardTheme(ColorScheme scheme) => CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: scheme.surfaceContainerLow,
-        surfaceTintColor: scheme.surfaceTint,
-      );
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ), // 12 -> 16
+    color: scheme.surfaceContainerLow,
+    surfaceTintColor: scheme.surfaceTint,
+  );
 
   /// Elevated button theme
   static ElevatedButtonThemeData _elevatedButtonTheme(ColorScheme scheme) =>
       ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ), // 20 -> 16
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       );
@@ -111,7 +117,9 @@ class AppTheme {
   static FilledButtonThemeData _filledButtonTheme(ColorScheme scheme) =>
       FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ), // 20 -> 16
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       );
@@ -120,7 +128,9 @@ class AppTheme {
   static OutlinedButtonThemeData _outlinedButtonTheme(ColorScheme scheme) =>
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ), // 20 -> 16
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       );
@@ -129,7 +139,9 @@ class AppTheme {
   static TextButtonThemeData _textButtonTheme(ColorScheme scheme) =>
       TextButtonThemeData(
         style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ), // 20 -> 16
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       );
@@ -147,52 +159,63 @@ class AppTheme {
   static InputDecorationTheme _inputDecorationTheme(ColorScheme scheme) =>
       InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest,
+        fillColor: scheme.surfaceContainerHighest.withValues(
+          alpha: 0.3,
+        ), // Added transparency
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16), // 12 -> 16
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16), // 12 -> 16
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16), // 12 -> 16
           borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16), // 12 -> 16
           borderSide: BorderSide(color: scheme.error, width: 1),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ), // consistent padding
       );
 
   /// List tile theme
-  static ListTileThemeData _listTileTheme(ColorScheme scheme) => ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  static ListTileThemeData _listTileTheme(ColorScheme scheme) =>
+      ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ), // 12 -> 16
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       );
 
   /// Dialog theme
   static DialogThemeData _dialogTheme(ColorScheme scheme) => DialogThemeData(
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        backgroundColor: scheme.surfaceContainerHigh,
-        surfaceTintColor: scheme.surfaceTint,
-      );
+    elevation: 6,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    backgroundColor: scheme.surfaceContainerHigh,
+    surfaceTintColor: scheme.surfaceTint,
+  );
 
   /// Navigation bar theme
-  static NavigationBarThemeData _navigationBarTheme(ColorScheme scheme, {bool isAmoled = false}) =>
-      NavigationBarThemeData(
-        elevation: 0,
-        backgroundColor: isAmoled ? Colors.black : scheme.surfaceContainer,
-        indicatorColor: scheme.secondaryContainer,
-        surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      );
+  static NavigationBarThemeData _navigationBarTheme(
+    ColorScheme scheme, {
+    bool isAmoled = false,
+  }) => NavigationBarThemeData(
+    elevation: 0,
+    backgroundColor: isAmoled ? Colors.black : scheme.surfaceContainer,
+    indicatorColor: scheme.secondaryContainer,
+    surfaceTintColor: isAmoled ? Colors.transparent : scheme.surfaceTint,
+    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+  );
 
   /// SnackBar theme
-  static SnackBarThemeData _snackBarTheme(ColorScheme scheme) => SnackBarThemeData(
+  static SnackBarThemeData _snackBarTheme(ColorScheme scheme) =>
+      SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         backgroundColor: scheme.inverseSurface,
@@ -200,46 +223,44 @@ class AppTheme {
       );
 
   /// Progress indicator theme
-  static ProgressIndicatorThemeData _progressIndicatorTheme(ColorScheme scheme) =>
-      ProgressIndicatorThemeData(
-        color: scheme.primary,
-        linearTrackColor: scheme.surfaceContainerHighest,
-        circularTrackColor: scheme.surfaceContainerHighest,
-      );
+  static ProgressIndicatorThemeData _progressIndicatorTheme(
+    ColorScheme scheme,
+  ) => ProgressIndicatorThemeData(
+    color: scheme.primary,
+    linearTrackColor: scheme.surfaceContainerHighest,
+    circularTrackColor: scheme.surfaceContainerHighest,
+  );
 
   /// Switch theme
   static SwitchThemeData _switchTheme(ColorScheme scheme) => SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return scheme.onPrimary;
-          }
-          return scheme.outline;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return scheme.primary;
-          }
-          return scheme.surfaceContainerHighest;
-        }),
-        thumbIcon: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return Icon(Icons.check, color: scheme.primary);
-          }
-          return null;
-        }),
-      );
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return scheme.onPrimary;
+      }
+      return scheme.outline;
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return scheme.primary;
+      }
+      return scheme.surfaceContainerHighest;
+    }),
+    thumbIcon: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return Icon(Icons.check, color: scheme.primary);
+      }
+      return null;
+    }),
+  );
 
   /// Chip theme
   static ChipThemeData _chipTheme(ColorScheme scheme) => ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        backgroundColor: scheme.surfaceContainerLow,
-        selectedColor: scheme.secondaryContainer,
-      );
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    backgroundColor: scheme.surfaceContainerLow,
+    selectedColor: scheme.secondaryContainer,
+  );
 
   /// Divider theme
-  static DividerThemeData _dividerTheme(ColorScheme scheme) => DividerThemeData(
-        color: scheme.outlineVariant,
-        thickness: 1,
-        space: 1,
-      );
+  static DividerThemeData _dividerTheme(ColorScheme scheme) =>
+      DividerThemeData(color: scheme.outlineVariant, thickness: 1, space: 1);
 }

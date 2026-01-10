@@ -9,6 +9,44 @@
   - Fallback to text search (artist + track name) when ISRC not found in Deezer
   - Progress dialog shows enrichment status during import
   - Ensures downloaded files have proper cover art and metadata
+- **Deezer Metadata Support**: Enhanced metadata viewer for Deezer tracks
+  - "Open in Deezer" button for Deezer-sourced tracks (opens app or web)
+  - Displays "Deezer ID" instead of "Spotify ID" when applicable
+- **Smart Tag Injection**: Filename format editor intelligently handles separators
+  - Auto-detects if " - " is needed between tags
+  - Prevents double separators or missing spaces
+- **Dynamic Source Info**: Search source selector now shows helpful context
+  - "No login required" for Deezer
+  - "Requires credentials" for Spotify
+
+### Changed
+
+- **UI Modernization**: Major UI consistency updates across the app
+  - **Unified App Bars**: Home, History, and Settings now share identical behavior
+    - Lowered expanded header for easier one-handed reachability
+    - Dynamic title text scaling (20px to 34px)
+  - **Appearance Settings**: Completely redesigned appearance page
+    - New "Theme Preview" card showing visualizing current theme
+    - Modern color palette picker replacing old color dots
+    - Clean, grouped layout
+    - "AMOLED Dark" switch is now hidden when using Light Mode
+  - **App Logo**: Refined logo style on Home and About screens
+    - Inverted colors: Filled primary color circle with on-color icon
+    - Removed padding for a cleaner, bolder look
+  - **Material 3 Switches**: Added checkmark icon to active switches
+- **UI Modernization (Global)**: Complete design refresh for a cleaner, modern look
+  - **Rounded Corners**: Standardized 16px radius for all cards, buttons, and input fields
+  - **Transparent Elements**: Applied subtle transparency to input fields and containers using `surfaceContainerHighest`
+  - **Consistent Buttons**: Unified button styling across the app (pill shape, 16px radius)
+- **Options Settings Redesign**: improved layout and usability
+  - **Search Source Priority**: Moved "Search Source" section to the very top for quick access
+  - **Compact Source Selector**: Redesigned provider toggle (Deezer/Spotify) to be compact and consistent
+  - **Credentials Workflow**: Reorganized Custom Credentials settings; toggle now auto-prompts if credentials missing
+  - **Modern Credentials Dialog**: Totally redesigned input dialog for Spotify Client ID/Secret
+- **Filename Format Editor 2.0**:
+  - **Modern Sheet UI**: Replaced legacy dialog with a clean, full-width bottom sheet
+  - **Tag Chips**: Added clickable chips ({artist}, {title}) for one-tap insertion
+  - **Smart Formatting**: Automatically injects separators (" - ") when adding tags for faster editing
 
 ### Fixed
 
@@ -18,7 +56,7 @@
 - **CSV Import Missing Duration**: Fixed duration showing 0:00 for CSV-imported tracks
   - Duration now fetched from Deezer metadata during enrichment
 - **Disc Number Not Displayed**: Fixed disc number not showing in track metadata screen
-  - Changed condition from `discNumber > 1` to `discNumber > 0`
+  - Changed condition from `discNumber > 0` to `discNumber > 0`
   - Now displays disc 1 instead of hiding it
 - **Download History Using Wrong Track Data**: Fixed history using original CSV data instead of enriched data
   - Now uses `trackToDownload` (enriched) instead of `item.track` (original)
@@ -38,6 +76,9 @@
   - Added `TotalSamples` to `AudioQuality` struct for duration calculation
 - Updated `go_backend/exports.go`:
   - `ReadFileMetadata` now returns duration calculated from FLAC stream info
+- Updated `AppTheme` with new `InputDecorationTheme` and `ButtonTheme` definitions
+- Refactored `DownloadSettingsPage` to use new `_showFormatEditor` with cursor-aware capabilities
+- Optimized various dialogs to use `showModalBottomSheet` with `isScrollControlled` for better keyboard handling
 
 ---
 
