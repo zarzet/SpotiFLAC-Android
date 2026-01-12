@@ -1210,19 +1210,32 @@ func (m *ExtensionManager) FindURLHandler(url string) *ExtensionProviderWrapper 
 	return nil
 }
 
+// ExtURLHandleResultWithExtID wraps ExtURLHandleResult with extension ID for gomobile compatibility
+type ExtURLHandleResultWithExtID struct {
+	Result      *ExtURLHandleResult
+	ExtensionID string
+}
+
 // HandleURLWithExtension tries to handle a URL with any matching extension
-func (m *ExtensionManager) HandleURLWithExtension(url string) (*ExtURLHandleResult, string, error) {
+// Returns result with extension ID, or error if no handler found
+func (m *ExtensionManager) HandleURLWithExtension(url string) (*ExtURLHandleResultWithExtID, error) {
 	handler := m.FindURLHandler(url)
 	if handler == nil {
-		return nil, "", fmt.Errorf("no extension found to handle URL: %s", url)
+		return nil, fmt.Errorf("no extension found to handle URL: %s", url)
 	}
 
 	result, err := handler.HandleURL(url)
 	if err != nil {
-		return nil, handler.extension.ID, err
+		return &ExtURLHandleResultWithExtID{
+			Result:      nil,
+			ExtensionID: handler.extension.ID,
+		}, err
 	}
 
-	return result, handler.extension.ID, nil
+	return &ExtURLHandleResultWithExtID{
+		Result:      result,
+		ExtensionID: handler.extension.ID,
+	}, nil
 }
 
 // GetPostProcessingProviders returns all extensions that provide post-processing

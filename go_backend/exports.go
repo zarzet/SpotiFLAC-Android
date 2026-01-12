@@ -1512,9 +1512,17 @@ func GetSearchProvidersJSON() (string, error) {
 // Returns JSON with type, tracks, album info, etc.
 func HandleURLWithExtensionJSON(url string) (string, error) {
 	manager := GetExtensionManager()
-	result, extensionID, err := manager.HandleURLWithExtension(url)
+	resultWithID, err := manager.HandleURLWithExtension(url)
 	if err != nil {
 		return "", err
+	}
+
+	result := resultWithID.Result
+	extensionID := resultWithID.ExtensionID
+
+	// Check if result is nil (handler found but returned error)
+	if result == nil {
+		return "", fmt.Errorf("extension %s failed to handle URL", extensionID)
 	}
 
 	// Build response
