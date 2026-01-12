@@ -155,14 +155,64 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
         final items = jsonList
             .map((e) => DownloadHistoryItem.fromJson(e as Map<String, dynamic>))
             .toList();
-        state = state.copyWith(items: items);
-        _historyLog.i('Loaded ${items.length} items from storage');
+        
+        // Deduplicate existing history on load
+        final deduplicatedItems = _deduplicateHistory(items);
+        
+        state = state.copyWith(items: deduplicatedItems);
+        _historyLog.i('Loaded ${deduplicatedItems.length} items from storage (original: ${items.length})');
+        
+        // Save if duplicates were removed
+        if (deduplicatedItems.length < items.length) {
+          _historyLog.i('Removed ${items.length - deduplicatedItems.length} duplicate entries');
+          await _saveToStorage();
+        }
       } else {
         _historyLog.d('No history found in storage');
       }
     } catch (e) {
       _historyLog.e('Failed to load history: $e');
     }
+  }
+
+  /// Deduplicate history items by spotifyId, deezerId, or ISRC
+  /// Keeps the most recent entry (first occurrence since list is sorted by date desc)
+  List<DownloadHistoryItem> _deduplicateHistory(List<DownloadHistoryItem> items) {
+    final seen = <String, int>{}; // key -> index of first occurrence
+    final result = <DownloadHistoryItem>[];
+    
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      String? key;
+      
+      // Generate unique key based on available identifiers
+      if (item.spotifyId != null && item.spotifyId!.isNotEmpty) {
+        // Extract numeric ID for deezer: prefixed IDs
+        if (item.spotifyId!.startsWith('deezer:')) {
+          key = 'deezer:${item.spotifyId!.substring(7)}';
+        } else {
+          key = 'spotify:${item.spotifyId}';
+        }
+      } else if (item.isrc != null && item.isrc!.isNotEmpty) {
+        key = 'isrc:${item.isrc}';
+      }
+      
+      if (key != null) {
+        if (!seen.containsKey(key)) {
+          // First occurrence - keep it (most recent since list is sorted by date desc)
+          seen[key] = result.length;
+          result.add(item);
+        } else {
+          // Duplicate found - skip (keep the first/most recent one)
+          _historyLog.d('Skipping duplicate: ${item.trackName} (key: $key)');
+        }
+      } else {
+        // No identifier - keep it (can't deduplicate)
+        result.add(item);
+      }
+    }
+    
+    return result;
   }
 
   Future<void> _saveToStorage() async {
@@ -182,7 +232,48 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
   }
 
   void addToHistory(DownloadHistoryItem item) {
-    state = state.copyWith(items: [item, ...state.items]);
+    // Check if track already exists in history (by spotifyId, deezerId, or ISRC)
+    final existingIndex = state.items.indexWhere((existing) {
+      // Match by spotifyId (primary identifier - includes deezer:xxx format)
+      if (item.spotifyId != null && 
+          item.spotifyId!.isNotEmpty && 
+          existing.spotifyId == item.spotifyId) {
+        return true;
+      }
+      
+      // Match Deezer tracks: extract numeric ID from "deezer:123456" format
+      if (item.spotifyId != null && item.spotifyId!.startsWith('deezer:') &&
+          existing.spotifyId != null && existing.spotifyId!.startsWith('deezer:')) {
+        final itemDeezerId = item.spotifyId!.substring(7); // Remove "deezer:" prefix
+        final existingDeezerId = existing.spotifyId!.substring(7);
+        if (itemDeezerId == existingDeezerId) {
+          return true;
+        }
+      }
+      
+      // Fallback: match by ISRC if spotifyId not available
+      if (item.isrc != null && 
+          item.isrc!.isNotEmpty && 
+          existing.isrc == item.isrc) {
+        return true;
+      }
+      return false;
+    });
+
+    if (existingIndex >= 0) {
+      // Replace existing entry (update with new download info)
+      final updatedItems = [...state.items];
+      updatedItems[existingIndex] = item;
+      // Move to top of list (most recent)
+      updatedItems.removeAt(existingIndex);
+      updatedItems.insert(0, item);
+      state = state.copyWith(items: updatedItems);
+      _historyLog.d('Updated existing history entry: ${item.trackName}');
+    } else {
+      // Add new entry
+      state = state.copyWith(items: [item, ...state.items]);
+      _historyLog.d('Added new history entry: ${item.trackName}');
+    }
     _saveToStorage();
   }
 
