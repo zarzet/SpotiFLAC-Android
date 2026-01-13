@@ -196,7 +196,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
   }
 
   void setSearchProvider(String? provider) {
-    state = state.copyWith(searchProvider: provider);
+    if (provider == null || provider.isEmpty) {
+      state = state.copyWith(clearSearchProvider: true);
+    } else {
+      state = state.copyWith(searchProvider: provider);
+    }
     _saveSettings();
   }
 
@@ -214,6 +218,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void setSeparateSingles(bool enabled) {
     state = state.copyWith(separateSingles: enabled);
+    _saveSettings();
+  }
+
+  void setAlbumFolderStructure(String structure) {
+    state = state.copyWith(albumFolderStructure: structure);
     _saveSettings();
   }
 

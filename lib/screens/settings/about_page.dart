@@ -12,11 +12,13 @@ class AboutPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final topPadding = MediaQuery.of(context).padding.top;
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Collapsing App Bar with back button
-          SliverAppBar(
+    return PopScope(
+      canPop: true, // Always allow back gesture
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            // Collapsing App Bar with back button
+            SliverAppBar(
             expandedHeight: 120 + topPadding,
             collapsedHeight: kToolbarHeight,
             floating: false,
@@ -218,6 +220,7 @@ class AboutPage extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
+    ),
     );
   }
 

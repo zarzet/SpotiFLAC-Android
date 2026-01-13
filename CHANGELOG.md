@@ -2,12 +2,46 @@
 
 ## [3.0.0-beta.2] - 2026-01-13
 
+### Added
+
+- **Album Folder Structure Setting**: Option to remove artist folder from album path
+  - New setting in Download Settings when "Separate Singles Folder" is enabled
+  - `Artist / Album` (default): `Albums/Artist Name/Album Name/`
+  - `Album Only`: `Albums/Album Name/`
+  - Requested by user who prefers flat album organization
+
 ### Fixed
+
+- **Back Gesture Freeze on OnePlus/Android 13+**: Fixed app freeze when using back gesture in settings
+  - Added `PopScope` with `canPop: true` to all settings pages
+  - Changed navigation to use `PageRouteBuilder` with proper slide transition
+  - Fixes predictive back gesture conflict on devices with gesture navigation
+  - Affected pages: Download, Appearance, Options, Extensions, About, Logs, Extension Detail
+
+- **Extension Search Result Parsing**: Fixed "cannot unmarshal array into Go value" error
+  - Go backend now handles both array and object formats from extensions
+  - Extensions returning `[{track}, {track}]` now work correctly
+  - Extensions returning `{tracks: [...], total: N}` still work as before
 
 - **Max Resolution Cover Download**: Fixed cover not upgrading to max resolution on mobile
   - Added missing `spotifySize300` constant (300x300 size code)
   - Mobile now correctly upgrades 300x300 → 640x640 → max resolution (~2000x2000)
-  - Matches PC version behavior when "Download max resolution song cover" is enabled
+  - Added `_upgradeToMaxQualityCover()` helper in Flutter for M4A conversion path
+  - Go backend `cover.go` now directly replaces URL without HEAD verification
+
+- **Extension Search Provider Reset**: Fixed search provider not resetting to default when disabled
+  - `copyWith` in `AppSettings` couldn't set `searchProvider` to `null`
+  - Added `clearSearchProvider` boolean parameter to properly clear the value
+  - Settings menu now correctly switches back to default provider
+
+- **Extension Disabled Search Fallback**: Fixed error when extension is disabled but still called
+  - `_performSearch` now checks if extension is still enabled before calling custom search
+  - Automatically falls back to Deezer/Spotify search if extension was disabled
+  - Clears `searchProvider` setting if extension no longer available
+
+- **Store Tab Unmount Crash**: Fixed "Using ref when widget is unmounted" error
+  - Added `mounted` check after async operation in `_initialize()`
+  - Prevents crash when navigating away from Store tab during initialization
 
 - **EXISTS: Prefix in File Path**: Fixed "File not found" error in metadata screen after download
   - Duplicate detection was adding `EXISTS:` prefix to file paths

@@ -22,11 +22,13 @@ class DownloadSettingsPage extends ConsumerWidget {
     // Check if current service is built-in (supports quality options)
     final isBuiltInService = _builtInServices.contains(settings.defaultService);
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Collapsing App Bar with back button
-          SliverAppBar(
+    return PopScope(
+      canPop: true, // Always allow back gesture
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            // Collapsing App Bar with back button
+            SliverAppBar(
             expandedHeight: 120 + topPadding,
             collapsedHeight: kToolbarHeight,
             floating: false,
@@ -194,6 +196,19 @@ class DownloadSettingsPage extends ConsumerWidget {
                         .read(settingsProvider.notifier)
                         .setSeparateSingles(value),
                   ),
+                  if (settings.separateSingles)
+                    SettingsItem(
+                      icon: Icons.folder_outlined,
+                      title: 'Album Folder Structure',
+                      subtitle: settings.albumFolderStructure == 'album_only'
+                          ? 'Albums/Album Name/'
+                          : 'Albums/Artist/Album Name/',
+                      onTap: () => _showAlbumFolderStructurePicker(
+                        context,
+                        ref,
+                        settings.albumFolderStructure,
+                      ),
+                    ),
                   if (!settings.separateSingles)
                     SettingsItem(
                       icon: Icons.create_new_folder_outlined,
@@ -215,7 +230,41 @@ class DownloadSettingsPage extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
-      );
+      ),
+    );
+  }
+
+  void _showAlbumFolderStructurePicker(BuildContext context, WidgetRef ref, String current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Artist / Album'),
+              subtitle: const Text('Albums/Artist Name/Album Name/'),
+              trailing: current == 'artist_album' ? const Icon(Icons.check) : null,
+              onTap: () {
+                ref.read(settingsProvider.notifier).setAlbumFolderStructure('artist_album');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.album_outlined),
+              title: const Text('Album Only'),
+              subtitle: const Text('Albums/Album Name/'),
+              trailing: current == 'album_only' ? const Icon(Icons.check) : null,
+              onTap: () {
+                ref.read(settingsProvider.notifier).setAlbumFolderStructure('album_only');
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showFormatEditor(BuildContext context, WidgetRef ref, String current) {

@@ -56,11 +56,13 @@ class _ExtensionDetailPageState extends ConsumerState<ExtensionDetailPage> {
     final topPadding = MediaQuery.of(context).padding.top;
     final hasError = extension.status == 'error';
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App Bar
-          SliverAppBar(
+    return PopScope(
+      canPop: true, // Always allow back gesture
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            // App Bar
+            SliverAppBar(
             expandedHeight: 120 + topPadding,
             collapsedHeight: kToolbarHeight,
             floating: false,
@@ -348,6 +350,7 @@ class _ExtensionDetailPageState extends ConsumerState<ExtensionDetailPage> {
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
+    ),
     );
   }
 

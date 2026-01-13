@@ -81,6 +81,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
 
   Future<void> _performSearch(String query) async {
     final settings = ref.read(settingsProvider);
+    final extState = ref.read(extensionProvider);
     final searchProvider = settings.searchProvider;
     
     // Skip if same query already searched with same provider
@@ -88,11 +89,20 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     if (_lastSearchQuery == searchKey) return;
     _lastSearchQuery = searchKey;
     
-    if (searchProvider != null && searchProvider.isNotEmpty) {
+    // Check if extension search provider is set AND still enabled
+    final isExtensionEnabled = searchProvider != null && 
+        searchProvider.isNotEmpty &&
+        extState.extensions.any((e) => e.id == searchProvider && e.enabled);
+    
+    if (isExtensionEnabled) {
       // Use custom search from extension
       await ref.read(trackProvider.notifier).customSearch(searchProvider, query);
     } else {
       // Use default search (Deezer/Spotify)
+      // Also clear searchProvider if it was set but extension is disabled
+      if (searchProvider != null && searchProvider.isNotEmpty && !isExtensionEnabled) {
+        ref.read(settingsProvider.notifier).setSearchProvider(null);
+      }
       await ref.read(trackProvider.notifier).search(query, metadataSource: settings.metadataSource);
     }
     ref.read(settingsProvider.notifier).setHasSearchedBefore();

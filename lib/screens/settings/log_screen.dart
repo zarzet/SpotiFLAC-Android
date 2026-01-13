@@ -124,12 +124,14 @@ class _LogScreenState extends State<LogScreen> {
     final topPadding = MediaQuery.of(context).padding.top;
     final logs = _filteredLogs;
 
-    return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          // Collapsing App Bar with back button - same as other settings pages
-          SliverAppBar(
+    return PopScope(
+      canPop: true, // Always allow back gesture
+      child: Scaffold(
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // Collapsing App Bar with back button - same as other settings pages
+            SliverAppBar(
             expandedHeight: 120 + topPadding,
             collapsedHeight: kToolbarHeight,
             floating: false,
@@ -378,7 +380,8 @@ class _LogScreenState extends State<LogScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
-      );
+      ),
+    );
   }
 }
 

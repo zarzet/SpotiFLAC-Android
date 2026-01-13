@@ -162,8 +162,19 @@ func (p *ExtensionProviderWrapper) SearchTracks(query string, limit int) (*ExtSe
 	}
 
 	var searchResult ExtSearchResult
+
+	// Try to parse as ExtSearchResult object first
 	if err := json.Unmarshal(jsonBytes, &searchResult); err != nil {
-		return nil, fmt.Errorf("failed to parse search result: %w", err)
+		// If that fails, try parsing as array of tracks directly
+		var tracks []ExtTrackMetadata
+		if arrErr := json.Unmarshal(jsonBytes, &tracks); arrErr != nil {
+			return nil, fmt.Errorf("failed to parse search result: %w (also tried array: %v)", err, arrErr)
+		}
+		// Wrap array in ExtSearchResult
+		searchResult = ExtSearchResult{
+			Tracks: tracks,
+			Total:  len(tracks),
+		}
 	}
 
 	// Set provider ID on all tracks

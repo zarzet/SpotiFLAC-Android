@@ -26,6 +26,10 @@ class _StoreTabState extends ConsumerState<StoreTab> {
     _isInitialized = true;
 
     final cacheDir = await getApplicationCacheDirectory();
+    
+    // Check if widget is still mounted after async operation
+    if (!mounted) return;
+    
     await ref.read(storeProvider.notifier).initialize(cacheDir.path);
   }
 

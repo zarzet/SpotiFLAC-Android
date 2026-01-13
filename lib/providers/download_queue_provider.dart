@@ -669,7 +669,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   }
 
   /// Build output directory based on folder organization setting and separateSingles
-  Future<String> _buildOutputDir(Track track, String folderOrganization, {bool separateSingles = false}) async {
+  Future<String> _buildOutputDir(Track track, String folderOrganization, {bool separateSingles = false, String albumFolderStructure = 'artist_album'}) async {
     String baseDir = state.outputDir;
 
     // If separateSingles is enabled, use Albums/Singles structure
@@ -686,10 +686,19 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         }
         return singlesPath;
       } else {
-        // Albums go to Albums/Artist/Album structure
-        final artistName = _sanitizeFolderName(track.albumArtist ?? track.artistName);
+        // Albums folder structure based on setting
         final albumName = _sanitizeFolderName(track.albumName);
-        final albumPath = '$baseDir${Platform.pathSeparator}Albums${Platform.pathSeparator}$artistName${Platform.pathSeparator}$albumName';
+        String albumPath;
+        
+        if (albumFolderStructure == 'album_only') {
+          // Albums/Album structure (no artist folder)
+          albumPath = '$baseDir${Platform.pathSeparator}Albums${Platform.pathSeparator}$albumName';
+        } else {
+          // Albums/Artist/Album structure (default)
+          final artistName = _sanitizeFolderName(track.albumArtist ?? track.artistName);
+          albumPath = '$baseDir${Platform.pathSeparator}Albums${Platform.pathSeparator}$artistName${Platform.pathSeparator}$albumName';
+        }
+        
         final dir = Directory(albumPath);
         if (!await dir.exists()) {
           await dir.create(recursive: true);
@@ -1001,13 +1010,42 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
   }
 
+  /// Upgrade Spotify cover URL to max quality (~2000x2000)
+  /// Same logic as Go backend cover.go
+  String _upgradeToMaxQualityCover(String coverUrl) {
+    const spotifySize300 = 'ab67616d00001e02'; // 300x300 (small)
+    const spotifySize640 = 'ab67616d0000b273'; // 640x640 (medium)
+    const spotifySizeMax = 'ab67616d000082c1'; // Max resolution (~2000x2000)
+    
+    // First upgrade small (300) to medium (640)
+    var result = coverUrl;
+    if (result.contains(spotifySize300)) {
+      result = result.replaceFirst(spotifySize300, spotifySize640);
+    }
+    
+    // Then upgrade medium (640) to max
+    if (result.contains(spotifySize640)) {
+      result = result.replaceFirst(spotifySize640, spotifySizeMax);
+    }
+    
+    return result;
+  }
+
   /// Embed metadata and cover to a FLAC file after M4A conversion
   Future<void> _embedMetadataAndCover(String flacPath, Track track) async {
+    final settings = ref.read(settingsProvider);
+    
     // Download cover first
     String? coverPath;
-    final coverUrl = track.coverUrl;
+    var coverUrl = track.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
       try {
+        // Upgrade cover URL to max quality if setting is enabled
+        if (settings.maxQualityCover) {
+          coverUrl = _upgradeToMaxQualityCover(coverUrl);
+          _log.d('Cover URL upgraded to max quality: $coverUrl');
+        }
+        
         final tempDir = await getTemporaryDirectory();
         final uniqueId =
             '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(10000)}';
@@ -1446,6 +1484,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         trackToDownload,
         settings.folderOrganization,
         separateSingles: settings.separateSingles,
+        albumFolderStructure: settings.albumFolderStructure,
       );
 
       // Use quality override if set, otherwise use default from settings

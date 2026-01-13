@@ -45,9 +45,11 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final topPadding = MediaQuery.of(context).padding.top;
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
+    return PopScope(
+      canPop: true, // Always allow back gesture
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
           // App Bar
           SliverAppBar(
             expandedHeight: 120 + topPadding,
@@ -248,6 +250,7 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
           ),
         ],
       ),
+    ),
     );
   }
 
