@@ -89,11 +89,9 @@ type deezerAlbumSimple struct {
 	CoverBig    string `json:"cover_big"`
 	CoverXL     string `json:"cover_xl"`
 	ReleaseDate string `json:"release_date"` // Sometimes at album level
+	RecordType  string `json:"record_type"`  // album, single, ep, compile
 }
 
-// ... (skip other structs as they are fine/unchanged) ...
-
-// ... (in convertTrack) ...
 func (c *DeezerClient) convertTrack(track deezerTrack) TrackMetadata {
 	artistName := track.Artist.Name
 	if len(track.Contributors) > 0 {

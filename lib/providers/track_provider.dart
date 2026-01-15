@@ -455,6 +455,8 @@ class TrackNotifier extends Notifier<TrackState> {
         trackNumber: track.trackNumber,
         discNumber: track.discNumber,
         releaseDate: track.releaseDate,
+        albumType: track.albumType,
+        source: track.source,
         availability: ServiceAvailability(
           tidal: availability['tidal'] as bool? ?? false,
           qobuz: availability['qobuz'] as bool? ?? false,
@@ -552,9 +554,10 @@ class TrackNotifier extends Notifier<TrackState> {
       name: data['name'] as String? ?? '',
       releaseDate: data['release_date'] as String? ?? '',
       totalTracks: data['total_tracks'] as int? ?? 0,
-      coverUrl: data['images'] as String?,
+      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
       albumType: data['album_type'] as String? ?? 'album',
       artists: data['artists'] as String? ?? '',
+      providerId: data['provider_id']?.toString(),
     );
   }
 

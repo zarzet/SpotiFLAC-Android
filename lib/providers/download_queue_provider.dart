@@ -1461,6 +1461,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               final data = trackData;
               _log.d('Track data keys: ${data.keys.toList()}');
               _log.d('ISRC from API: ${data['isrc']}');
+              _log.d('album_type from API: ${data['album_type']}');
               trackToDownload = Track(
                 id: (data['spotify_id'] as String?) ?? trackToDownload.id,
                 name: (data['name'] as String?) ?? trackToDownload.name,
@@ -1482,9 +1483,12 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                 releaseDate: data['release_date'] as String?,
                 deezerId: rawId,
                 availability: trackToDownload.availability,
+                // Preserve albumType from API response or original track
+                albumType: (data['album_type'] as String?) ?? trackToDownload.albumType,
+                source: trackToDownload.source,
               );
               _log.d(
-                'Metadata enriched: Track ${trackToDownload.trackNumber}, Disc ${trackToDownload.discNumber}, ISRC ${trackToDownload.isrc}',
+                'Metadata enriched: Track ${trackToDownload.trackNumber}, Disc ${trackToDownload.discNumber}, ISRC ${trackToDownload.isrc}, AlbumType ${trackToDownload.albumType}',
               );
             } else {
               _log.w('Unexpected track data type: ${trackData.runtimeType}');
@@ -1720,6 +1724,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                         releaseDate: backendYear ?? trackToDownload.releaseDate,
                         deezerId: trackToDownload.deezerId,
                         availability: trackToDownload.availability,
+                        albumType: trackToDownload.albumType,
+                        source: trackToDownload.source,
                       );
                     }
 

@@ -1431,6 +1431,7 @@ class _ExtensionAlbumScreenState extends ConsumerState<ExtensionAlbumScreen> {
         widget.extensionId,
         widget.albumId,
       );
+      if (!mounted) return;
       
       if (result == null) {
         setState(() {
@@ -1457,6 +1458,7 @@ class _ExtensionAlbumScreenState extends ConsumerState<ExtensionAlbumScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;
@@ -1567,6 +1569,7 @@ class _ExtensionPlaylistScreenState extends ConsumerState<ExtensionPlaylistScree
         widget.extensionId,
         widget.playlistId,
       );
+      if (!mounted) return;
       
       if (result == null) {
         setState(() {
@@ -1593,6 +1596,7 @@ class _ExtensionPlaylistScreenState extends ConsumerState<ExtensionPlaylistScree
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;
@@ -1702,6 +1706,7 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
         widget.extensionId,
         widget.artistId,
       );
+      if (!mounted) return;
       
       if (result == null) {
         setState(() {
@@ -1728,6 +1733,7 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;

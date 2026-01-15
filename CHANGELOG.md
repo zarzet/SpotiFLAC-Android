@@ -1,16 +1,20 @@
 # Changelog
 
-## [3.0.1] - 2026-01-21
+## [Unreleased]
+
+## [3.1.0] - 2026-01-19
 
 ### Added
 
 - **Year in Album Folder Name** ([#50](https://github.com/zarzet/SpotiFLAC-Mobile/issues/50)): New album folder structure options with release year
+
   - `Artist / [Year] Album`: Albums/Coldplay/[2005] X&Y/
   - `[Year] Album Only`: Albums/[2005] X&Y/
   - Year extracted from release date metadata
   - Matches desktop SpotiFLAC folder structure
 
 - **Extension Album/Playlist/Artist Support**: Extensions can now return albums, playlists, and artists in search results
+
   - Search results now properly separated into Albums, Playlists, Artists, and Songs sections
   - Albums, playlists, and artists show chevron icon (navigate to detail) instead of download button
   - Tap album/playlist to view track list and download
@@ -28,6 +32,18 @@
 
 ### Fixed
 
+- Fixed search source chips still referencing removed badge props.
+- Fixed extension artist album metadata to preserve provider IDs and cover URLs for correct navigation.
+- Fixed extension playlist fetch to populate provider IDs and reject disabled extensions.
+- Fixed extension collection screens calling setState after dispose during async loads.
+- Fixed URL handler responses to include provider IDs for extension albums and artists.
+- Fixed YTMusic extension not extracting album name and duration from search results.
+  - Album name is now extracted from flexColumns/subtitle when linked to album browseId.
+  - Duration is now extracted from fixedColumns/flexColumns in addition to existing sources.
+- Fixed "Separate Singles" setting not working ([#54](https://github.com/zarzet/SpotiFLAC-Mobile/issues/54)) - singles were going to Albums folder.
+  - Root cause: `albumType` was not being extracted from Deezer API during metadata enrichment.
+  - Deezer track responses now correctly include `album_type` (single/ep/album/compilation).
+  - Track creation now preserves `albumType` and `source` fields throughout download flow.
 - Fixed PageView overscroll at edges (BouncingScrollPhysics → ClampingScrollPhysics)
 - Fixed settings item highlight on swipe (highlightColor: Colors.transparent)
 - Fixed extension duplicate load error (skip silently instead of throwing error)
@@ -46,11 +62,12 @@
 
 ## [3.0.0] - 2026-01-14
 
-### 🎉 Extension System (Major Feature)
+### Extension System (Major Feature)
 
 SpotiFLAC 3.0 introduces a powerful extension system that allows third-party integrations for metadata, downloads, and more.
 
 #### Extension Store
+
 - Browse and install extensions directly from the app
 - New "Store" tab in bottom navigation
 - Browse by category: Metadata, Download, Utility, Lyrics, Integration
@@ -59,6 +76,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 - Offline cache for browsing without internet
 
 #### Extension Capabilities
+
 - **Custom Search Providers**
 - **Custom URL Handlers**
 - **Custom Thumbnail Ratios**: Square (1:1), Wide (16:9), Portrait (2:3)
@@ -66,6 +84,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 - **Quality Options**: Extensions can define custom quality settings
 
 #### Extension APIs
+
 - Full HTTP support: GET, POST, PUT, DELETE, PATCH
 - Persistent cookie jar per extension
 - Browser-like polyfills: `fetch()`, `atob()`/`btoa()`, `TextEncoder`/`TextDecoder`, `URL`/`URLSearchParams`
@@ -74,6 +93,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 - HMAC-SHA1 utility for cryptographic operations
 
 #### Security
+
 - Sandboxed JavaScript runtime (goja)
 - Permission-based access control
 - Network domain whitelisting
@@ -82,14 +102,17 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 ### Added
 
 - **Album Folder Structure Setting**: Option to remove artist folder from album path
+
   - `Artist / Album` (default): `Albums/Artist Name/Album Name/`
   - `Album Only`: `Albums/Album Name/`
 
 - **Separate Singles Folder**: Organize downloads into Albums/ and Singles/ folders
+
   - Based on `album_type` from Spotify/Deezer metadata
   - Toggle in Settings > Download > Separate Singles Folder
 
 - **Year in Album Folder Name**: New album folder structure options with release year
+
   - `Artist / [Year] Album`: Albums/Coldplay/[2005] X&Y/
   - `[Year] Album Only`: Albums/[2005] X&Y/
   - Year extracted from release date metadata
@@ -103,33 +126,42 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 ### Fixed
 
 - **Back Gesture Freeze on Android 13+**: Fixed app freeze when using back gesture in settings
+
   - Added `PopScope` with `canPop: true` to all settings pages
   - Changed navigation to use `PageRouteBuilder` with proper slide transition
 
 - **Bottom Overflow in Folder Organization Dialog**: Fixed overflow in portrait and landscape mode
+
   - Made dialog scrollable with max height constraint
 
 - **Japanese Artist Name Order**: Fixed artist mismatch for Japanese names
+
   - "Sawano Hiroyuki" vs "Hiroyuki Sawano" now correctly matches
 
 - **Multi-Artist Matching**: Fixed artist mismatch for collaboration tracks
+
   - "RADWIMPS feat. Toko Miura" now matches when service only shows "Toko Miura"
 
 - **Max Resolution Cover Download**: Fixed cover not upgrading to max resolution on mobile
+
   - Mobile now correctly upgrades 300x300 → 640x640 → max resolution (~2000x2000)
 
 - **EXISTS: Prefix in File Path**: Fixed "File not found" error in metadata screen
+
   - Duplicate detection prefix now stripped before saving to history
 
 - **Extension Search Result Parsing**: Fixed "cannot unmarshal array" error
+
   - Go backend now handles both array and object formats from extensions
 
 - **Store Tab Unmount Crash**: Fixed "Using ref when widget is unmounted" error
 
 - **Duplicate History Entries**: Fixed duplicate entries when re-downloading same track
+
   - Detects existing entries by Spotify ID, Deezer ID, or ISRC
 
 - **Permission Error Message**: Fixed download showing "Song not found" when actually permission error
+
   - Now shows proper message: "Cannot write to folder, check storage permission"
 
 - **Android 13+ Storage Permission**: Fixed storage permission not working on Android 13+
@@ -167,62 +199,74 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 ### Fixed
 
 - **Back Gesture Freeze on OnePlus/Android 13+**: Fixed app freeze when using back gesture in settings
+
   - Added `PopScope` with `canPop: true` to all settings pages
   - Changed navigation to use `PageRouteBuilder` with proper slide transition
   - Fixes predictive back gesture conflict on devices with gesture navigation
   - Affected pages: Download, Appearance, Options, Extensions, About, Logs, Extension Detail
 
 - **Extension Search Result Parsing**: Fixed "cannot unmarshal array into Go value" error
+
   - Go backend now handles both array and object formats from extensions
   - Extensions returning `[{track}, {track}]` now work correctly
   - Extensions returning `{tracks: [...], total: N}` still work as before
 
 - **Max Resolution Cover Download**: Fixed cover not upgrading to max resolution on mobile
+
   - Added missing `spotifySize300` constant (300x300 size code)
   - Mobile now correctly upgrades 300x300 → 640x640 → max resolution (~2000x2000)
   - Added `_upgradeToMaxQualityCover()` helper in Flutter for M4A conversion path
   - Go backend `cover.go` now directly replaces URL without HEAD verification
 
 - **Extension Search Provider Reset**: Fixed search provider not resetting to default when disabled
+
   - `copyWith` in `AppSettings` couldn't set `searchProvider` to `null`
   - Added `clearSearchProvider` boolean parameter to properly clear the value
   - Settings menu now correctly switches back to default provider
 
 - **Extension Disabled Search Fallback**: Fixed error when extension is disabled but still called
+
   - `_performSearch` now checks if extension is still enabled before calling custom search
   - Automatically falls back to Deezer/Spotify search if extension was disabled
   - Clears `searchProvider` setting if extension no longer available
 
 - **Store Tab Unmount Crash**: Fixed "Using ref when widget is unmounted" error
+
   - Added `mounted` check after async operation in `_initialize()`
   - Prevents crash when navigating away from Store tab during initialization
 
 - **EXISTS: Prefix in File Path**: Fixed "File not found" error in metadata screen after download
+
   - Duplicate detection was adding `EXISTS:` prefix to file paths
   - Prefix now stripped before saving to download history
   - Legacy history items with prefix are handled gracefully
 
 - **History Error Badge**: Fixed error badge showing on history items even when file exists
+
   - `queue_tab.dart` now strips `EXISTS:` prefix before checking file existence
   - File open and delete operations also use cleaned path
 
 - **Extension Artist URL Handler**: Fixed artist pages showing "0 releases" from extensions
+
   - Extension `fetchArtist` now returns correct format: `{ type: "artist", artist: { albums } }`
   - Go backend `HandleURLWithExtensionJSON` now includes albums in artist response
   - Added `AlbumType` field to `ExtAlbumMetadata` struct
 
 - **Extension Artist Name in Logs**: Fixed empty artist name in extension track logs
+
   - Now uses `firstArtist` + `otherArtists` instead of deprecated `artists.items`
   - Logs correctly show "Fetched track: {title} by {artist}"
 
 - **Japanese Artist Name Order**: Fixed artist mismatch for Japanese names with different order
+
   - "Sawano Hiroyuki" vs "Hiroyuki Sawano" now correctly matches
   - Added `sameWordsUnordered` check to both Tidal and Qobuz artist matching
   - Handles Japanese name order (family name first) vs Western name order (given name first)
 
 - **Multi-Artist Matching**: Fixed artist mismatch for collaboration tracks
+
   - "RADWIMPS feat. Toko Miura" now matches when Qobuz/Tidal only shows "Toko Miura"
-  - Split artists by separators (`, `, ` feat. `, ` ft. `, ` & `, ` and `, ` x `)
+  - Split artists by separators (`, `, `feat.`, `ft.`, `&`, `and`, `x`)
   - Match if ANY expected artist matches ANY found artist
 
 - **Cover Download Logging**: Improved cover download logs for debugging
@@ -263,6 +307,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 ### Added
 
 - **Extension Store**: Browse and install extensions directly from the app
+
   - New "Store" tab in bottom navigation
   - Browse extensions by category (Metadata, Download, Utility, Lyrics, Integration)
   - Search extensions by name, description, or tags
@@ -271,6 +316,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
   - Extensions hosted at github.com/zarzet/SpotiFLAC-Extension
 
 - **Custom URL Handler for Extensions**: Extensions can now register custom URL patterns
+
   - Handle URLs from YouTube Music, SoundCloud, Bandcamp, etc.
   - Manifest config: `urlHandler: { enabled: true, patterns: ["music.youtube.com"] }`
   - Implement `handleUrl(url)` function in extension to parse and return track metadata
@@ -278,6 +324,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
   - Supports share intents and paste from clipboard
 
 - **Artist URL Handler Support**: Extensions can now return artist data from URL handlers
+
   - Added `type: "artist"` handling in track_provider.dart
   - Navigate to artist screen with albums list from extension
 
@@ -355,7 +402,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 
 - **Full HTTP Method Support**: New shortcut methods for all common HTTP verbs
   - `http.put(url, body, headers)` - PUT requests
-  - `http.delete(url, headers)` - DELETE requests  
+  - `http.delete(url, headers)` - DELETE requests
   - `http.patch(url, body, headers)` - PATCH requests
   - `http.clearCookies()` - Clear all cookies for the extension
 - **Persistent Cookie Jar**: Each extension now has its own cookie jar
@@ -397,6 +444,7 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 ## [3.0.0-alpha.1] - 2026-01-11
 
 #### Extension System
+
 - **Custom Search Providers**: Extensions can now provide custom search functionality
   - YouTube, SoundCloud, and other platforms via extensions
   - Custom search placeholder text per extension

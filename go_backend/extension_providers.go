@@ -1213,6 +1213,21 @@ func (p *ExtensionProviderWrapper) HandleURL(url string) (*ExtURLHandleResult, e
 	for i := range handleResult.Tracks {
 		handleResult.Tracks[i].ProviderID = p.extension.ID
 	}
+	if handleResult.Album != nil {
+		handleResult.Album.ProviderID = p.extension.ID
+		for i := range handleResult.Album.Tracks {
+			handleResult.Album.Tracks[i].ProviderID = p.extension.ID
+		}
+	}
+	if handleResult.Artist != nil {
+		handleResult.Artist.ProviderID = p.extension.ID
+		for i := range handleResult.Artist.Albums {
+			handleResult.Artist.Albums[i].ProviderID = p.extension.ID
+			for j := range handleResult.Artist.Albums[i].Tracks {
+				handleResult.Artist.Albums[i].Tracks[j].ProviderID = p.extension.ID
+			}
+		}
+	}
 
 	return &handleResult, nil
 }

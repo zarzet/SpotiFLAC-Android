@@ -1638,15 +1638,17 @@ func HandleURLWithExtensionJSON(url string) (string, error) {
 			"release_date": result.Album.ReleaseDate,
 			"total_tracks": result.Album.TotalTracks,
 			"album_type":   result.Album.AlbumType,
+			"provider_id":  result.Album.ProviderID,
 		}
 	}
 
 	// Add artist info if present
 	if result.Artist != nil {
 		artistResponse := map[string]interface{}{
-			"id":        result.Artist.ID,
-			"name":      result.Artist.Name,
-			"image_url": result.Artist.ImageURL,
+			"id":          result.Artist.ID,
+			"name":        result.Artist.Name,
+			"image_url":   result.Artist.ImageURL,
+			"provider_id": result.Artist.ProviderID,
 		}
 
 		// Add albums if present
@@ -1662,9 +1664,11 @@ func HandleURLWithExtensionJSON(url string) (string, error) {
 					"name":         album.Name,
 					"artists":      album.Artists,
 					"images":       album.CoverURL,
+					"cover_url":    album.CoverURL,
 					"release_date": album.ReleaseDate,
 					"total_tracks": album.TotalTracks,
 					"album_type":   albumType,
+					"provider_id":  album.ProviderID,
 				}
 			}
 			artistResponse["albums"] = albums
@@ -1702,6 +1706,9 @@ func GetAlbumWithExtensionJSON(extensionID, albumID string) (string, error) {
 
 	if !ext.Manifest.IsMetadataProvider() {
 		return "", fmt.Errorf("extension '%s' is not a metadata provider", extensionID)
+	}
+	if !ext.Enabled {
+		return "", fmt.Errorf("extension '%s' is disabled", extensionID)
 	}
 
 	provider := NewExtensionProviderWrapper(ext)
@@ -1806,6 +1813,10 @@ func GetPlaylistWithExtensionJSON(extensionID, playlistID string) (string, error
 	var album ExtAlbumMetadata
 	if err := json.Unmarshal(jsonBytes, &album); err != nil {
 		return "", fmt.Errorf("failed to parse playlist: %w", err)
+	}
+	album.ProviderID = ext.ID
+	for i := range album.Tracks {
+		album.Tracks[i].ProviderID = ext.ID
 	}
 
 	// Convert tracks to map format

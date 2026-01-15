@@ -845,8 +845,6 @@ class _MetadataSourceSelector extends ConsumerWidget {
               _SourceChip(
                 icon: Icons.graphic_eq,
                 label: 'Deezer',
-                badge: 'Free',
-                badgeColor: colorScheme.tertiary,
                 // Not selected if extension is active
                 isSelected: currentSource == 'deezer' && !hasExtensionSearch,
                 onTap: () {
@@ -861,8 +859,6 @@ class _MetadataSourceSelector extends ConsumerWidget {
               _SourceChip(
                 icon: Icons.music_note,
                 label: 'Spotify',
-                badge: 'API Key',
-                badgeColor: colorScheme.secondary,
                 // Not selected if extension is active
                 isSelected: currentSource == 'spotify' && !hasExtensionSearch,
                 onTap: () {
