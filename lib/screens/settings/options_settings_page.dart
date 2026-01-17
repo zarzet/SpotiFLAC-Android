@@ -835,7 +835,6 @@ class _MetadataSourceSelector extends ConsumerWidget {
               _SourceChip(
                 icon: Icons.graphic_eq,
                 label: 'Deezer',
-                // Not selected if extension is active
                 isSelected: currentSource == 'deezer' && !hasExtensionSearch,
                 onTap: () {
                   if (hasExtensionSearch) {

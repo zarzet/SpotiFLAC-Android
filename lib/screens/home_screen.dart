@@ -75,7 +75,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _currentIndex = index);
     switch (index) {
       case 0:
-        // Already on home
         break;
       case 1:
         context.push('/queue');
@@ -112,7 +111,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // URL Input
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
@@ -132,7 +130,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          // Error message
           if (trackState.error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -142,15 +139,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-          // Loading indicator
           if (trackState.isLoading)
             LinearProgressIndicator(color: colorScheme.primary),
 
-          // Album/Playlist header
           if (trackState.albumName != null || trackState.playlistName != null)
             _buildHeader(trackState, colorScheme),
 
-          // Download All button
           if (trackState.tracks.length > 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -164,7 +158,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-          // Track list
           Expanded(
             child: trackState.tracks.isEmpty
                 ? _buildEmptyState(colorScheme)
@@ -252,7 +245,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            // Play all button
             FilledButton.tonal(
               onPressed: _downloadAll,
               style: FilledButton.styleFrom(
@@ -271,7 +263,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final track = ref.watch(trackProvider).tracks[index];
     final isCollection = track.isCollection;
     
-    // Determine subtitle text based on item type
     String subtitleText;
     if (isCollection) {
       final typeLabel = track.albumType ?? (track.isPlaylistItem ? 'Playlist' : 'Album');
@@ -332,7 +323,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final extensionId = track.source;
     if (extensionId == null) return;
     
-    // Fetch album/playlist tracks using the extension
     try {
       if (track.isAlbumItem) {
         final albumData = await PlatformBridge.getAlbumWithExtension(extensionId, track.id);

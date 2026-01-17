@@ -100,7 +100,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   void initState() {
     super.initState();
     
-    // Record access for recent history
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final providerId = widget.extensionId ?? 
                         (widget.artistId.startsWith('deezer:') ? 'deezer' : 'spotify');
@@ -117,7 +116,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
       _topTracks = widget.topTracks;
       _headerImageUrl = widget.headerImageUrl;
       _monthlyListeners = widget.monthlyListeners;
-      // Extension artists don't need additional fetching
       return;
     }
     
@@ -138,7 +136,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
       _headerImageUrl = cached.headerImageUrl;
       _monthlyListeners = cached.monthlyListeners;
       
-      // If cache has no top tracks, fetch
       if (_topTracks == null || _topTracks!.isEmpty) {
         _fetchDiscography();
       }
@@ -169,7 +166,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
           final albumsList = artistData['albums'] as List<dynamic>? ?? [];
           albums = albumsList.map((a) => _parseArtistAlbum(a as Map<String, dynamic>)).toList();
           
-          // Parse top tracks if available
           final topTracksList = artistData['top_tracks'] as List<dynamic>? ?? [];
           if (topTracksList.isNotEmpty) {
             topTracks = topTracksList.map((t) => _parseTrack(t as Map<String, dynamic>)).toList();
@@ -178,14 +174,12 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
           headerImage = artistData['header_image'] as String?;
           listeners = artistData['listeners'] as int?;
         } else {
-          // Fallback to Spotify API metadata
           final metadata = await PlatformBridge.getSpotifyMetadataWithFallback(url);
           final albumsList = metadata['albums'] as List<dynamic>;
           albums = albumsList.map((a) => _parseArtistAlbum(a as Map<String, dynamic>)).toList();
         }
       }
       
-      // Store in cache (preserve existing values if new ones are null)
       final finalHeaderImage = headerImage ?? _headerImageUrl ?? widget.headerImageUrl;
       final finalListeners = listeners ?? _monthlyListeners ?? widget.monthlyListeners;
       
@@ -277,10 +271,8 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               child: _buildErrorWidget(_error!, colorScheme),
             )),
           if (!_isLoadingDiscography && _error == null) ...[
-            // Popular tracks section
             if (_topTracks != null && _topTracks!.isNotEmpty)
               SliverToBoxAdapter(child: _buildPopularSection(colorScheme)),
-            // Discography sections
             if (albumsOnly.isNotEmpty) 
               SliverToBoxAdapter(child: _buildAlbumSection(context.l10n.artistAlbums, albumsOnly, colorScheme)),
             if (singles.isNotEmpty) 
@@ -308,7 +300,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                           imageUrl.isNotEmpty &&
                           Uri.tryParse(imageUrl)?.hasAuthority == true;
     
-    // Format monthly listeners
     String? listenersText;
     final listeners = _monthlyListeners ?? widget.monthlyListeners;
     if (listeners != null && listeners > 0) {
@@ -326,7 +317,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Background image - full width, no circular crop
             if (hasValidImage)
               CachedNetworkImage(
                 imageUrl: imageUrl,
@@ -346,7 +336,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                 color: colorScheme.surfaceContainerHighest,
                 child: Icon(Icons.person, size: 80, color: colorScheme.onSurfaceVariant),
               ),
-            // Gradient overlay for text readability
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -362,7 +351,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                 ),
               ),
             ),
-            // Artist name and listeners at bottom
             Positioned(
               left: 16,
               right: 16,
@@ -428,7 +416,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   Widget _buildPopularSection(ColorScheme colorScheme) {
     if (_topTracks == null || _topTracks!.isEmpty) return const SizedBox.shrink();
     
-    // Show max 5 tracks
     final tracks = _topTracks!.take(5).toList();
     
     return Column(
@@ -454,7 +441,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
 
   /// Build a single popular track item with dynamic download status
   Widget _buildPopularTrackItem(int rank, Track track, ColorScheme colorScheme) {
-    // Watch download queue for this track's status
     final queueItem = ref.watch(downloadQueueProvider.select((state) {
       return state.items.where((item) => item.track.id == track.id).firstOrNull;
     }));
@@ -469,7 +455,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     final isCompleted = queueItem?.status == DownloadStatus.completed;
     final progress = queueItem?.progress ?? 0.0;
     
-    // Show as downloaded if in queue completed OR in history
     final showAsDownloaded = isCompleted || (!isQueued && isInHistory);
     
     return InkWell(
@@ -478,7 +463,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            // Rank number
             SizedBox(
               width: 24,
               child: Text(
@@ -490,7 +474,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            // Album art
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: track.coverUrl != null
@@ -520,7 +503,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                     ),
             ),
             const SizedBox(width: 12),
-            // Track info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,7 +527,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                 ],
               ),
             ),
-            // Download button with status
             _buildPopularDownloadButton(
               track: track,
               colorScheme: colorScheme,
@@ -729,7 +710,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Album cover
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: album.coverUrl != null
@@ -759,7 +739,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                     ),
             ),
             const SizedBox(height: 8),
-            // Album name
             Text(
               album.name,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -769,7 +748,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            // Year and track count
             Text(
               album.totalTracks > 0 
                   ? '${album.releaseDate.length >= 4 ? album.releaseDate.substring(0, 4) : album.releaseDate} ${context.l10n.tracksCount(album.totalTracks)}'

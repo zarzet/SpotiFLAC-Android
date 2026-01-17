@@ -267,7 +267,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
     try {
       if (Platform.isIOS) {
-        // iOS: Show options dialog
         await _showIOSDirectoryOptions();
       } else {
         String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
@@ -418,7 +417,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
       ref.read(settingsProvider.notifier).setDownloadDirectory(_selectedDirectory!);
       
-      // Save Spotify credentials if provided
       if (_useSpotifyApi && 
           _clientIdController.text.trim().isNotEmpty && 
           _clientSecretController.text.trim().isNotEmpty) {
@@ -573,15 +571,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
   bool _isStepCompleted(int step) {
     if (_androidSdkVersion >= 33) {
-      // 4 steps: Storage, Notification, Folder, Spotify
       switch (step) {
         case 0: return _storagePermissionGranted;
         case 1: return _notificationPermissionGranted;
         case 2: return _selectedDirectory != null;
-        case 3: return false; // Spotify step never shows checkmark (optional)
+        case 3: return false;
       }
     } else {
-      // 3 steps: Permission, Folder, Spotify
       switch (step) {
         case 0: return _storagePermissionGranted;
         case 1: return _selectedDirectory != null;

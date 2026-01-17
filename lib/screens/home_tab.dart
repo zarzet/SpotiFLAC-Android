@@ -30,7 +30,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   final _urlController = TextEditingController();
   bool _isTyping = false;
   final FocusNode _searchFocusNode = FocusNode();
-  String? _lastSearchQuery; // Track last searched query to avoid duplicate searches
+  String? _lastSearchQuery;
   
   @override
   bool get wantKeepAlive => true;
@@ -52,9 +52,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   void _onSearchFocusChanged() {
-    // When focused, enter recent access mode
-    // When unfocused (keyboard dismissed), keep recent access mode visible
-    // User must press back button to exit recent access mode
     if (_searchFocusNode.hasFocus) {
       ref.read(trackProvider.notifier).setShowingRecentAccess(true);
     }
@@ -62,8 +59,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
 
   /// Called when trackState changes - used to sync search bar with state
   void _onTrackStateChanged(TrackState? previous, TrackState next) {
-    // If state was cleared (no content, no search text, not loading), clear the search bar
-    // BUT only if search field is not focused (to prevent clearing while user is typing)
     if (previous != null && 
         !next.hasContent && 
         !next.hasSearchText && 
@@ -86,9 +81,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       // Provider will be cleared when user explicitly clears or navigates away
       return;
     }
-    
-    // No auto-search - user must press Enter to search
-    // This saves API calls and avoids rate limiting
   }
 
   Future<void> _performSearch(String query) async {
@@ -96,7 +88,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final extState = ref.read(extensionProvider);
     final searchProvider = settings.searchProvider;
     
-    // Skip if same query already searched with same provider
     final searchKey = '${searchProvider ?? 'default'}:$query';
     if (_lastSearchQuery == searchKey) return;
     _lastSearchQuery = searchKey;
@@ -120,7 +111,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
       _urlController.text = data!.text!;
-      // For URLs, trigger fetch immediately after paste
       final text = data.text!.trim();
       if (text.startsWith('http') || text.startsWith('spotify:')) {
         _fetchMetadata();
@@ -131,7 +121,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   Future<void> _clearAndRefresh() async {
     _urlController.clear();
     _searchFocusNode.unfocus();
-    _lastSearchQuery = null; // Reset last query
+    _lastSearchQuery = null;
     setState(() => _isTyping = false);
     ref.read(trackProvider.notifier).clear();
   }
@@ -153,7 +143,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   void _navigateToDetailIfNeeded() {
     final trackState = ref.read(trackProvider);
     
-    // Navigate to Album screen (recording is done in AlbumScreen.initState)
     if (trackState.albumId != null && trackState.albumName != null && trackState.tracks.isNotEmpty) {
       Navigator.push(context, MaterialPageRoute(builder: (context) => AlbumScreen(
         albumId: trackState.albumId!,
@@ -167,9 +156,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       return;
     }
     
-    // Navigate to Playlist screen
     if (trackState.playlistName != null && trackState.tracks.isNotEmpty) {
-      // Record access for playlist (no separate screen to record in)
       ref.read(recentAccessProvider.notifier).recordPlaylistAccess(
         id: trackState.playlistName!,
         name: trackState.playlistName!,
@@ -188,7 +175,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       return;
     }
     
-    // Navigate to Artist screen (recording is done in ArtistScreen.initState)
     if (trackState.artistId != null && trackState.artistName != null && trackState.artistAlbums != null) {
       Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistScreen(
         artistId: trackState.artistId!,
@@ -228,7 +214,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   Future<void> _importCsv(BuildContext context, WidgetRef ref) async {
-    // Show loading dialog with progress
     int currentProgress = 0;
     int totalTracks = 0;
     
@@ -274,7 +259,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       },
     );
     
-    // Close progress dialog
     if (dialogShown && mounted) {
       Navigator.of(this.context).pop();
     }
@@ -287,7 +271,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       // ignore: use_build_context_synchronously
       final l10n = context.l10n;
       
-      // Optionally show confirmation dialog
       final confirmed = await showDialog<bool>(
         context: this.context,
         builder: (dialogCtx) => AlertDialog(
@@ -321,8 +304,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           );
         }
       }
-    } else {
-       // Only show error if pick was not cancelled (handled inside service logging usually, but maybe show snackbar if file empty)
     }
   }
 
@@ -330,10 +311,8 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   Widget build(BuildContext context) {
     super.build(context);
     
-    // Listen for state changes to sync search bar and auto-navigate
     ref.listen<TrackState>(trackProvider, (previous, next) {
       _onTrackStateChanged(previous, next);
-      // Auto-navigate when URL fetch completes
       if (previous != null && previous.isLoading && !next.isLoading && next.error == null) {
         _navigateToDetailIfNeeded();
       }
@@ -351,18 +330,15 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final colorScheme = Theme.of(context).colorScheme;
     final hasActualResults = tracks.isNotEmpty || (searchArtists != null && searchArtists.isNotEmpty);
     final isShowingRecentAccess = ref.watch(trackProvider.select((s) => s.isShowingRecentAccess));
-    // Move search bar up when in recent access mode or has results
     final hasResults = isShowingRecentAccess || hasActualResults || isLoading;
     final screenHeight = MediaQuery.of(context).size.height;
     final topPadding = MediaQuery.of(context).padding.top;
     final historyItems = ref.watch(downloadHistoryProvider.select((s) => s.items));
     final recentAccessItems = ref.watch(recentAccessProvider.select((s) => s.items));
     
-    // Show recent access when in mode but no actual results yet (includes download history)
     final hasRecentItems = recentAccessItems.isNotEmpty || historyItems.isNotEmpty;
     final showRecentAccess = isShowingRecentAccess && hasRecentItems && !hasActualResults && !isLoading;
     
-    // Exit recent access mode when results appear
     if (hasActualResults && isShowingRecentAccess) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) ref.read(trackProvider.notifier).setShowingRecentAccess(false);
@@ -371,7 +347,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
 
     return GestureDetector(
       onTap: () {
-        // Unfocus search bar when tapping outside
         if (_searchFocusNode.hasFocus) {
           _searchFocusNode.unfocus();
         }
@@ -381,7 +356,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
         body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            // App Bar - always present
             SliverAppBar(
               expandedHeight: 120 + topPadding,
               collapsedHeight: kToolbarHeight,
@@ -412,7 +386,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             ),
           ),
           
-          // Idle content (logo, title) - always in tree, animated size
           SliverToBoxAdapter(
             child: AnimatedSize(
               duration: const Duration(milliseconds: 250),
@@ -431,10 +404,9 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
                           ),
                           child: Image.asset(
                             'assets/images/logo-transparant.png',
-                            color: colorScheme.onPrimary, // Tint with onPrimary color
+                            color: colorScheme.onPrimary,
                             fit: BoxFit.contain,
                             errorBuilder: (_, _, _) => ClipRRect(
-                              // Fallback to original logo if transparent one is missing
                               borderRadius: BorderRadius.circular(24),
                               child: Image.asset(
                                 'assets/images/logo.png',
@@ -465,7 +437,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             ),
           ),
           
-          // Search bar - always present at same position in tree
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, hasResults ? 8 : 32, 16, hasResults ? 8 : 16),
@@ -473,14 +444,11 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             ),
           ),
           
-          // Recent access history - shown when in recent access mode (persists after keyboard dismissed)
-          // User can exit by pressing back button
           if (showRecentAccess)
             SliverToBoxAdapter(
               child: _buildRecentAccess(recentAccessItems, colorScheme),
             ),
           
-          // Idle content below search bar - always in tree
           SliverToBoxAdapter(
             child: AnimatedSize(
               duration: const Duration(milliseconds: 250),
@@ -510,7 +478,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             ),
           ),
           
-          // Results content - search results only (albums/artists/playlists navigate to separate screens)
           ..._buildSearchResults(
             tracks: tracks,
             searchArtists: searchArtists,
@@ -598,7 +565,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
 
   /// Build recent access history section (shown when search focused)
   Widget _buildRecentAccess(List<RecentAccessItem> items, ColorScheme colorScheme) {
-    // Merge with recent downloads to make the list more populated
     final historyItems = ref.read(downloadHistoryProvider).items;
     
     final downloadItems = historyItems.take(10).where((h) => h.spotifyId != null && h.spotifyId!.isNotEmpty).map((h) => RecentAccessItem(
@@ -611,11 +577,9 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       providerId: 'download',
     )).toList();
     
-    // Merge and sort by accessedAt (most recent first)
     final allItems = [...items, ...downloadItems];
     allItems.sort((a, b) => b.accessedAt.compareTo(a.accessedAt));
     
-    // Remove duplicates (keep the most recent one)
     final seen = <String>{};
     final uniqueItems = allItems.where((item) {
       final key = '${item.type.name}:${item.id}';
@@ -629,7 +593,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with clear button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -651,7 +614,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             ],
           ),
           const SizedBox(height: 8),
-          // List of recent items
           ...uniqueItems.map((item) => _buildRecentAccessItem(item, colorScheme)),
         ],
       ),
@@ -659,7 +621,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   Widget _buildRecentAccessItem(RecentAccessItem item, ColorScheme colorScheme) {
-    // Icon and label based on type
     IconData typeIcon;
     String typeLabel;
     switch (item.type) {
@@ -686,7 +647,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
-              // Image
               ClipRRect(
                 borderRadius: BorderRadius.circular(item.type == RecentAccessType.artist ? 28 : 4),
                 child: item.imageUrl != null && item.imageUrl!.isNotEmpty
@@ -711,7 +671,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
                       ),
               ),
               const SizedBox(width: 12),
-              // Text content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,19 +751,15 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ));
         }
       case RecentAccessType.track:
-        // For tracks from download history, navigate to metadata screen
         final historyItem = ref.read(downloadHistoryProvider.notifier).getBySpotifyId(item.id);
         if (historyItem != null) {
           _navigateToMetadataScreen(historyItem);
         } else {
-          // Track not in history anymore
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(item.name)),
           );
         }
       case RecentAccessType.playlist:
-        // Playlist needs tracks, so we just show info
-        // Could potentially re-fetch using URL handler if we stored URL
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.recentPlaylistInfo(item.name))),
         );
@@ -865,7 +820,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       );
     }
     
-    // Default error display
     return Card(
       elevation: 0,
       color: colorScheme.errorContainer.withValues(alpha: 0.5),
@@ -883,7 +837,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     );
   }
 
-  // Search results slivers - only shows search results (track list)
   List<Widget> _buildSearchResults({
     required List<Track> tracks,
     required List<SearchArtist>? searchArtists,
@@ -896,29 +849,24 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       return [const SliverToBoxAdapter(child: SizedBox.shrink())];
     }
     
-    // Separate tracks from albums/playlists/artists
     final realTracks = tracks.where((t) => !t.isCollection).toList();
     final albumItems = tracks.where((t) => t.isAlbumItem).toList();
     final playlistItems = tracks.where((t) => t.isPlaylistItem).toList();
     final artistItems = tracks.where((t) => t.isArtistItem).toList();
     
     return [
-      // Error message - with special handling for rate limit (429)
       if (error != null)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _buildErrorWidget(error, colorScheme),
         )),
 
-      // Loading indicator
       if (isLoading)
         const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: LinearProgressIndicator())),
 
-      // Artist search results (horizontal scroll) - from built-in providers
       if (searchArtists != null && searchArtists.isNotEmpty)
         SliverToBoxAdapter(child: _buildArtistSearchResults(searchArtists, colorScheme)),
 
-      // Artists section - from extension search
       if (artistItems.isNotEmpty)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -953,7 +901,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ),
         ),
 
-      // Albums section
       if (albumItems.isNotEmpty)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -988,7 +935,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ),
         ),
 
-      // Playlists section
       if (playlistItems.isNotEmpty)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -1023,14 +969,12 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ),
         ),
 
-      // Songs section header
       if (realTracks.isNotEmpty)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Text(context.l10n.searchSongs, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
         )),
 
-      // Track list in grouped card
       if (realTracks.isNotEmpty)
         SliverToBoxAdapter(
           child: Container(
@@ -1061,7 +1005,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ),
         ),
 
-      // Bottom padding
       const SliverToBoxAdapter(child: SizedBox(height: 16)),
     ];
   }
@@ -1094,7 +1037,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   Widget _buildArtistCard(SearchArtist artist, ColorScheme colorScheme) {
-    // Validate image URL - must be non-null, non-empty, and have a valid host
     final hasValidImage = artist.imageUrl != null && 
                           artist.imageUrl!.isNotEmpty &&
                           Uri.tryParse(artist.imageUrl!)?.hasAuthority == true;
@@ -1144,17 +1086,13 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
   }
 
   void _navigateToArtist(String artistId, String artistName, String? imageUrl) {
-    // Navigate immediately with data from search, fetch albums in ArtistScreen
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
-    
-    // Recording is done in ArtistScreen.initState to avoid duplicates
     
     Navigator.push(context, MaterialPageRoute(
       builder: (context) => ArtistScreen(
         artistId: artistId,
         artistName: artistName,
         coverUrl: imageUrl,
-        // albums: null - will be fetched in ArtistScreen
       ),
     ));
   }
@@ -1170,7 +1108,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
     
-    // Record access for recent history
     ref.read(recentAccessProvider.notifier).recordAlbumAccess(
       id: albumItem.id,
       name: albumItem.name,
@@ -1179,7 +1116,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       providerId: extensionId,
     );
     
-    // Navigate to AlbumScreen - it will fetch tracks via extension
     Navigator.push(context, MaterialPageRoute(
       builder: (context) => ExtensionAlbumScreen(
         extensionId: extensionId,
@@ -1201,7 +1137,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
     
-    // Record access for recent history
     ref.read(recentAccessProvider.notifier).recordPlaylistAccess(
       id: playlistItem.id,
       name: playlistItem.name,
@@ -1210,7 +1145,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       providerId: extensionId,
     );
     
-    // Navigate to ExtensionPlaylistScreen - it will fetch tracks via extension
     Navigator.push(context, MaterialPageRoute(
       builder: (context) => ExtensionPlaylistScreen(
         extensionId: extensionId,
@@ -1232,7 +1166,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
     
-    // Record access for recent history
     ref.read(recentAccessProvider.notifier).recordArtistAccess(
       id: artistItem.id,
       name: artistItem.name,
@@ -1240,7 +1173,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
       providerId: extensionId,
     );
     
-    // Navigate to ExtensionArtistScreen - it will fetch albums via extension
     Navigator.push(context, MaterialPageRoute(
       builder: (context) => ExtensionArtistScreen(
         extensionId: extensionId,
@@ -1257,22 +1189,18 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final searchProvider = settings.searchProvider;
     final extState = ref.read(extensionProvider);
     
-    // If extension system not initialized yet, show default hint
     if (!extState.isInitialized) {
       return 'Paste Spotify URL or search...';
     }
     
     if (searchProvider != null && searchProvider.isNotEmpty) {
       final ext = extState.extensions.where((e) => e.id == searchProvider).firstOrNull;
-      // Only show extension placeholder if extension exists AND is enabled
       if (ext != null && ext.enabled) {
         if (ext.searchBehavior?.placeholder != null) {
           return ext.searchBehavior!.placeholder!;
         }
         return 'Search with ${ext.displayName}...';
       }
-      // Extension not found or disabled - clear the search provider setting
-      // and return default hint
     }
     return 'Paste Spotify URL or search...';
   }
@@ -1335,14 +1263,12 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final text = _urlController.text.trim();
     if (text.isEmpty) return;
     
-    // If it's a URL, fetch metadata
     if (text.startsWith('http') || text.startsWith('spotify:')) {
       _fetchMetadata();
       _searchFocusNode.unfocus();
       return;
     }
     
-    // For search queries, always search (minimum 2 chars)
     if (text.length >= 2) {
       _performSearch(text);
     }
@@ -1370,7 +1296,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     
-    // Only watch the specific item for this track using select()
     final queueItem = ref.watch(downloadQueueProvider.select((state) {
       return state.items.where((item) => item.track.id == track.id).firstOrNull;
     }));
@@ -1392,7 +1317,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
         final size = extension!.searchBehavior!.getThumbnailSize(defaultSize: 56);
         thumbWidth = size.$1;
         thumbHeight = size.$2;
-        // Debug: log only when using custom size
         if (thumbWidth != 56 || thumbHeight != 56) {
           debugPrint('[Thumbnail] ${track.name}: using ${thumbWidth.toInt()}x${thumbHeight.toInt()} from ${extension.id}');
         }
@@ -1405,7 +1329,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
     final isCompleted = queueItem?.status == DownloadStatus.completed;
     final progress = queueItem?.progress ?? 0.0;
     
-    // Show as downloaded if in queue completed OR in history
     final showAsDownloaded = isCompleted || (!isQueued && isInHistory);
 
     return Column(
@@ -1419,7 +1342,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // Album art with dynamic size based on extension config
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: track.coverUrl != null
@@ -1439,7 +1361,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
                         ),
                 ),
                 const SizedBox(width: 12),
-                // Track info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1460,7 +1381,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
                     ],
                   ),
                 ),
-                // Download button / status indicator
                 _buildDownloadButton(context, ref, colorScheme, isQueued: isQueued, isDownloading: isDownloading, isFinalizing: isFinalizing, showAsDownloaded: showAsDownloaded, isInHistory: isInHistory, progress: progress),
               ],
             ),
@@ -1479,7 +1399,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
   }
 
   void _handleTap(BuildContext context, WidgetRef ref, {required bool isQueued, required bool isInHistory}) async {
-    // If already in queue, do nothing
     if (isQueued) return;
     
     if (isInHistory) {
@@ -1487,7 +1406,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
       if (historyItem != null) {
         final fileExists = await File(historyItem.filePath).exists();
         if (fileExists) {
-          // File exists, show snackbar
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(context.l10n.snackbarAlreadyDownloaded(track.name))),
@@ -1495,13 +1413,11 @@ class _TrackItemWithStatus extends ConsumerWidget {
           }
           return;
         } else {
-          // File doesn't exist, remove from history and allow download
           ref.read(downloadHistoryProvider.notifier).removeBySpotifyId(track.id);
         }
       }
     }
     
-    // Proceed with download
     onDownload();
   }
 
@@ -1527,7 +1443,6 @@ class _TrackItemWithStatus extends ConsumerWidget {
         ),
       );
     } else if (isFinalizing) {
-      // Show finalizing status (embedding metadata)
       return SizedBox(
         width: size,
         height: size,
@@ -1591,7 +1506,6 @@ class _CollectionItemWidget extends StatelessWidget {
     final isPlaylist = item.isPlaylistItem;
     final isArtist = item.isArtistItem;
     
-    // Determine icon for placeholder
     IconData placeholderIcon = Icons.album;
     if (isPlaylist) placeholderIcon = Icons.playlist_play;
     if (isArtist) placeholderIcon = Icons.person;
@@ -1607,7 +1521,6 @@ class _CollectionItemWidget extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // Cover art (circular for artists)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(isArtist ? 28 : 10),
                   child: item.coverUrl != null && item.coverUrl!.isNotEmpty
@@ -1630,7 +1543,6 @@ class _CollectionItemWidget extends StatelessWidget {
                         ),
                 ),
                 const SizedBox(width: 12),
-                // Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1651,7 +1563,6 @@ class _CollectionItemWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Arrow indicator
                 Icon(
                   Icons.chevron_right,
                   color: colorScheme.onSurfaceVariant,
@@ -1725,7 +1636,6 @@ class _ExtensionAlbumScreenState extends ConsumerState<ExtensionAlbumScreen> {
         return;
       }
       
-      // Parse tracks from result
       final trackList = result['tracks'] as List<dynamic>?;
       if (trackList == null) {
         setState(() {
@@ -1802,7 +1712,6 @@ class _ExtensionAlbumScreenState extends ConsumerState<ExtensionAlbumScreen> {
       );
     }
     
-    // Navigate to AlbumScreen with fetched tracks
     return AlbumScreen(
       albumId: widget.albumId,
       albumName: widget.albumName,
@@ -1863,7 +1772,6 @@ class _ExtensionPlaylistScreenState extends ConsumerState<ExtensionPlaylistScree
         return;
       }
       
-      // Parse tracks from result
       final trackList = result['tracks'] as List<dynamic>?;
       if (trackList == null) {
         setState(() {
@@ -1940,7 +1848,6 @@ class _ExtensionPlaylistScreenState extends ConsumerState<ExtensionPlaylistScree
       );
     }
     
-    // Navigate to PlaylistScreen with fetched tracks
     return PlaylistScreen(
       playlistName: widget.playlistName,
       coverUrl: widget.coverUrl,
@@ -2003,18 +1910,15 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
         return;
       }
       
-      // Parse albums from result
       final albumList = result['albums'] as List<dynamic>?;
       final albums = albumList?.map((a) => _parseAlbum(a as Map<String, dynamic>)).toList() ?? [];
       
-      // Parse top tracks from result
       final topTracksList = result['top_tracks'] as List<dynamic>?;
       List<Track>? topTracks;
       if (topTracksList != null && topTracksList.isNotEmpty) {
         topTracks = topTracksList.map((t) => _parseTrack(t as Map<String, dynamic>)).toList();
       }
       
-      // Parse additional artist info
       final headerImage = result['header_image'] as String?;
       final listeners = result['listeners'] as int?;
       
@@ -2097,7 +2001,6 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
       );
     }
     
-    // Navigate to ArtistScreen with fetched albums and top tracks
     return ArtistScreen(
       artistId: widget.artistId,
       artistName: widget.artistName,

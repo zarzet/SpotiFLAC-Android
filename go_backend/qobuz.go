@@ -25,7 +25,6 @@ type QobuzDownloader struct {
 }
 
 var (
-	// Global Qobuz downloader instance for connection reuse
 	globalQobuzDownloader *QobuzDownloader
 	qobuzDownloaderOnce   sync.Once
 )
@@ -66,22 +65,17 @@ func qobuzArtistsMatch(expectedArtist, foundArtist string) bool {
 		return true
 	}
 
-	// Split expected artists by common separators (comma, feat, ft., &, and)
-	// e.g., "RADWIMPS, Toko Miura" or "RADWIMPS feat. Toko Miura"
 	expectedArtists := qobuzSplitArtists(normExpected)
 	foundArtists := qobuzSplitArtists(normFound)
 
-	// Check if ANY expected artist matches ANY found artist
 	for _, exp := range expectedArtists {
 		for _, fnd := range foundArtists {
 			if exp == fnd {
 				return true
 			}
-			// Also check contains for partial matches
 			if strings.Contains(exp, fnd) || strings.Contains(fnd, exp) {
 				return true
 			}
-			// Check same words different order
 			if qobuzSameWordsUnordered(exp, fnd) {
 				GoLog("[Qobuz] Artist names have same words in different order: '%s' vs '%s'\n", exp, fnd)
 				return true
@@ -89,8 +83,6 @@ func qobuzArtistsMatch(expectedArtist, foundArtist string) bool {
 		}
 	}
 
-	// If scripts are TRULY different (Latin vs CJK/Arabic/Cyrillic), assume match (transliteration)
-	// Don't treat Latin Extended (Polish, French, etc.) as different script
 	expectedLatin := qobuzIsLatinScript(expectedArtist)
 	foundLatin := qobuzIsLatinScript(foundArtist)
 	if expectedLatin != foundLatin {

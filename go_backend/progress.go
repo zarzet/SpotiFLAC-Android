@@ -44,7 +44,6 @@ var (
 )
 
 // getProgress returns current download progress from multi-progress system
-// Returns first active item's progress for backward compatibility
 func getProgress() DownloadProgress {
 	multiMu.RLock()
 	defer multiMu.RUnlock()
@@ -52,7 +51,7 @@ func getProgress() DownloadProgress {
 	for _, item := range multiProgress.Items {
 		return DownloadProgress{
 			CurrentFile:   item.ItemID,
-			Progress:      item.Progress * 100, // Convert to percentage
+			Progress:      item.Progress * 100,
 			BytesTotal:    item.BytesTotal,
 			BytesReceived: item.BytesReceived,
 			IsDownloading: item.IsDownloading,

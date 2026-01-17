@@ -559,7 +559,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                   }, childCount: queueItems.length),
                 ),
 
-              // Filter chips (only show when history has items)
               if (allHistoryItems.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
@@ -788,7 +787,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
             ),
           ),
 
-        // Albums Grid (when Albums filter is selected)
         if (filterMode == 'albums' && groupedAlbums.isNotEmpty)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1045,7 +1043,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle bar
               Container(
                 width: 32,
                 height: 4,
@@ -1067,7 +1064,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                   ),
                   const SizedBox(width: 12),
 
-                  // Selection count
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1088,7 +1084,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                     ),
                   ),
 
-                  // Select all toggle
                   TextButton.icon(
                     onPressed: () {
                       if (allSelected) {

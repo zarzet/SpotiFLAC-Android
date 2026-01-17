@@ -50,8 +50,7 @@ class SpotiFLACApp extends ConsumerWidget {
           themeAnimationDuration: const Duration(milliseconds: 300),
           themeAnimationCurve: Curves.easeInOut,
           routerConfig: router,
-          // Localization
-          locale: locale, // null = follow system
+          locale: locale,
           localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,

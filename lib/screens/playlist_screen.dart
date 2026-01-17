@@ -217,7 +217,6 @@ class _PlaylistTrackItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     
-    // Only watch the specific item for this track
     final queueItem = ref.watch(downloadQueueProvider.select((state) {
       return state.items.where((item) => item.track.id == track.id).firstOrNull;
     }));
@@ -232,7 +231,6 @@ class _PlaylistTrackItem extends ConsumerWidget {
     final isCompleted = queueItem?.status == DownloadStatus.completed;
     final progress = queueItem?.progress ?? 0.0;
     
-    // Show as downloaded if in queue completed OR in history
     final showAsDownloaded = isCompleted || (!isQueued && isInHistory);
 
     return Padding(

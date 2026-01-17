@@ -31,7 +31,6 @@ type TidalDownloader struct {
 }
 
 var (
-	// Global Tidal downloader instance for token reuse
 	globalTidalDownloader *TidalDownloader
 	tidalDownloaderOnce   sync.Once
 )

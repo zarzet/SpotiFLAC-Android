@@ -27,7 +27,6 @@ class DownloadedAlbumScreen extends ConsumerStatefulWidget {
 }
 
 class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
-  // Multi-select state
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
@@ -162,7 +161,6 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     final allHistoryItems = ref.watch(downloadHistoryProvider.select((s) => s.items));
     final tracks = _getAlbumTracks(allHistoryItems);
     
-    // Auto-pop if album has less than 2 tracks (no longer an "album")
     if (tracks.length < 2) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.pop(context);
@@ -170,7 +168,6 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
       return const SizedBox.shrink();
     }
     
-    // Clean up selected IDs that no longer exist
     final validIds = tracks.map((t) => t.id).toSet();
     _selectedIds.removeWhere((id) => !validIds.contains(id));
     if (_selectedIds.isEmpty && _isSelectionMode) {
@@ -199,7 +196,6 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
               ],
             ),
             
-            // Bottom Selection Action Bar
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,

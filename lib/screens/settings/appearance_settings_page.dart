@@ -694,7 +694,6 @@ class _LanguageSelector extends StatelessWidget {
     required this.onChanged,
   });
 
-  // All available languages (code, displayName, icon)
   static const _allLanguages = [
     ('system', 'System Default', Icons.phone_android),
     ('en', 'English', Icons.language),

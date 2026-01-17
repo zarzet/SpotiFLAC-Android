@@ -50,7 +50,6 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
       child: Scaffold(
         body: CustomScrollView(
           slivers: [
-          // App Bar
           SliverAppBar(
             expandedHeight: 120 + topPadding,
             collapsedHeight: kToolbarHeight,
@@ -120,7 +119,6 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
               ),
             ),
 
-          // Provider Priority
           SliverToBoxAdapter(
             child: SettingsSectionHeader(title: context.l10n.extensionsProviderPrioritySection),
           ),
@@ -216,7 +214,6 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
             ),
           ),
 
-          // Info section
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -344,7 +341,6 @@ class _ExtensionItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                // Extension icon
                 Container(
                   width: 44,
                   height: 44,
@@ -402,7 +398,6 @@ class _ExtensionItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Toggle switch
                 Switch(
                   value: extension.enabled,
                   onChanged: hasError ? null : onToggle,

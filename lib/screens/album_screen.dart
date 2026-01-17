@@ -65,7 +65,6 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
   void initState() {
     super.initState();
     
-    // Record access for recent history
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final providerId = widget.albumId.startsWith('deezer:') ? 'deezer' : 'spotify';
       ref.read(recentAccessProvider.notifier).recordAlbumAccess(
@@ -77,7 +76,6 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       );
     });
     
-    // Priority: widget.tracks > cache > fetch
     _tracks = widget.tracks ?? _AlbumCache.get(widget.albumId);
     if (_tracks == null) {
       _fetchTracks();
@@ -104,7 +102,6 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       final trackList = metadata['track_list'] as List<dynamic>;
       final tracks = trackList.map((t) => _parseTrack(t as Map<String, dynamic>)).toList();
       
-      // Store in cache
       _AlbumCache.set(widget.albumId, tracks);
       
       if (mounted) {
@@ -411,7 +408,6 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       );
     }
     
-    // Default error display
     return Card(
       elevation: 0,
       color: colorScheme.errorContainer.withValues(alpha: 0.5),
@@ -441,7 +437,6 @@ class _AlbumTrackItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     
-    // Only watch the specific item for this track
     final queueItem = ref.watch(downloadQueueProvider.select((state) {
       return state.items.where((item) => item.track.id == track.id).firstOrNull;
     }));
@@ -456,7 +451,6 @@ class _AlbumTrackItem extends ConsumerWidget {
     final isCompleted = queueItem?.status == DownloadStatus.completed;
     final progress = queueItem?.progress ?? 0.0;
     
-    // Show as downloaded if in queue completed OR in history
     final showAsDownloaded = isCompleted || (!isQueued && isInHistory);
 
     return Padding(

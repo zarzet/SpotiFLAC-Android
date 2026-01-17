@@ -22,8 +22,7 @@ const (
 
 	deezerCacheTTL = 10 * time.Minute
 
-	// Parallel ISRC fetching settings
-	deezerMaxParallelISRC = 10 // Max concurrent ISRC fetches
+	deezerMaxParallelISRC = 10
 )
 
 // DeezerClient handles Deezer API interactions (no auth required)
@@ -36,7 +35,6 @@ type DeezerClient struct {
 	cacheMu     sync.RWMutex
 }
 
-// Singleton instance
 var (
 	deezerClient     *DeezerClient
 	deezerClientOnce sync.Once

@@ -19,7 +19,6 @@ class DynamicColorWrapper extends ConsumerWidget {
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // Determine which color scheme to use
         ColorScheme lightScheme;
         ColorScheme darkScheme;
 
@@ -28,7 +27,6 @@ class DynamicColorWrapper extends ConsumerWidget {
           lightScheme = lightDynamic;
           darkScheme = darkDynamic;
         } else {
-          // Fallback to seed color
           final seedColor = themeSettings.seedColor;
           lightScheme = ColorScheme.fromSeed(
             seedColor: seedColor,

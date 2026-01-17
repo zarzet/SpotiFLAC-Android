@@ -280,7 +280,6 @@ class TrackNotifier extends Notifier<TrackState> {
   Future<void> search(String query, {String? metadataSource}) async {
     final requestId = ++_currentRequestId;
 
-    // Preserve hasSearchText during search
     state = TrackState(isLoading: true, hasSearchText: state.hasSearchText);
 
     try {
@@ -402,7 +401,6 @@ class TrackNotifier extends Notifier<TrackState> {
   Future<void> customSearch(String extensionId, String query, {Map<String, dynamic>? options}) async {
     final requestId = ++_currentRequestId;
 
-    // Preserve hasSearchText during search
     state = TrackState(isLoading: true, hasSearchText: state.hasSearchText);
 
     try {

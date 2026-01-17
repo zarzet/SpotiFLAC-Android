@@ -18,11 +18,10 @@ type ISRCIndex struct {
 	mu        sync.RWMutex
 }
 
-// Global ISRC index cache (per output directory)
 var (
 	isrcIndexCache   = make(map[string]*ISRCIndex)
 	isrcIndexCacheMu sync.RWMutex
-	isrcIndexTTL     = 5 * time.Minute // Cache TTL - rebuild after 5 minutes
+	isrcIndexTTL     = 5 * time.Minute
 )
 
 // GetISRCIndex returns or builds an ISRC index for the given directory
@@ -31,7 +30,6 @@ func GetISRCIndex(outputDir string) *ISRCIndex {
 	idx, exists := isrcIndexCache[outputDir]
 	isrcIndexCacheMu.RUnlock()
 
-	// Return cached index if still valid
 	if exists && time.Since(idx.buildTime) < isrcIndexTTL {
 		return idx
 	}
@@ -40,7 +38,6 @@ func GetISRCIndex(outputDir string) *ISRCIndex {
 }
 
 // buildISRCIndex scans a directory and builds a map of ISRC -> file path
-// Same implementation as PC version for consistency
 func buildISRCIndex(outputDir string) *ISRCIndex {
 	idx := &ISRCIndex{
 		index:     make(map[string]string),
@@ -85,7 +82,6 @@ func buildISRCIndex(outputDir string) *ISRCIndex {
 	return idx
 }
 
-// lookup checks if an ISRC exists in the index (internal, returns bool)
 func (idx *ISRCIndex) lookup(isrc string) (string, bool) {
 	if isrc == "" {
 		return "", false
@@ -188,7 +184,6 @@ type FileExistenceResult struct {
 // It builds an ISRC index from the output directory once, then checks all tracks against it
 // Same implementation as PC version for consistency
 func CheckFilesExistParallel(outputDir string, tracksJSON string) (string, error) {
-	// Parse input JSON
 	var tracks []struct {
 		ISRC       string `json:"isrc"`
 		TrackName  string `json:"track_name"`
@@ -232,7 +227,6 @@ func CheckFilesExistParallel(outputDir string, tracksJSON string) (string, error
 
 	wg.Wait()
 
-	// Return results as JSON
 	resultJSON, err := json.Marshal(results)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal results: %w", err)

@@ -30,7 +30,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   late PageController _pageController;
   bool _hasCheckedUpdate = false;
   StreamSubscription<String>? _shareSubscription;
-  DateTime? _lastBackPress; // For double-tap to exit
+  DateTime? _lastBackPress;
 
   @override
   void initState() {
@@ -49,7 +49,6 @@ class _MainShellState extends ConsumerState<MainShell> {
       _handleSharedUrl(pendingUrl);
     }
 
-    // Listen for future shared URLs with error handling
     _shareSubscription = ShareIntentService().sharedUrlStream.listen(
       (url) {
         _log.d('Received shared URL from stream: $url');
@@ -63,18 +62,13 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   void _handleSharedUrl(String url) {
-    // Pop any existing screens (Album, Artist, Settings sub-pages) to return to root
     Navigator.of(context).popUntil((route) => route.isFirst);
     
-    // Navigate to Home tab
     if (_currentIndex != 0) {
       _onNavTap(0);
     }
-    // Fetch metadata for shared URL
     ref.read(trackProvider.notifier).fetchFromUrl(url);
-    // Mark that user has searched (hide helper text)
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
-    // Show snackbar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.loadingSharedLink)),
@@ -136,31 +130,26 @@ class _MainShellState extends ConsumerState<MainShell> {
       return;
     }
     
-    // If on Home tab and showing recent access mode, exit it
     if (_currentIndex == 0 && trackState.isShowingRecentAccess) {
       ref.read(trackProvider.notifier).setShowingRecentAccess(false);
       FocusManager.instance.primaryFocus?.unfocus();
       return;
     }
     
-    // If on Home tab and has text in search bar or has content (but not loading), clear it
     if (_currentIndex == 0 && !trackState.isLoading && (trackState.hasSearchText || trackState.hasContent)) {
       ref.read(trackProvider.notifier).clear();
       return;
     }
     
-    // If not on Home tab, go to Home tab first
     if (_currentIndex != 0) {
       _onNavTap(0);
       return;
     }
     
-    // If loading, ignore back press
     if (trackState.isLoading) {
       return;
     }
     
-    // Double-tap to exit
     final now = DateTime.now();
     if (_lastBackPress != null && now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
       SystemNavigator.pop();
@@ -247,7 +236,6 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
     ];
 
-    // Clamp current index if tabs changed
     final maxIndex = tabs.length - 1;
     if (_currentIndex > maxIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -267,7 +255,6 @@ class _MainShellState extends ConsumerState<MainShell> {
           return;
         }
         
-        // Handle back press manually when canPop is false
         _handleBackPress();
       },
       child: Scaffold(

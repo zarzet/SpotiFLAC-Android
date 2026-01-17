@@ -11,10 +11,8 @@ import 'package:spotiflac_android/services/share_intent_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize notification service
   await NotificationService().initialize();
   
-  // Initialize share intent service
   await ShareIntentService().initialize();
   
   runApp(
@@ -51,7 +49,6 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
       await Directory(extensionsDir).create(recursive: true);
       await Directory(dataDir).create(recursive: true);
       
-      // Initialize extension system
       await ref.read(extensionProvider.notifier).initialize(extensionsDir, dataDir);
     } catch (e) {
       debugPrint('Failed to initialize extensions: $e');
@@ -60,7 +57,6 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
 
   @override
   Widget build(BuildContext context) {
-    // Eagerly initialize download history provider to load from storage
     ref.watch(downloadHistoryProvider);
     return widget.child;
   }

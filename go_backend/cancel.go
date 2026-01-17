@@ -52,7 +52,6 @@ func cancelDownload(itemID string) {
 	}
 	cancelMu.Unlock()
 
-	// Hide progress for cancelled items.
 	RemoveItemProgress(itemID)
 }
 

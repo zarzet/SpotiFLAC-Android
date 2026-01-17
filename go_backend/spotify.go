@@ -84,7 +84,6 @@ func HasSpotifyCredentials() bool {
 	credentialsMu.RLock()
 	defer credentialsMu.RUnlock()
 
-	// Check custom credentials first
 	if customClientID != "" && customClientSecret != "" {
 		return true
 	}
@@ -112,14 +111,12 @@ func getCredentials() (string, string, error) {
 		return clientID, clientSecret, nil
 	}
 
-	// No credentials available
 	return "", "", ErrNoSpotifyCredentials
 }
 
 // NewSpotifyMetadataClient creates a new Spotify client
 // Returns error if credentials are not configured
 func NewSpotifyMetadataClient() (*SpotifyMetadataClient, error) {
-	// Get credentials - will error if not configured
 	clientID, clientSecret, err := getCredentials()
 	if err != nil {
 		return nil, err
@@ -128,7 +125,7 @@ func NewSpotifyMetadataClient() (*SpotifyMetadataClient, error) {
 	src := rand.NewSource(time.Now().UnixNano())
 
 	c := &SpotifyMetadataClient{
-		httpClient:   NewHTTPClientWithTimeout(15 * time.Second), // Use shared transport for connection pooling
+		httpClient:   NewHTTPClientWithTimeout(15 * time.Second),
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		rng:          rand.New(src),
@@ -451,7 +448,6 @@ func (c *SpotifyMetadataClient) SearchAll(ctx context.Context, query string, tra
 		})
 	}
 
-	// Limit artists to artistLimit
 	artistCount := len(response.Artists.Items)
 	if artistCount > artistLimit {
 		artistCount = artistLimit
@@ -468,7 +464,6 @@ func (c *SpotifyMetadataClient) SearchAll(ctx context.Context, query string, tra
 		})
 	}
 
-	// Store in cache
 	c.cacheMu.Lock()
 	c.searchCache[cacheKey] = &cacheEntry{
 		data:      result,
@@ -604,7 +599,6 @@ func (c *SpotifyMetadataClient) fetchAlbum(ctx context.Context, albumID, token s
 		TrackList: tracks,
 	}
 
-	// Store in cache
 	c.cacheMu.Lock()
 	c.albumCache[albumID] = &cacheEntry{
 		data:      result,
@@ -849,7 +843,6 @@ func (c *SpotifyMetadataClient) fetchArtist(ctx context.Context, artistID, token
 		Albums:     albums,
 	}
 
-	// Store in cache
 	c.cacheMu.Lock()
 	c.artistCache[artistID] = &cacheEntry{
 		data:      result,

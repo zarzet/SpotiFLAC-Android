@@ -21,7 +21,7 @@ type LogBuffer struct {
 	entries        []LogEntry
 	maxSize        int
 	mu             sync.RWMutex
-	loggingEnabled bool // Whether logging is enabled (controlled by Flutter)
+	loggingEnabled bool
 }
 
 var (
@@ -60,7 +60,6 @@ func (lb *LogBuffer) Add(level, tag, message string) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	// Skip if logging is disabled (except for errors which are always logged)
 	if !lb.loggingEnabled && level != "ERROR" && level != "FATAL" {
 		return
 	}
@@ -89,7 +88,6 @@ func (lb *LogBuffer) GetAll() string {
 	return string(jsonBytes)
 }
 
-// getSince returns log entries since the given index (internal use)
 func (lb *LogBuffer) getSince(index int) ([]LogEntry, int) {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()

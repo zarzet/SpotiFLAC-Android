@@ -18,11 +18,9 @@ import (
 // compareVersions compares two semantic version strings
 // Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
 func compareVersions(v1, v2 string) int {
-	// Parse version parts
 	parts1 := strings.Split(strings.TrimPrefix(v1, "v"), ".")
 	parts2 := strings.Split(strings.TrimPrefix(v2, "v"), ".")
 
-	// Pad shorter version with zeros
 	maxLen := len(parts1)
 	if len(parts2) > maxLen {
 		maxLen = len(parts2)
@@ -52,12 +50,12 @@ func compareVersions(v1, v2 string) int {
 type LoadedExtension struct {
 	ID        string             `json:"id"`
 	Manifest  *ExtensionManifest `json:"manifest"`
-	VM        *goja.Runtime      `json:"-"` // Goja VM instance (not serialized)
+	VM        *goja.Runtime      `json:"-"`
 	Enabled   bool               `json:"enabled"`
 	Error     string             `json:"error,omitempty"`
-	DataDir   string             `json:"data_dir"`   // Extension's data directory
-	SourceDir string             `json:"source_dir"` // Where extension files are extracted
-	IconPath  string             `json:"icon_path"`  // Full path to icon file (if exists)
+	DataDir   string             `json:"data_dir"`
+	SourceDir string             `json:"source_dir"`
+	IconPath  string             `json:"icon_path"`
 }
 
 // ExtensionManager manages all loaded extensions
@@ -68,7 +66,6 @@ type ExtensionManager struct {
 	dataDir       string // Base directory for extension data
 }
 
-// Global extension manager instance
 var (
 	globalExtManager     *ExtensionManager
 	globalExtManagerOnce sync.Once

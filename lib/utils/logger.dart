@@ -188,14 +188,12 @@ class BufferedOutput extends LogOutput {
 
   @override
   void output(OutputEvent event) {
-    // Print to console in debug mode
     if (kDebugMode) {
       for (final line in event.lines) {
         debugPrint(line);
       }
     }
 
-    // Add to buffer
     final level = _levelToString(event.level);
     final message = event.lines.join('\n');
     

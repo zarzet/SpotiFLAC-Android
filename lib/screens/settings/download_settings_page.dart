@@ -65,7 +65,6 @@ class DownloadSettingsPage extends ConsumerWidget {
             ),
           ),
 
-            // Service section
             SliverToBoxAdapter(
               child: SettingsSectionHeader(title: context.l10n.sectionService),
             ),
@@ -470,7 +469,6 @@ class DownloadSettingsPage extends ConsumerWidget {
 
   Future<void> _pickDirectory(BuildContext context, WidgetRef ref) async {
     if (Platform.isIOS) {
-      // iOS: Show options dialog
       _showIOSDirectoryOptions(context, ref);
     } else {
       final result = await FilePicker.platform.getDirectoryPath();
@@ -697,7 +695,6 @@ class _ServiceSelector extends ConsumerWidget {
         ? extensionProviders.any((e) => e.id == currentService)
         : true;
     
-    // If current extension is disabled, show it as not selected
     final effectiveService = isCurrentExtensionEnabled ? currentService : '';
     
     return Padding(

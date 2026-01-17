@@ -27,10 +27,9 @@ type AmazonDownloader struct {
 }
 
 var (
-	// Global Amazon downloader instance for connection reuse
 	globalAmazonDownloader *AmazonDownloader
 	amazonDownloaderOnce   sync.Once
-	amazonRateLimitMu      sync.Mutex // Mutex for rate limiting
+	amazonRateLimitMu      sync.Mutex
 )
 
 // DoubleDoubleSubmitResponse is the response from DoubleDouble submit endpoint
@@ -55,7 +54,6 @@ func amazonArtistsMatch(expectedArtist, foundArtist string) bool {
 	normExpected := strings.ToLower(strings.TrimSpace(expectedArtist))
 	normFound := strings.ToLower(strings.TrimSpace(foundArtist))
 
-	// Exact match
 	if normExpected == normFound {
 		return true
 	}
@@ -82,8 +80,6 @@ func amazonArtistsMatch(expectedArtist, foundArtist string) bool {
 		return true
 	}
 
-	// If scripts are different (one is ASCII, one is non-ASCII like Japanese/Chinese/Korean),
-	// assume they're the same artist with different transliteration
 	expectedASCII := amazonIsASCIIString(expectedArtist)
 	foundASCII := amazonIsASCIIString(foundArtist)
 	if expectedASCII != foundASCII {
