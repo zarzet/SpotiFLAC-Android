@@ -152,6 +152,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
+                  fontSize: 16,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

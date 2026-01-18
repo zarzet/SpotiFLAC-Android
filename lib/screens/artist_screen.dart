@@ -341,7 +341,13 @@ return SliverAppBar(
         opacity: _showTitleInAppBar ? 1.0 : 0.0,
         child: Text(
           widget.artistName,
-          style: TextStyle(color: colorScheme.onSurface),
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
