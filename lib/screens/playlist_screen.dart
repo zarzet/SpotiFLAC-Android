@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:spotiflac_android/services/palette_service.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
+import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/models/download_item.dart';
@@ -15,12 +16,14 @@ class PlaylistScreen extends ConsumerStatefulWidget {
   final String playlistName;
   final String? coverUrl;
   final List<Track> tracks;
+  final String? playlistId; // Deezer playlist ID for fetching tracks
 
   const PlaylistScreen({
     super.key,
     required this.playlistName,
     this.coverUrl,
     required this.tracks,
+    this.playlistId,
   });
 
   @override
@@ -31,12 +34,18 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   Color? _dominantColor;
   bool _showTitleInAppBar = false;
   final ScrollController _scrollController = ScrollController();
+  List<Track>? _fetchedTracks;
+  bool _isLoading = false;
+  String? _error;
+
+  List<Track> get _tracks => _fetchedTracks ?? widget.tracks;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _extractDominantColor();
+    _fetchTracksIfNeeded();
   }
 
   @override
@@ -44,6 +53,58 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchTracksIfNeeded() async {
+    if (widget.tracks.isNotEmpty || widget.playlistId == null) return;
+    
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      final result = await PlatformBridge.getDeezerMetadata('playlist', widget.playlistId!);
+      if (!mounted) return;
+      
+      final trackList = result['tracks'] as List<dynamic>? ?? [];
+      final tracks = trackList.map((t) => _parseTrack(t as Map<String, dynamic>)).toList();
+      
+      setState(() {
+        _fetchedTracks = tracks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Track _parseTrack(Map<String, dynamic> data) {
+    int durationMs = 0;
+    final durationValue = data['duration_ms'];
+    if (durationValue is int) {
+      durationMs = durationValue;
+    } else if (durationValue is double) {
+      durationMs = durationValue.toInt();
+    }
+    
+    return Track(
+      id: (data['spotify_id'] ?? data['id'] ?? '').toString(),
+      name: (data['name'] ?? '').toString(),
+      artistName: (data['artists'] ?? data['artist'] ?? '').toString(),
+      albumName: (data['album_name'] ?? data['album'] ?? '').toString(),
+      albumArtist: data['album_artist']?.toString(),
+      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
+      isrc: data['isrc']?.toString(),
+      duration: (durationMs / 1000).round(),
+      trackNumber: data['track_number'] as int?,
+      discNumber: data['disc_number'] as int?,
+      releaseDate: data['release_date']?.toString(),
+    );
   }
 
   void _onScroll() {
@@ -211,15 +272,15 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                     children: [
                       Icon(Icons.playlist_play, size: 14, color: colorScheme.onTertiaryContainer),
                       const SizedBox(width: 4),
-                      Text(context.l10n.tracksCount(widget.tracks.length), style: TextStyle(color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.w600, fontSize: 12)),
+                      Text(context.l10n.tracksCount(_tracks.length), style: TextStyle(color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.w600, fontSize: 12)),
                     ],
                   ),
                 ),
 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: () => _downloadAll(context),
+                  onPressed: _tracks.isEmpty ? null : () => _downloadAll(context),
                   icon: const Icon(Icons.download, size: 18),
-                  label: Text(context.l10n.downloadAllCount(widget.tracks.length)),
+                  label: Text(context.l10n.downloadAllCount(_tracks.length)),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -249,10 +310,54 @@ const SizedBox(height: 16),
   }
 
   Widget _buildTrackList(BuildContext context, ColorScheme colorScheme) {
+    if (_isLoading) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    
+    if (_error != null) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Card(
+            color: colorScheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: colorScheme.error),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(_error!, style: TextStyle(color: colorScheme.error))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (_tracks.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Text(
+              context.l10n.errorNoTracksFound,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+        ),
+      );
+    }
+    
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final track = widget.tracks[index];
+          final track = _tracks[index];
           return KeyedSubtree(
             key: ValueKey(track.id),
             child: _PlaylistTrackItem(
@@ -261,7 +366,7 @@ const SizedBox(height: 16),
             ),
           );
         },
-        childCount: widget.tracks.length,
+        childCount: _tracks.length,
       ),
     );
   }
@@ -286,21 +391,21 @@ const SizedBox(height: 16),
   }
 
   void _downloadAll(BuildContext context) {
-    if (widget.tracks.isEmpty) return;
+    if (_tracks.isEmpty) return;
     final settings = ref.read(settingsProvider);
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
         context,
-        trackName: '${widget.tracks.length} tracks',
+        trackName: '${_tracks.length} tracks',
         artistName: widget.playlistName,
         onSelect: (quality, service) {
-          ref.read(downloadQueueProvider.notifier).addMultipleToQueue(widget.tracks, service, qualityOverride: quality);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.snackbarAddedTracksToQueue(widget.tracks.length))));
+          ref.read(downloadQueueProvider.notifier).addMultipleToQueue(_tracks, service, qualityOverride: quality);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.snackbarAddedTracksToQueue(_tracks.length))));
         },
       );
     } else {
-      ref.read(downloadQueueProvider.notifier).addMultipleToQueue(widget.tracks, settings.defaultService);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.snackbarAddedTracksToQueue(widget.tracks.length))));
+      ref.read(downloadQueueProvider.notifier).addMultipleToQueue(_tracks, settings.defaultService);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.snackbarAddedTracksToQueue(_tracks.length))));
     }
   }
 }

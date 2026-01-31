@@ -467,6 +467,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     final tracks = ref.watch(trackProvider.select((s) => s.tracks));
     final searchArtists = ref.watch(trackProvider.select((s) => s.searchArtists));
     final searchAlbums = ref.watch(trackProvider.select((s) => s.searchAlbums));
+    final searchPlaylists = ref.watch(trackProvider.select((s) => s.searchPlaylists));
     final isLoading = ref.watch(trackProvider.select((s) => s.isLoading));
     final error = ref.watch(trackProvider.select((s) => s.error));
     final hasSearchedBefore = ref.watch(settingsProvider.select((s) => s.hasSearchedBefore));
@@ -482,7 +483,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     ));
     
     final colorScheme = Theme.of(context).colorScheme;
-    final hasActualResults = tracks.isNotEmpty || (searchArtists != null && searchArtists.isNotEmpty) || (searchAlbums != null && searchAlbums.isNotEmpty);
+    final hasActualResults = tracks.isNotEmpty || (searchArtists != null && searchArtists.isNotEmpty) || (searchAlbums != null && searchAlbums.isNotEmpty) || (searchPlaylists != null && searchPlaylists.isNotEmpty);
     final isShowingRecentAccess = ref.watch(trackProvider.select((s) => s.isShowingRecentAccess));
     final hasResults = isShowingRecentAccess || hasActualResults || isLoading;
     final mediaQuery = MediaQuery.of(context);
@@ -683,6 +684,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
             tracks: tracks,
             searchArtists: searchArtists,
             searchAlbums: searchAlbums,
+            searchPlaylists: searchPlaylists,
             isLoading: isLoading,
             error: error,
             colorScheme: colorScheme,
@@ -1562,6 +1564,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
     required List<Track> tracks,
     required List<SearchArtist>? searchArtists,
     required List<SearchAlbum>? searchAlbums,
+    required List<SearchPlaylist>? searchPlaylists,
     required bool isLoading,
     required String? error,
     required ColorScheme colorScheme,
@@ -1744,6 +1747,42 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
           ),
         ),
 
+      // Playlists from default search (Deezer/Spotify)
+      if (searchPlaylists != null && searchPlaylists.isNotEmpty)
+        SliverToBoxAdapter(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Text(context.l10n.searchPlaylists, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+        )),
+      if (searchPlaylists != null && searchPlaylists.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Color.alphaBlend(Colors.white.withValues(alpha: 0.08), colorScheme.surface)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < searchPlaylists.length; i++)
+                    _SearchPlaylistItemWidget(
+                      key: ValueKey('search-playlist-${searchPlaylists[i].id}'),
+                      playlist: searchPlaylists[i],
+                      showDivider: i < searchPlaylists.length - 1,
+                      onTap: () => _navigateToSearchPlaylist(searchPlaylists[i]),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+      // Playlists from extension search
       if (playlistItems.isNotEmpty)
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -1853,6 +1892,33 @@ class _HomeTabState extends ConsumerState<HomeTab> with AutomaticKeepAliveClient
         albumName: album.name,
         coverUrl: album.imageUrl,
         tracks: const [], // Will be fetched by AlbumScreen
+      ),
+    ));
+  }
+
+  void _navigateToSearchPlaylist(SearchPlaylist playlist) {
+    ref.read(settingsProvider.notifier).setHasSearchedBefore();
+    
+    // Extract the numeric ID from "deezer:123" format
+    String playlistId = playlist.id;
+    if (playlistId.startsWith('deezer:')) {
+      playlistId = playlistId.substring(7);
+    }
+    
+    ref.read(recentAccessProvider.notifier).recordPlaylistAccess(
+      id: playlist.id,
+      name: playlist.name,
+      ownerName: playlist.owner,
+      imageUrl: playlist.imageUrl,
+      providerId: 'deezer',
+    );
+    
+    Navigator.push(context, MaterialPageRoute(
+      builder: (context) => PlaylistScreen(
+        playlistName: playlist.name,
+        coverUrl: playlist.imageUrl,
+        tracks: const [], // Will be fetched
+        playlistId: playlistId,
       ),
     ));
   }
@@ -2794,6 +2860,102 @@ class _SearchAlbumItemWidget extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         album.artists.isNotEmpty ? album.artists : 'Album',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: 80,
+            endIndent: 12,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+      ],
+    );
+  }
+}
+
+/// Widget for displaying playlist items from default search (Deezer/Spotify)
+class _SearchPlaylistItemWidget extends StatelessWidget {
+  final SearchPlaylist playlist;
+  final bool showDivider;
+  final VoidCallback onTap;
+
+  const _SearchPlaylistItemWidget({
+    super.key,
+    required this.playlist,
+    required this.showDivider,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasValidImage = playlist.imageUrl != null && 
+                          playlist.imageUrl!.isNotEmpty &&
+                          Uri.tryParse(playlist.imageUrl!)?.hasAuthority == true;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onTap,
+          splashColor: colorScheme.primary.withValues(alpha: 0.12),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: hasValidImage
+                      ? CachedNetworkImage(
+                          imageUrl: playlist.imageUrl!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 112,
+                          memCacheHeight: 112,
+                          cacheManager: CoverCacheManager.instance,
+                        )
+                      : Container(
+                          width: 56,
+                          height: 56,
+                          color: colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.playlist_play,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playlist.name,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        playlist.owner.isNotEmpty ? playlist.owner : 'Playlist',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

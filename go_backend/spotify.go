@@ -248,10 +248,19 @@ type SearchAlbumResult struct {
 	AlbumType   string `json:"album_type"`
 }
 
+type SearchPlaylistResult struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Owner       string `json:"owner"`
+	Images      string `json:"images"`
+	TotalTracks int    `json:"total_tracks"`
+}
+
 type SearchAllResult struct {
-	Tracks  []TrackMetadata      `json:"tracks"`
-	Artists []SearchArtistResult `json:"artists"`
-	Albums  []SearchAlbumResult  `json:"albums"`
+	Tracks    []TrackMetadata        `json:"tracks"`
+	Artists   []SearchArtistResult   `json:"artists"`
+	Albums    []SearchAlbumResult    `json:"albums"`
+	Playlists []SearchPlaylistResult `json:"playlists"`
 }
 
 type spotifyURI struct {

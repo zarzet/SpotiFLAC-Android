@@ -23,6 +23,7 @@ class TrackState {
   final List<Track>? artistTopTracks; // Artist's popular tracks
   final List<SearchArtist>? searchArtists; // For search results
   final List<SearchAlbum>? searchAlbums; // For search results (albums)
+  final List<SearchPlaylist>? searchPlaylists; // For search results (playlists)
   final bool hasSearchText; // For back button handling
   final bool isShowingRecentAccess; // For recent access mode
   final String? searchExtensionId; // Extension ID used for current search results
@@ -44,13 +45,14 @@ class TrackState {
     this.artistTopTracks,
     this.searchArtists,
     this.searchAlbums,
+    this.searchPlaylists,
     this.hasSearchText = false,
     this.isShowingRecentAccess = false,
     this.searchExtensionId,
     this.selectedSearchFilter,
   });
 
-  bool get hasContent => tracks.isNotEmpty || artistAlbums != null || (searchArtists != null && searchArtists!.isNotEmpty) || (searchAlbums != null && searchAlbums!.isNotEmpty);
+  bool get hasContent => tracks.isNotEmpty || artistAlbums != null || (searchArtists != null && searchArtists!.isNotEmpty) || (searchAlbums != null && searchAlbums!.isNotEmpty) || (searchPlaylists != null && searchPlaylists!.isNotEmpty);
 
   TrackState copyWith({
     List<Track>? tracks,
@@ -68,6 +70,7 @@ class TrackState {
     List<Track>? artistTopTracks,
     List<SearchArtist>? searchArtists,
     List<SearchAlbum>? searchAlbums,
+    List<SearchPlaylist>? searchPlaylists,
     bool? hasSearchText,
     bool? isShowingRecentAccess,
     String? searchExtensionId,
@@ -90,6 +93,7 @@ class TrackState {
       artistTopTracks: artistTopTracks ?? this.artistTopTracks,
       searchArtists: searchArtists ?? this.searchArtists,
       searchAlbums: searchAlbums ?? this.searchAlbums,
+      searchPlaylists: searchPlaylists ?? this.searchPlaylists,
       hasSearchText: hasSearchText ?? this.hasSearchText,
       isShowingRecentAccess: isShowingRecentAccess ?? this.isShowingRecentAccess,
       searchExtensionId: searchExtensionId,
@@ -153,6 +157,22 @@ class SearchAlbum {
     this.releaseDate,
     required this.totalTracks,
     required this.albumType,
+  });
+}
+
+class SearchPlaylist {
+  final String id;
+  final String name;
+  final String owner;
+  final String? imageUrl;
+  final int totalTracks;
+
+  const SearchPlaylist({
+    required this.id,
+    required this.name,
+    required this.owner,
+    this.imageUrl,
+    required this.totalTracks,
   });
 }
 
@@ -417,12 +437,28 @@ class TrackNotifier extends Notifier<TrackState> {
         }
       }
       
-      _log.i('Search complete: ${tracks.length} tracks (${extensionTracks.length} from extensions), ${artists.length} artists, ${albums.length} albums parsed successfully');
+      final playlistList = results['playlists'] as List<dynamic>? ?? [];
+      final playlists = <SearchPlaylist>[];
+      for (int i = 0; i < playlistList.length; i++) {
+        final p = playlistList[i];
+        try {
+          if (p is Map<String, dynamic>) {
+            playlists.add(_parseSearchPlaylist(p));
+          } else {
+            _log.w('Playlist[$i] is not a Map: ${p.runtimeType}');
+          }
+        } catch (e) {
+          _log.e('Failed to parse playlist[$i]: $e', e);
+        }
+      }
+      
+      _log.i('Search complete: ${tracks.length} tracks (${extensionTracks.length} from extensions), ${artists.length} artists, ${albums.length} albums, ${playlists.length} playlists parsed successfully');
       
       state = TrackState(
         tracks: tracks,
         searchArtists: artists,
         searchAlbums: albums,
+        searchPlaylists: playlists,
         isLoading: false,
         hasSearchText: state.hasSearchText,
       );
@@ -639,6 +675,16 @@ class TrackNotifier extends Notifier<TrackState> {
       releaseDate: data['release_date'] as String?,
       totalTracks: data['total_tracks'] as int? ?? 0,
       albumType: data['album_type'] as String? ?? 'album',
+    );
+  }
+
+  SearchPlaylist _parseSearchPlaylist(Map<String, dynamic> data) {
+    return SearchPlaylist(
+      id: data['id'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      owner: data['owner'] as String? ?? '',
+      imageUrl: data['images'] as String?,
+      totalTracks: data['total_tracks'] as int? ?? 0,
     );
   }
 
