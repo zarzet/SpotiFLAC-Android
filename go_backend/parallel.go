@@ -17,6 +17,9 @@ type TrackIDCache struct {
 	cache map[string]*TrackIDCacheEntry
 	mu    sync.RWMutex
 	ttl   time.Duration
+	// Cleanup is triggered on writes at a fixed interval to avoid unbounded growth.
+	lastCleanup     time.Time
+	cleanupInterval time.Duration
 }
 
 var (
@@ -27,8 +30,9 @@ var (
 func GetTrackIDCache() *TrackIDCache {
 	trackIDCacheOnce.Do(func() {
 		globalTrackIDCache = &TrackIDCache{
-			cache: make(map[string]*TrackIDCacheEntry),
-			ttl:   30 * time.Minute,
+			cache:           make(map[string]*TrackIDCacheEntry),
+			ttl:             30 * time.Minute,
+			cleanupInterval: 5 * time.Minute,
 		}
 	})
 	return globalTrackIDCache
@@ -36,13 +40,34 @@ func GetTrackIDCache() *TrackIDCache {
 
 func (c *TrackIDCache) Get(isrc string) *TrackIDCacheEntry {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	entry, exists := c.cache[isrc]
-	if !exists || time.Now().After(entry.ExpiresAt) {
+	if !exists {
+		c.mu.RUnlock()
 		return nil
 	}
-	return entry
+	expired := time.Now().After(entry.ExpiresAt)
+	c.mu.RUnlock()
+
+	if !expired {
+		return entry
+	}
+
+	// Lazily delete expired entry.
+	c.mu.Lock()
+	entry, exists = c.cache[isrc]
+	if exists && time.Now().After(entry.ExpiresAt) {
+		delete(c.cache, isrc)
+	}
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *TrackIDCache) pruneExpiredLocked(now time.Time) {
+	for key, entry := range c.cache {
+		if now.After(entry.ExpiresAt) {
+			delete(c.cache, key)
+		}
+	}
 }
 
 func (c *TrackIDCache) SetTidal(isrc string, trackID int64) {
@@ -55,7 +80,13 @@ func (c *TrackIDCache) SetTidal(isrc string, trackID int64) {
 		c.cache[isrc] = entry
 	}
 	entry.TidalTrackID = trackID
-	entry.ExpiresAt = time.Now().Add(c.ttl)
+	now := time.Now()
+	entry.ExpiresAt = now.Add(c.ttl)
+
+	if c.cleanupInterval > 0 && (c.lastCleanup.IsZero() || now.Sub(c.lastCleanup) >= c.cleanupInterval) {
+		c.pruneExpiredLocked(now)
+		c.lastCleanup = now
+	}
 }
 
 func (c *TrackIDCache) SetQobuz(isrc string, trackID int64) {
@@ -68,7 +99,13 @@ func (c *TrackIDCache) SetQobuz(isrc string, trackID int64) {
 		c.cache[isrc] = entry
 	}
 	entry.QobuzTrackID = trackID
-	entry.ExpiresAt = time.Now().Add(c.ttl)
+	now := time.Now()
+	entry.ExpiresAt = now.Add(c.ttl)
+
+	if c.cleanupInterval > 0 && (c.lastCleanup.IsZero() || now.Sub(c.lastCleanup) >= c.cleanupInterval) {
+		c.pruneExpiredLocked(now)
+		c.lastCleanup = now
+	}
 }
 
 func (c *TrackIDCache) SetAmazon(isrc string, trackID string) {
@@ -81,7 +118,13 @@ func (c *TrackIDCache) SetAmazon(isrc string, trackID string) {
 		c.cache[isrc] = entry
 	}
 	entry.AmazonTrackID = trackID
-	entry.ExpiresAt = time.Now().Add(c.ttl)
+	now := time.Now()
+	entry.ExpiresAt = now.Add(c.ttl)
+
+	if c.cleanupInterval > 0 && (c.lastCleanup.IsZero() || now.Sub(c.lastCleanup) >= c.cleanupInterval) {
+		c.pruneExpiredLocked(now)
+		c.lastCleanup = now
+	}
 }
 
 func (c *TrackIDCache) Clear() {

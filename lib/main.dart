@@ -43,6 +43,8 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
   void initState() {
     super.initState();
     _initializeExtensions();
+    // Trigger history provider initialization without subscribing to updates.
+    ref.read(downloadHistoryProvider);
   }
 
   Future<void> _initializeExtensions() async {
@@ -62,7 +64,6 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(downloadHistoryProvider);
     return widget.child;
   }
 }

@@ -2430,12 +2430,16 @@ class _TrackItemWithStatus extends ConsumerWidget {
     double thumbWidth = 56;
     double thumbHeight = 56;
     
-    final trackState = ref.watch(trackProvider);
-    final extensionId = track.source ?? trackState.searchExtensionId;
+    final searchExtensionId =
+        ref.watch(trackProvider.select((s) => s.searchExtensionId));
+    final extensionId = track.source ?? searchExtensionId;
     
     if (extensionId != null && extensionId.isNotEmpty) {
-      final extState = ref.watch(extensionProvider);
-      final extension = extState.extensions.where((e) => e.id == extensionId).firstOrNull;
+      final extension = ref.watch(
+        extensionProvider.select(
+          (s) => s.extensions.where((e) => e.id == extensionId).firstOrNull,
+        ),
+      );
       if (extension?.searchBehavior != null) {
         final size = extension!.searchBehavior!.getThumbnailSize(defaultSize: 56);
         thumbWidth = size.$1;
