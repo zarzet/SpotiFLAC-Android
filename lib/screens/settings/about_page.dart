@@ -472,6 +472,12 @@ class _TranslatorsSection extends StatelessWidget {
       language: 'German',
       flag: '🇩🇪',
     ),
+    _Translator(
+      name: 'Re*Index.(ot_inc)',
+      crowdinUsername: 'ot_inc',
+      language: 'Japanese',
+      flag: '🇯🇵',
+    ),
   ];
 
   @override

@@ -6,9 +6,10 @@
 
 - **Lossy Format Support**: Download in MP3 or Opus format with configurable quality
   - New "Enable Lossy Option" toggle in Settings > Download > Audio Quality
-  - Choose between MP3 (320kbps) or Opus (256kbps) format
+  - Choose between MP3 (320kbps) or Opus (128kbps) format
   - Downloads FLAC first, then converts using FFmpeg
 - **New Languages**: Turkish and Japanese translations
+- **Japanese Translator**: Re*Index.(ot_inc)
 
 ### Changed
 
