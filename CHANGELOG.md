@@ -4,40 +4,24 @@
 
 ### Added
 
-- **Clear All Queue Button**: Added "Clear All" button next to Pause/Resume in the Downloading section header ([#96](https://github.com/zarzet/SpotiFLAC-Mobile/issues/96))
-  - Quickly cancel all queued downloads with one tap
-  - Confirmation dialog prevents accidental clears
-  - Useful when downloading large playlists
-- **IDHS Fallback**: Added I Don't Have Spotify (IDHS) as fallback link resolver when SongLink fails
-  - Automatically tries IDHS when SongLink returns errors or rate limits
-  - Supports both Spotify→other platforms and Deezer→other platforms lookups
-  - Rate limited to 8 requests/minute to respect API limits
-- **Lossy Bitrate Options**: More quality choices for lossy format downloads
-  - MP3: 320kbps (Best), 256kbps, 192kbps, 128kbps
-  - Opus: 128kbps (Best), 96kbps, 64kbps
-  - Replaces the simple MP3/Opus toggle with a unified quality picker
-- **Search Filters**: Filter search results by type (Tracks, Artists, Albums, Playlists)
-  - Works with both default Deezer search and extension search providers
-  - Filter chips appear below search bar when results are shown
-- **Album/Playlist Search**: Deezer default search now includes albums and playlists
-- **New Languages**: Turkish and Japanese translations
-- **Japanese Translator**: Re*Index.(ot_inc)
-- **Turkish Translators**: Kaan, BedirhanGltkn
+- **Clear All Queue Button**: Cancel all queued downloads with one tap ([#96](https://github.com/zarzet/SpotiFLAC-Mobile/issues/96))
+- **IDHS Fallback**: Fallback link resolver when SongLink fails (rate limited 8 req/min)
+- **Lossy Bitrate Options**: MP3 (320/256/192/128kbps), Opus (128/96/64kbps)
+- **Search Filters**: Filter results by type (Tracks, Artists, Albums, Playlists)
+- **Album/Playlist Search**: Deezer search now includes albums and playlists
+- **New Languages**: Turkish (Kaan, BedirhanGltkn), Japanese (Re*Index.(ot_inc))
 
 ### Changed
 
-- **Amazon Download API**: Switched to AfkarXYZ API for improved reliability ([#108](https://github.com/zarzet/SpotiFLAC-Mobile/issues/108))
-- **Qobuz Download API**: Added Jumo API as fallback with quality fallback support ([#108](https://github.com/zarzet/SpotiFLAC-Mobile/issues/108))
-- **Search Results**: Reduced artist limit from 5 to 2 for cleaner results
+- **Amazon Download API**: Switched to AfkarXYZ API ([#108](https://github.com/zarzet/SpotiFLAC-Mobile/issues/108))
+- **Qobuz Download API**: Added Jumo API as fallback ([#108](https://github.com/zarzet/SpotiFLAC-Mobile/issues/108))
+- **Search Results**: Reduced artist limit from 5 to 2
 
 ### Fixed
 
-- **Opus Cover Art**: Fixed cover art not being embedded in Opus files
-  - OGG/Opus container doesn't support video stream muxing like FLAC/MP3
-  - Implemented METADATA_BLOCK_PICTURE tag with base64-encoded FLAC picture block
-  - Cover art now properly embedded following OGG/Vorbis specification
-- **Deezer Pagination**: Fixed albums/playlists with >25 tracks only showing first 25 ([#112](https://github.com/zarzet/SpotiFLAC-Mobile/issues/112))
-- **Duplicate Embed Lyrics Setting**: Removed duplicate "Embed Lyrics" toggle from Options page - use "Lyrics Mode" in Download settings instead ([#110](https://github.com/zarzet/SpotiFLAC-Mobile/issues/110))
+- **Opus Cover Art**: Implemented METADATA_BLOCK_PICTURE for proper cover embedding
+- **Deezer Pagination**: Fixed >25 tracks only showing first 25 ([#112](https://github.com/zarzet/SpotiFLAC-Mobile/issues/112))
+- **Duplicate Embed Lyrics Setting**: Removed from Options page ([#110](https://github.com/zarzet/SpotiFLAC-Mobile/issues/110))
 
 ---
 
