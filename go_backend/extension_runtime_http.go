@@ -73,16 +73,14 @@ func (r *ExtensionRuntime) httpGet(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Set headers - user headers first
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	// Only set default User-Agent if not provided by extension
+
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", "Spotiflac-Extension/1.0")
 	}
 
-	// Execute request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return r.vm.ToValue(map[string]interface{}{
@@ -98,19 +96,18 @@ func (r *ExtensionRuntime) httpGet(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Extract response headers - return all values as arrays for multi-value headers (cookies, etc.)
 	respHeaders := make(map[string]interface{})
 	for k, v := range resp.Header {
 		if len(v) == 1 {
 			respHeaders[k] = v[0]
 		} else {
-			respHeaders[k] = v // Return as array if multiple values
+			respHeaders[k] = v
 		}
 	}
 
 	return r.vm.ToValue(map[string]interface{}{
 		"statusCode": resp.StatusCode,
-		"status":     resp.StatusCode, // Alias for convenience
+		"status":     resp.StatusCode,
 		"ok":         resp.StatusCode >= 200 && resp.StatusCode < 300,
 		"body":       string(body),
 		"headers":    respHeaders,
@@ -133,7 +130,6 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Get body if provided - support both string and object
 	var bodyStr string
 	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
 		bodyArg := call.Arguments[1].Export()
@@ -141,7 +137,6 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 		case string:
 			bodyStr = v
 		case map[string]interface{}, []interface{}:
-			// Auto-stringify objects and arrays to JSON
 			jsonBytes, err := json.Marshal(v)
 			if err != nil {
 				return r.vm.ToValue(map[string]interface{}{
@@ -150,12 +145,10 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 			}
 			bodyStr = string(jsonBytes)
 		default:
-			// Fallback to string conversion
 			bodyStr = call.Arguments[1].String()
 		}
 	}
 
-	// Get headers if provided
 	headers := make(map[string]string)
 	if len(call.Arguments) > 2 && !goja.IsUndefined(call.Arguments[2]) && !goja.IsNull(call.Arguments[2]) {
 		headersObj := call.Arguments[2].Export()
@@ -173,11 +166,10 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Set headers - user headers first
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	// Only set defaults if not provided by extension
+
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", "Spotiflac-Extension/1.0")
 	}
@@ -185,7 +177,6 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	// Execute request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return r.vm.ToValue(map[string]interface{}{
@@ -201,19 +192,18 @@ func (r *ExtensionRuntime) httpPost(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Extract response headers - return all values as arrays for multi-value headers
 	respHeaders := make(map[string]interface{})
 	for k, v := range resp.Header {
 		if len(v) == 1 {
 			respHeaders[k] = v[0]
 		} else {
-			respHeaders[k] = v // Return as array if multiple values
+			respHeaders[k] = v
 		}
 	}
 
 	return r.vm.ToValue(map[string]interface{}{
 		"statusCode": resp.StatusCode,
-		"status":     resp.StatusCode, // Alias for convenience
+		"status":     resp.StatusCode,
 		"ok":         resp.StatusCode >= 200 && resp.StatusCode < 300,
 		"body":       string(body),
 		"headers":    respHeaders,
@@ -236,27 +226,22 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Default options
 	method := "GET"
 	var bodyStr string
 	headers := make(map[string]string)
 
-	// Parse options if provided
 	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
 		optionsObj := call.Arguments[1].Export()
 		if opts, ok := optionsObj.(map[string]interface{}); ok {
-			// Get method
 			if m, ok := opts["method"].(string); ok {
 				method = strings.ToUpper(m)
 			}
 
-			// Get body - support both string and object
 			if bodyArg, ok := opts["body"]; ok && bodyArg != nil {
 				switch v := bodyArg.(type) {
 				case string:
 					bodyStr = v
 				case map[string]interface{}, []interface{}:
-					// Auto-stringify objects and arrays to JSON
 					jsonBytes, err := json.Marshal(v)
 					if err != nil {
 						return r.vm.ToValue(map[string]interface{}{
@@ -269,7 +254,6 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 				}
 			}
 
-			// Get headers
 			if h, ok := opts["headers"].(map[string]interface{}); ok {
 				for k, v := range h {
 					headers[k] = fmt.Sprintf("%v", v)
@@ -278,7 +262,6 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 		}
 	}
 
-	// Create request
 	var reqBody io.Reader
 	if bodyStr != "" {
 		reqBody = strings.NewReader(bodyStr)
@@ -291,11 +274,10 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Set headers - user headers first
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	// Only set defaults if not provided by extension
+
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", "Spotiflac-Extension/1.0")
 	}
@@ -303,7 +285,6 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	// Execute request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return r.vm.ToValue(map[string]interface{}{
@@ -319,20 +300,18 @@ func (r *ExtensionRuntime) httpRequest(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Extract response headers - return all values as arrays for multi-value headers
 	respHeaders := make(map[string]interface{})
 	for k, v := range resp.Header {
 		if len(v) == 1 {
 			respHeaders[k] = v[0]
 		} else {
-			respHeaders[k] = v // Return as array if multiple values
+			respHeaders[k] = v
 		}
 	}
 
-	// Return response with helper properties
 	return r.vm.ToValue(map[string]interface{}{
 		"statusCode": resp.StatusCode,
-		"status":     resp.StatusCode, // Alias for convenience
+		"status":     resp.StatusCode,
 		"ok":         resp.StatusCode >= 200 && resp.StatusCode < 300,
 		"body":       string(body),
 		"headers":    respHeaders,
@@ -370,9 +349,7 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 	var bodyStr string
 	headers := make(map[string]string)
 
-	// For DELETE, second arg is headers; for PUT/PATCH, second arg is body
 	if method == "DELETE" {
-		// http.delete(url, headers)
 		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
 			headersObj := call.Arguments[1].Export()
 			if h, ok := headersObj.(map[string]interface{}); ok {
@@ -382,7 +359,6 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 			}
 		}
 	} else {
-		// http.put(url, body, headers) / http.patch(url, body, headers)
 		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
 			bodyArg := call.Arguments[1].Export()
 			switch v := bodyArg.(type) {
@@ -411,7 +387,6 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 		}
 	}
 
-	// Create request
 	var reqBody io.Reader
 	if bodyStr != "" {
 		reqBody = strings.NewReader(bodyStr)
@@ -424,7 +399,6 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 		})
 	}
 
-	// Set headers - user headers first
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -435,7 +409,6 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	// Execute request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return r.vm.ToValue(map[string]interface{}{
@@ -451,7 +424,6 @@ func (r *ExtensionRuntime) httpMethodShortcut(method string, call goja.FunctionC
 		})
 	}
 
-	// Extract response headers
 	respHeaders := make(map[string]interface{})
 	for k, v := range resp.Header {
 		if len(v) == 1 {

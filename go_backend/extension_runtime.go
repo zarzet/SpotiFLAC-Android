@@ -23,9 +23,8 @@ type ExtensionAuthState struct {
 	RefreshToken    string
 	ExpiresAt       time.Time
 	IsAuthenticated bool
-	// PKCE support
-	PKCEVerifier  string
-	PKCEChallenge string
+	PKCEVerifier    string
+	PKCEChallenge   string
 }
 
 type PendingAuthRequest struct {
@@ -210,7 +209,7 @@ func (r *ExtensionRuntime) RegisterAPIs(vm *goja.Runtime) {
 	httpObj.Set("put", r.httpPut)
 	httpObj.Set("delete", r.httpDelete)
 	httpObj.Set("patch", r.httpPatch)
-	httpObj.Set("request", r.httpRequest) // Generic HTTP request (GET, POST, PUT, DELETE, etc.)
+	httpObj.Set("request", r.httpRequest)
 	httpObj.Set("clearCookies", r.httpClearCookies)
 	vm.Set("http", httpObj)
 
@@ -220,7 +219,6 @@ func (r *ExtensionRuntime) RegisterAPIs(vm *goja.Runtime) {
 	storageObj.Set("remove", r.storageRemove)
 	vm.Set("storage", storageObj)
 
-	// Secure Credentials API (encrypted storage for sensitive data)
 	credentialsObj := vm.NewObject()
 	credentialsObj.Set("store", r.credentialsStore)
 	credentialsObj.Set("get", r.credentialsGet)
@@ -235,7 +233,6 @@ func (r *ExtensionRuntime) RegisterAPIs(vm *goja.Runtime) {
 	authObj.Set("clearAuth", r.authClear)
 	authObj.Set("isAuthenticated", r.authIsAuthenticated)
 	authObj.Set("getTokens", r.authGetTokens)
-	// PKCE support
 	authObj.Set("generatePKCE", r.authGeneratePKCE)
 	authObj.Set("getPKCE", r.authGetPKCE)
 	authObj.Set("startOAuthWithPKCE", r.authStartOAuthWithPKCE)
@@ -277,14 +274,12 @@ func (r *ExtensionRuntime) RegisterAPIs(vm *goja.Runtime) {
 	utilsObj.Set("hmacSHA1", r.hmacSHA1)
 	utilsObj.Set("parseJSON", r.parseJSON)
 	utilsObj.Set("stringifyJSON", r.stringifyJSON)
-	// Crypto utilities for developers
 	utilsObj.Set("encrypt", r.cryptoEncrypt)
 	utilsObj.Set("decrypt", r.cryptoDecrypt)
 	utilsObj.Set("generateKey", r.cryptoGenerateKey)
 	utilsObj.Set("randomUserAgent", r.randomUserAgent)
 	vm.Set("utils", utilsObj)
 
-	// Log object (already set in extension_manager.go, but we can enhance it)
 	logObj := vm.NewObject()
 	logObj.Set("debug", r.logDebug)
 	logObj.Set("info", r.logInfo)
@@ -296,10 +291,6 @@ func (r *ExtensionRuntime) RegisterAPIs(vm *goja.Runtime) {
 	gobackendObj.Set("sanitizeFilename", r.sanitizeFilenameWrapper)
 	vm.Set("gobackend", gobackendObj)
 
-	// ==================== Browser-like Polyfills ====================
-	// These make porting browser/Node.js libraries easier
-
-	// Global fetch() - Promise-style HTTP API (browser-compatible)
 	vm.Set("fetch", r.fetchPolyfill)
 
 	vm.Set("atob", r.atobPolyfill)

@@ -17,12 +17,10 @@ import (
 
 // ==================== Storage API ====================
 
-// getStoragePath returns the path to the extension's storage file
 func (r *ExtensionRuntime) getStoragePath() string {
 	return filepath.Join(r.dataDir, "storage.json")
 }
 
-// loadStorage loads the storage data from disk
 func (r *ExtensionRuntime) loadStorage() (map[string]interface{}, error) {
 	storagePath := r.getStoragePath()
 	data, err := os.ReadFile(storagePath)
@@ -41,7 +39,6 @@ func (r *ExtensionRuntime) loadStorage() (map[string]interface{}, error) {
 	return storage, nil
 }
 
-// saveStorage saves the storage data to disk
 func (r *ExtensionRuntime) saveStorage(storage map[string]interface{}) error {
 	storagePath := r.getStoragePath()
 	data, err := json.MarshalIndent(storage, "", "  ")
@@ -52,7 +49,6 @@ func (r *ExtensionRuntime) saveStorage(storage map[string]interface{}) error {
 	return os.WriteFile(storagePath, data, 0644)
 }
 
-// storageGet retrieves a value from storage
 func (r *ExtensionRuntime) storageGet(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return goja.Undefined()
@@ -68,7 +64,6 @@ func (r *ExtensionRuntime) storageGet(call goja.FunctionCall) goja.Value {
 
 	value, exists := storage[key]
 	if !exists {
-		// Return default value if provided
 		if len(call.Arguments) > 1 {
 			return call.Arguments[1]
 		}
@@ -78,7 +73,6 @@ func (r *ExtensionRuntime) storageGet(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(value)
 }
 
-// storageSet stores a value in storage
 func (r *ExtensionRuntime) storageSet(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue(false)
@@ -103,7 +97,6 @@ func (r *ExtensionRuntime) storageSet(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(true)
 }
 
-// storageRemove removes a value from storage
 func (r *ExtensionRuntime) storageRemove(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue(false)
@@ -127,19 +120,14 @@ func (r *ExtensionRuntime) storageRemove(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(true)
 }
 
-// ==================== Credentials API (Encrypted Storage) ====================
-
-// getCredentialsPath returns the path to the extension's encrypted credentials file
 func (r *ExtensionRuntime) getCredentialsPath() string {
 	return filepath.Join(r.dataDir, ".credentials.enc")
 }
 
-// getSaltPath returns the path to the extension's encryption salt file
 func (r *ExtensionRuntime) getSaltPath() string {
 	return filepath.Join(r.dataDir, ".cred_salt")
 }
 
-// getOrCreateSalt gets existing salt or creates a new random one
 func (r *ExtensionRuntime) getOrCreateSalt() ([]byte, error) {
 	saltPath := r.getSaltPath()
 
@@ -160,22 +148,17 @@ func (r *ExtensionRuntime) getOrCreateSalt() ([]byte, error) {
 	return salt, nil
 }
 
-// getEncryptionKey derives an encryption key from extension ID + random salt
 func (r *ExtensionRuntime) getEncryptionKey() ([]byte, error) {
-	// Get or create per-installation random salt
 	salt, err := r.getOrCreateSalt()
 	if err != nil {
 		return nil, err
 	}
 
-	// Combine extension ID + random salt for key derivation
-	// This makes each installation unique, preventing mass decryption attacks
 	combined := append([]byte(r.extensionID), salt...)
 	hash := sha256.Sum256(combined)
 	return hash[:], nil
 }
 
-// loadCredentials loads and decrypts credentials from disk
 func (r *ExtensionRuntime) loadCredentials() (map[string]interface{}, error) {
 	credPath := r.getCredentialsPath()
 	data, err := os.ReadFile(credPath)
@@ -186,7 +169,6 @@ func (r *ExtensionRuntime) loadCredentials() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// Decrypt the data
 	key, err := r.getEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption key: %w", err)
@@ -204,7 +186,6 @@ func (r *ExtensionRuntime) loadCredentials() (map[string]interface{}, error) {
 	return creds, nil
 }
 
-// saveCredentials encrypts and saves credentials to disk
 func (r *ExtensionRuntime) saveCredentials(creds map[string]interface{}) error {
 	data, err := json.Marshal(creds)
 	if err != nil {
@@ -221,10 +202,9 @@ func (r *ExtensionRuntime) saveCredentials(creds map[string]interface{}) error {
 	}
 
 	credPath := r.getCredentialsPath()
-	return os.WriteFile(credPath, encrypted, 0600) // Restrictive permissions
+	return os.WriteFile(credPath, encrypted, 0600)
 }
 
-// credentialsStore stores an encrypted credential
 func (r *ExtensionRuntime) credentialsStore(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue(map[string]interface{}{
@@ -260,7 +240,6 @@ func (r *ExtensionRuntime) credentialsStore(call goja.FunctionCall) goja.Value {
 	})
 }
 
-// credentialsGet retrieves a decrypted credential
 func (r *ExtensionRuntime) credentialsGet(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return goja.Undefined()
@@ -276,7 +255,6 @@ func (r *ExtensionRuntime) credentialsGet(call goja.FunctionCall) goja.Value {
 
 	value, exists := creds[key]
 	if !exists {
-		// Return default value if provided
 		if len(call.Arguments) > 1 {
 			return call.Arguments[1]
 		}
@@ -286,7 +264,6 @@ func (r *ExtensionRuntime) credentialsGet(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(value)
 }
 
-// credentialsRemove removes a credential
 func (r *ExtensionRuntime) credentialsRemove(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue(false)
@@ -310,7 +287,6 @@ func (r *ExtensionRuntime) credentialsRemove(call goja.FunctionCall) goja.Value 
 	return r.vm.ToValue(true)
 }
 
-// credentialsHas checks if a credential exists
 func (r *ExtensionRuntime) credentialsHas(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue(false)
@@ -327,9 +303,6 @@ func (r *ExtensionRuntime) credentialsHas(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(exists)
 }
 
-// ==================== Crypto Utilities ====================
-
-// encryptAES encrypts data using AES-GCM
 func encryptAES(plaintext []byte, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -350,7 +323,6 @@ func encryptAES(plaintext []byte, key []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// decryptAES decrypts data using AES-GCM
 func decryptAES(ciphertext []byte, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

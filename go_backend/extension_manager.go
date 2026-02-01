@@ -309,7 +309,6 @@ func (m *ExtensionManager) UnloadExtension(extensionID string) error {
 	return nil
 }
 
-// Returns error if extension not found (gomobile compatible)
 func (m *ExtensionManager) GetExtension(extensionID string) (*LoadedExtension, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -632,8 +631,6 @@ type ExtensionUpgradeInfo struct {
 	IsInstalled    bool   `json:"is_installed"`
 }
 
-// checkExtensionUpgradeInternal checks if a package file is an upgrade for an existing extension
-// Internal function that returns struct
 func (m *ExtensionManager) checkExtensionUpgradeInternal(filePath string) (*ExtensionUpgradeInfo, error) {
 	// Validate file extension
 	if !strings.HasSuffix(strings.ToLower(filePath), ".spotiflac-ext") {
@@ -803,8 +800,6 @@ func (m *ExtensionManager) GetInstalledExtensionsJSON() (string, error) {
 	return string(jsonBytes), nil
 }
 
-// ==================== Extension Lifecycle ====================
-
 func (m *ExtensionManager) InitializeExtension(extensionID string, settings map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -933,7 +928,6 @@ func (m *ExtensionManager) UnloadAllExtensions() {
 	GoLog("[Extension] All extensions unloaded\n")
 }
 
-// The function is called as extension.<actionName>() and can return a result
 func (m *ExtensionManager) InvokeAction(extensionID string, actionName string) (map[string]interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

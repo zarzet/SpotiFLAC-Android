@@ -19,7 +19,6 @@ import (
 
 // ==================== Utility Functions ====================
 
-// base64Encode encodes a string to base64
 func (r *ExtensionRuntime) base64Encode(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -28,7 +27,6 @@ func (r *ExtensionRuntime) base64Encode(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(base64.StdEncoding.EncodeToString([]byte(input)))
 }
 
-// base64Decode decodes a base64 string
 func (r *ExtensionRuntime) base64Decode(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -41,7 +39,6 @@ func (r *ExtensionRuntime) base64Decode(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(string(decoded))
 }
 
-// md5Hash computes MD5 hash of a string
 func (r *ExtensionRuntime) md5Hash(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -51,7 +48,6 @@ func (r *ExtensionRuntime) md5Hash(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(hex.EncodeToString(hash[:]))
 }
 
-// sha256Hash computes SHA256 hash of a string
 func (r *ExtensionRuntime) sha256Hash(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -61,7 +57,6 @@ func (r *ExtensionRuntime) sha256Hash(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(hex.EncodeToString(hash[:]))
 }
 
-// hmacSHA256 computes HMAC-SHA256 of a message with a key
 func (r *ExtensionRuntime) hmacSHA256(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue("")
@@ -74,7 +69,6 @@ func (r *ExtensionRuntime) hmacSHA256(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(hex.EncodeToString(mac.Sum(nil)))
 }
 
-// hmacSHA256Base64 computes HMAC-SHA256 and returns base64 encoded result
 func (r *ExtensionRuntime) hmacSHA256Base64(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue("")
@@ -87,9 +81,6 @@ func (r *ExtensionRuntime) hmacSHA256Base64(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(base64.StdEncoding.EncodeToString(mac.Sum(nil)))
 }
 
-// hmacSHA1 computes HMAC-SHA1 of a message with a key (for TOTP)
-// Arguments: message (string or array of bytes), key (string or array of bytes)
-// Returns: array of bytes (for TOTP dynamic truncation)
 func (r *ExtensionRuntime) hmacSHA1(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue([]byte{})
@@ -142,7 +133,6 @@ func (r *ExtensionRuntime) hmacSHA1(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(jsArray)
 }
 
-// parseJSON parses a JSON string
 func (r *ExtensionRuntime) parseJSON(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return goja.Undefined()
@@ -158,7 +148,6 @@ func (r *ExtensionRuntime) parseJSON(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(result)
 }
 
-// stringifyJSON converts a value to JSON string
 func (r *ExtensionRuntime) stringifyJSON(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -174,9 +163,6 @@ func (r *ExtensionRuntime) stringifyJSON(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(string(data))
 }
 
-// ==================== Crypto Utilities for Extensions ====================
-
-// cryptoEncrypt encrypts a string using AES-GCM (for extension use)
 func (r *ExtensionRuntime) cryptoEncrypt(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue(map[string]interface{}{
@@ -188,7 +174,6 @@ func (r *ExtensionRuntime) cryptoEncrypt(call goja.FunctionCall) goja.Value {
 	plaintext := call.Arguments[0].String()
 	keyStr := call.Arguments[1].String()
 
-	// Derive 32-byte key from provided key string
 	keyHash := sha256.Sum256([]byte(keyStr))
 
 	encrypted, err := encryptAES([]byte(plaintext), keyHash[:])
@@ -205,7 +190,6 @@ func (r *ExtensionRuntime) cryptoEncrypt(call goja.FunctionCall) goja.Value {
 	})
 }
 
-// cryptoDecrypt decrypts a string using AES-GCM (for extension use)
 func (r *ExtensionRuntime) cryptoDecrypt(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 2 {
 		return r.vm.ToValue(map[string]interface{}{
@@ -225,14 +209,13 @@ func (r *ExtensionRuntime) cryptoDecrypt(call goja.FunctionCall) goja.Value {
 		})
 	}
 
-	// Derive 32-byte key from provided key string
 	keyHash := sha256.Sum256([]byte(keyStr))
 
 	decrypted, err := decryptAES(ciphertext, keyHash[:])
 	if err != nil {
 		return r.vm.ToValue(map[string]interface{}{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "invalid base64 ciphertext",
 		})
 	}
 
@@ -242,9 +225,8 @@ func (r *ExtensionRuntime) cryptoDecrypt(call goja.FunctionCall) goja.Value {
 	})
 }
 
-// cryptoGenerateKey generates a random encryption key
 func (r *ExtensionRuntime) cryptoGenerateKey(call goja.FunctionCall) goja.Value {
-	length := 32 // Default 256-bit key
+	length := 32
 	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) {
 		if l, ok := call.Arguments[0].Export().(float64); ok {
 			length = int(l)
@@ -266,12 +248,9 @@ func (r *ExtensionRuntime) cryptoGenerateKey(call goja.FunctionCall) goja.Value 
 	})
 }
 
-// randomUserAgent returns a random Chrome User-Agent string
 func (r *ExtensionRuntime) randomUserAgent(call goja.FunctionCall) goja.Value {
 	return r.vm.ToValue(getRandomUserAgent())
 }
-
-// ==================== Logging Functions ====================
 
 func (r *ExtensionRuntime) logDebug(call goja.FunctionCall) goja.Value {
 	msg := r.formatLogArgs(call.Arguments)
@@ -305,8 +284,6 @@ func (r *ExtensionRuntime) formatLogArgs(args []goja.Value) string {
 	return strings.Join(parts, " ")
 }
 
-// ==================== Go Backend Wrappers ====================
-
 func (r *ExtensionRuntime) sanitizeFilenameWrapper(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		return r.vm.ToValue("")
@@ -315,7 +292,6 @@ func (r *ExtensionRuntime) sanitizeFilenameWrapper(call goja.FunctionCall) goja.
 	return r.vm.ToValue(sanitizeFilename(input))
 }
 
-// RegisterGoBackendAPIs adds more Go backend functions to the VM
 func (r *ExtensionRuntime) RegisterGoBackendAPIs(vm *goja.Runtime) {
 	gobackendObj := vm.Get("gobackend")
 	if gobackendObj == nil || goja.IsUndefined(gobackendObj) {
@@ -325,7 +301,6 @@ func (r *ExtensionRuntime) RegisterGoBackendAPIs(vm *goja.Runtime) {
 
 	obj := gobackendObj.(*goja.Object)
 
-	// Expose sanitizeFilename
 	obj.Set("sanitizeFilename", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
 			return vm.ToValue("")
@@ -333,7 +308,6 @@ func (r *ExtensionRuntime) RegisterGoBackendAPIs(vm *goja.Runtime) {
 		return vm.ToValue(sanitizeFilename(call.Arguments[0].String()))
 	})
 
-	// Expose getAudioQuality
 	obj.Set("getAudioQuality", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
 			return vm.ToValue(map[string]interface{}{
@@ -356,7 +330,6 @@ func (r *ExtensionRuntime) RegisterGoBackendAPIs(vm *goja.Runtime) {
 		})
 	})
 
-	// Expose buildFilename
 	obj.Set("buildFilename", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
 			return vm.ToValue("")
@@ -373,7 +346,6 @@ func (r *ExtensionRuntime) RegisterGoBackendAPIs(vm *goja.Runtime) {
 		return vm.ToValue(buildFilenameFromTemplate(template, metadata))
 	})
 
-	// Expose getLocalTime - returns device local time info
 	obj.Set("getLocalTime", func(call goja.FunctionCall) goja.Value {
 		now := time.Now()
 		_, offsetSeconds := now.Zone()

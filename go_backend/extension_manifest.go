@@ -25,9 +25,9 @@ const (
 )
 
 type ExtensionPermissions struct {
-	Network []string `json:"network"` // List of allowed domains
-	Storage bool     `json:"storage"` // Whether extension can use storage API
-	File    bool     `json:"file"`    // Whether extension can use file API
+	Network []string `json:"network"`
+	Storage bool     `json:"storage"`
+	File    bool     `json:"file"`
 }
 
 type ExtensionSetting struct {
@@ -38,15 +38,15 @@ type ExtensionSetting struct {
 	Required    bool        `json:"required,omitempty"`
 	Secret      bool        `json:"secret,omitempty"`
 	Default     interface{} `json:"default,omitempty"`
-	Options     []string    `json:"options,omitempty"` // For select type
-	Action      string      `json:"action,omitempty"`  // For button type: JS function name to call (e.g., "startLogin")
+	Options     []string    `json:"options,omitempty"`
+	Action      string      `json:"action,omitempty"`
 }
 
 type QualityOption struct {
-	ID          string                   `json:"id"`                 // Unique identifier (e.g., "mp3_320", "opus_128")
-	Label       string                   `json:"label"`              // Display name (e.g., "MP3 320kbps")
-	Description string                   `json:"description"`        // Optional description (e.g., "Best quality MP3")
-	Settings    []QualitySpecificSetting `json:"settings,omitempty"` // Quality-specific settings
+	ID          string                   `json:"id"`
+	Label       string                   `json:"label"`
+	Description string                   `json:"description"`
+	Settings    []QualitySpecificSetting `json:"settings,omitempty"`
 }
 
 type QualitySpecificSetting struct {
@@ -57,48 +57,48 @@ type QualitySpecificSetting struct {
 	Required    bool        `json:"required,omitempty"`
 	Secret      bool        `json:"secret,omitempty"`
 	Default     interface{} `json:"default,omitempty"`
-	Options     []string    `json:"options,omitempty"` // For select type
+	Options     []string    `json:"options,omitempty"`
 }
 
 type SearchFilter struct {
-	ID    string `json:"id"`              // Filter identifier (e.g., "track", "album", "artist", "playlist")
-	Label string `json:"label,omitempty"` // Display label (e.g., "Songs", "Albums", "Artists", "Playlists")
-	Icon  string `json:"icon,omitempty"`  // Optional icon name
+	ID    string `json:"id"`
+	Label string `json:"label,omitempty"`
+	Icon  string `json:"icon,omitempty"`
 }
 
 type SearchBehaviorConfig struct {
-	Enabled         bool           `json:"enabled"`                   // Whether extension provides custom search
-	Placeholder     string         `json:"placeholder,omitempty"`     // Placeholder text for search box
-	Primary         bool           `json:"primary,omitempty"`         // If true, show as primary search tab
-	Icon            string         `json:"icon,omitempty"`            // Icon for search tab
-	ThumbnailRatio  string         `json:"thumbnailRatio,omitempty"`  // Thumbnail aspect ratio: "square" (1:1), "wide" (16:9), "portrait" (2:3)
-	ThumbnailWidth  int            `json:"thumbnailWidth,omitempty"`  // Custom thumbnail width in pixels
-	ThumbnailHeight int            `json:"thumbnailHeight,omitempty"` // Custom thumbnail height in pixels
-	Filters         []SearchFilter `json:"filters,omitempty"`         // Available search filters (e.g., track, album, artist, playlist)
+	Enabled         bool           `json:"enabled"`
+	Placeholder     string         `json:"placeholder,omitempty"`
+	Primary         bool           `json:"primary,omitempty"`
+	Icon            string         `json:"icon,omitempty"`
+	ThumbnailRatio  string         `json:"thumbnailRatio,omitempty"`
+	ThumbnailWidth  int            `json:"thumbnailWidth,omitempty"`
+	ThumbnailHeight int            `json:"thumbnailHeight,omitempty"`
+	Filters         []SearchFilter `json:"filters,omitempty"`
 }
 
 type URLHandlerConfig struct {
-	Enabled  bool     `json:"enabled"`            // Whether extension handles URLs
-	Patterns []string `json:"patterns,omitempty"` // URL patterns to match (e.g., "music.youtube.com", "soundcloud.com")
+	Enabled  bool     `json:"enabled"`
+	Patterns []string `json:"patterns,omitempty"`
 }
 
 type TrackMatchingConfig struct {
-	CustomMatching    bool   `json:"customMatching"`              // Whether extension handles matching
-	Strategy          string `json:"strategy,omitempty"`          // "isrc", "name", "duration", "custom"
-	DurationTolerance int    `json:"durationTolerance,omitempty"` // Tolerance in seconds for duration matching
+	CustomMatching    bool   `json:"customMatching"`
+	Strategy          string `json:"strategy,omitempty"`
+	DurationTolerance int    `json:"durationTolerance,omitempty"`
 }
 
 type PostProcessingHook struct {
-	ID               string   `json:"id"`                         // Unique identifier
-	Name             string   `json:"name"`                       // Display name
-	Description      string   `json:"description,omitempty"`      // Description
-	DefaultEnabled   bool     `json:"defaultEnabled,omitempty"`   // Whether enabled by default
-	SupportedFormats []string `json:"supportedFormats,omitempty"` // Supported file formats (e.g., ["flac", "mp3"])
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description,omitempty"`
+	DefaultEnabled   bool     `json:"defaultEnabled,omitempty"`
+	SupportedFormats []string `json:"supportedFormats,omitempty"`
 }
 
 type PostProcessingConfig struct {
-	Enabled bool                 `json:"enabled"`         // Whether extension provides post-processing
-	Hooks   []PostProcessingHook `json:"hooks,omitempty"` // Available hooks
+	Enabled bool                 `json:"enabled"`
+	Hooks   []PostProcessingHook `json:"hooks,omitempty"`
 }
 
 type ExtensionManifest struct {
@@ -108,19 +108,19 @@ type ExtensionManifest struct {
 	Author                 string                 `json:"author"`
 	Description            string                 `json:"description"`
 	Homepage               string                 `json:"homepage,omitempty"`
-	Icon                   string                 `json:"icon,omitempty"` // Icon filename (e.g., "icon.png")
+	Icon                   string                 `json:"icon,omitempty"`
 	Types                  []ExtensionType        `json:"type"`
 	Permissions            ExtensionPermissions   `json:"permissions"`
 	Settings               []ExtensionSetting     `json:"settings,omitempty"`
-	QualityOptions         []QualityOption        `json:"qualityOptions,omitempty"` // Custom quality options for download providers
+	QualityOptions         []QualityOption        `json:"qualityOptions,omitempty"`
 	MinAppVersion          string                 `json:"minAppVersion,omitempty"`
-	SkipMetadataEnrichment bool                   `json:"skipMetadataEnrichment,omitempty"` // If true, don't enrich metadata from Deezer/Spotify
-	SkipBuiltInFallback    bool                   `json:"skipBuiltInFallback,omitempty"`    // If true, don't fallback to built-in providers (tidal/qobuz/amazon)
-	SearchBehavior         *SearchBehaviorConfig  `json:"searchBehavior,omitempty"`         // Custom search behavior
-	URLHandler             *URLHandlerConfig      `json:"urlHandler,omitempty"`             // Custom URL handling
-	TrackMatching          *TrackMatchingConfig   `json:"trackMatching,omitempty"`          // Custom track matching
-	PostProcessing         *PostProcessingConfig  `json:"postProcessing,omitempty"`         // Post-processing hooks
-	Capabilities           map[string]interface{} `json:"capabilities,omitempty"`           // Extension capabilities (homeFeed, browseCategories, etc.)
+	SkipMetadataEnrichment bool                   `json:"skipMetadataEnrichment,omitempty"`
+	SkipBuiltInFallback    bool                   `json:"skipBuiltInFallback,omitempty"`
+	SearchBehavior         *SearchBehaviorConfig  `json:"searchBehavior,omitempty"`
+	URLHandler             *URLHandlerConfig      `json:"urlHandler,omitempty"`
+	TrackMatching          *TrackMatchingConfig   `json:"trackMatching,omitempty"`
+	PostProcessing         *PostProcessingConfig  `json:"postProcessing,omitempty"`
+	Capabilities           map[string]interface{} `json:"capabilities,omitempty"`
 }
 
 type ManifestValidationError struct {
