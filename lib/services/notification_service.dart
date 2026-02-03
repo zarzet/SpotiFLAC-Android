@@ -145,12 +145,20 @@ class NotificationService {
     required String artistName,
     int? completedCount,
     int? totalCount,
+    bool alreadyInLibrary = false,
   }) async {
     if (!_isInitialized) await initialize();
 
-    final title = completedCount != null && totalCount != null
-        ? 'Download Complete ($completedCount/$totalCount)'
-        : 'Download Complete';
+    String title;
+    if (alreadyInLibrary) {
+      title = completedCount != null && totalCount != null
+          ? 'Already in Library ($completedCount/$totalCount)'
+          : 'Already in Library';
+    } else {
+      title = completedCount != null && totalCount != null
+          ? 'Download Complete ($completedCount/$totalCount)'
+          : 'Download Complete';
+    }
 
     const androidDetails = AndroidNotificationDetails(
       channelId,

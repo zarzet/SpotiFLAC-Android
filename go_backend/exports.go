@@ -2092,6 +2092,11 @@ func GetExtensionBrowseCategoriesJSON(extensionID string) (string, error) {
 
 // ==================== LOCAL LIBRARY SCANNING ====================
 
+// SetLibraryCoverCacheDirJSON sets the directory for caching extracted cover art
+func SetLibraryCoverCacheDirJSON(cacheDir string) {
+	SetLibraryCoverCacheDir(cacheDir)
+}
+
 // ScanLibraryFolderJSON scans a folder for audio files and returns metadata
 func ScanLibraryFolderJSON(folderPath string) (string, error) {
 	return ScanLibraryFolder(folderPath)

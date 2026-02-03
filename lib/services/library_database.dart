@@ -14,6 +14,7 @@ class LocalLibraryItem {
   final String albumName;
   final String? albumArtist;
   final String filePath;
+  final String? coverPath; // Path to extracted cover art
   final DateTime scannedAt;
   final String? isrc;
   final int? trackNumber;
@@ -32,6 +33,7 @@ class LocalLibraryItem {
     required this.albumName,
     this.albumArtist,
     required this.filePath,
+    this.coverPath,
     required this.scannedAt,
     this.isrc,
     this.trackNumber,
@@ -51,6 +53,7 @@ class LocalLibraryItem {
     'albumName': albumName,
     'albumArtist': albumArtist,
     'filePath': filePath,
+    'coverPath': coverPath,
     'scannedAt': scannedAt.toIso8601String(),
     'isrc': isrc,
     'trackNumber': trackNumber,
@@ -71,6 +74,7 @@ class LocalLibraryItem {
         albumName: json['albumName'] as String,
         albumArtist: json['albumArtist'] as String?,
         filePath: json['filePath'] as String,
+        coverPath: json['coverPath'] as String?,
         scannedAt: DateTime.parse(json['scannedAt'] as String),
         isrc: json['isrc'] as String?,
         trackNumber: json['trackNumber'] as int?,
@@ -109,7 +113,7 @@ class LibraryDatabase {
     
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Bumped version for cover_path migration
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -126,6 +130,7 @@ class LibraryDatabase {
         album_name TEXT NOT NULL,
         album_artist TEXT,
         file_path TEXT NOT NULL UNIQUE,
+        cover_path TEXT,
         scanned_at TEXT NOT NULL,
         isrc TEXT,
         track_number INTEGER,
@@ -150,7 +155,12 @@ class LibraryDatabase {
   
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     _log.i('Upgrading library database from v$oldVersion to v$newVersion');
-    // Future migrations go here
+    
+    if (oldVersion < 2) {
+      // Add cover_path column
+      await db.execute('ALTER TABLE library ADD COLUMN cover_path TEXT');
+      _log.i('Added cover_path column');
+    }
   }
   
   /// Convert JSON format (camelCase) to DB row (snake_case)
@@ -162,6 +172,7 @@ class LibraryDatabase {
       'album_name': json['albumName'],
       'album_artist': json['albumArtist'],
       'file_path': json['filePath'],
+      'cover_path': json['coverPath'],
       'scanned_at': json['scannedAt'],
       'isrc': json['isrc'],
       'track_number': json['trackNumber'],
@@ -184,6 +195,7 @@ class LibraryDatabase {
       'albumName': row['album_name'],
       'albumArtist': row['album_artist'],
       'filePath': row['file_path'],
+      'coverPath': row['cover_path'],
       'scannedAt': row['scanned_at'],
       'isrc': row['isrc'],
       'trackNumber': row['track_number'],
@@ -331,6 +343,12 @@ class LibraryDatabase {
   Future<void> deleteByPath(String filePath) async {
     final db = await database;
     await db.delete('library', where: 'file_path = ?', whereArgs: [filePath]);
+  }
+  
+  /// Delete by ID
+  Future<void> delete(String id) async {
+    final db = await database;
+    await db.delete('library', where: 'id = ?', whereArgs: [id]);
   }
   
   /// Delete items where file no longer exists

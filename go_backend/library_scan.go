@@ -18,6 +18,7 @@ type LibraryScanResult struct {
 	AlbumName   string `json:"albumName"`
 	AlbumArtist string `json:"albumArtist,omitempty"`
 	FilePath    string `json:"filePath"`
+	CoverPath   string `json:"coverPath,omitempty"`
 	ScannedAt   string `json:"scannedAt"`
 	ISRC        string `json:"isrc,omitempty"`
 	TrackNumber int    `json:"trackNumber,omitempty"`
@@ -45,6 +46,8 @@ var (
 	libraryScanProgressMu sync.RWMutex
 	libraryScanCancel     chan struct{}
 	libraryScanCancelMu   sync.Mutex
+	libraryCoverCacheDir  string // Directory to cache extracted cover art
+	libraryCoverCacheMu   sync.RWMutex
 )
 
 // supportedAudioFormats lists file extensions we can read metadata from
@@ -54,6 +57,13 @@ var supportedAudioFormats = map[string]bool{
 	".mp3":  true,
 	".opus": true,
 	".ogg":  true,
+}
+
+// SetLibraryCoverCacheDir sets the directory to cache extracted cover art
+func SetLibraryCoverCacheDir(cacheDir string) {
+	libraryCoverCacheMu.Lock()
+	libraryCoverCacheDir = cacheDir
+	libraryCoverCacheMu.Unlock()
 }
 
 // ScanLibraryFolder scans a folder recursively for audio files and reads their metadata
@@ -183,6 +193,17 @@ func scanAudioFile(filePath, scanTime string) (*LibraryScanResult, error) {
 		Format:    strings.TrimPrefix(ext, "."),
 	}
 
+	// Try to extract and cache cover art
+	libraryCoverCacheMu.RLock()
+	coverCacheDir := libraryCoverCacheDir
+	libraryCoverCacheMu.RUnlock()
+	if coverCacheDir != "" && ext != ".m4a" {
+		coverPath, err := SaveCoverToCache(filePath, coverCacheDir)
+		if err == nil && coverPath != "" {
+			result.CoverPath = coverPath
+		}
+	}
+
 	// Try to read metadata based on format
 	switch ext {
 	case ".flac":
@@ -257,14 +278,86 @@ func scanM4AFile(filePath string, result *LibraryScanResult) (*LibraryScanResult
 
 // scanMP3File reads metadata from MP3 file (ID3 tags)
 func scanMP3File(filePath string, result *LibraryScanResult) (*LibraryScanResult, error) {
-	// We don't have ID3 parsing in Go backend yet, use filename
-	return scanFromFilename(filePath, result)
+	metadata, err := ReadID3Tags(filePath)
+	if err != nil {
+		GoLog("[LibraryScan] ID3 read error for %s: %v\n", filePath, err)
+		return scanFromFilename(filePath, result)
+	}
+
+	result.TrackName = metadata.Title
+	result.ArtistName = metadata.Artist
+	result.AlbumName = metadata.Album
+	result.AlbumArtist = metadata.AlbumArtist
+	result.TrackNumber = metadata.TrackNumber
+	result.DiscNumber = metadata.DiscNumber
+	result.Genre = metadata.Genre
+	if metadata.Date != "" {
+		result.ReleaseDate = metadata.Date
+	} else {
+		result.ReleaseDate = metadata.Year
+	}
+	result.ISRC = metadata.ISRC
+
+	// Get audio quality info
+	quality, err := GetMP3Quality(filePath)
+	if err == nil {
+		result.SampleRate = quality.SampleRate
+		result.BitDepth = quality.BitDepth
+		result.Duration = quality.Duration
+	}
+
+	// Ensure we have at least a title
+	if result.TrackName == "" {
+		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	}
+	if result.ArtistName == "" {
+		result.ArtistName = "Unknown Artist"
+	}
+	if result.AlbumName == "" {
+		result.AlbumName = "Unknown Album"
+	}
+
+	return result, nil
 }
 
-// scanOggFile reads metadata from Ogg Vorbis/Opus file
+// scanOggFile reads metadata from Ogg Vorbis/Opus file (Vorbis comments)
 func scanOggFile(filePath string, result *LibraryScanResult) (*LibraryScanResult, error) {
-	// Limited support, use filename
-	return scanFromFilename(filePath, result)
+	metadata, err := ReadOggVorbisComments(filePath)
+	if err != nil {
+		GoLog("[LibraryScan] Ogg/Opus read error for %s: %v\n", filePath, err)
+		return scanFromFilename(filePath, result)
+	}
+
+	result.TrackName = metadata.Title
+	result.ArtistName = metadata.Artist
+	result.AlbumName = metadata.Album
+	result.AlbumArtist = metadata.AlbumArtist
+	result.ISRC = metadata.ISRC
+	result.TrackNumber = metadata.TrackNumber
+	result.DiscNumber = metadata.DiscNumber
+	result.Genre = metadata.Genre
+	result.ReleaseDate = metadata.Date
+
+	// Get audio quality info
+	quality, err := GetOggQuality(filePath)
+	if err == nil {
+		result.SampleRate = quality.SampleRate
+		result.BitDepth = quality.BitDepth
+		result.Duration = quality.Duration
+	}
+
+	// Ensure we have at least a title
+	if result.TrackName == "" {
+		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	}
+	if result.ArtistName == "" {
+		result.ArtistName = "Unknown Artist"
+	}
+	if result.AlbumName == "" {
+		result.AlbumName = "Unknown Album"
+	}
+
+	return result, nil
 }
 
 // scanFromFilename extracts title/artist from filename pattern

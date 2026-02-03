@@ -688,6 +688,12 @@ import Gobackend  // Import Go framework
             return response
             
         // Local Library Scanning
+        case "setLibraryCoverCacheDir":
+            let args = call.arguments as! [String: Any]
+            let cacheDir = args["cache_dir"] as! String
+            GobackendSetLibraryCoverCacheDirJSON(cacheDir)
+            return nil
+            
         case "scanLibraryFolder":
             let args = call.arguments as! [String: Any]
             let folderPath = args["folder_path"] as! String

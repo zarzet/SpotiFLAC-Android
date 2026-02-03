@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -42,6 +43,40 @@ class PaletteService {
       return color;
     } catch (e) {
       debugPrint('PaletteService error: $e');
+      return null;
+    }
+  }
+
+  /// Extract dominant color from a local file path
+  Future<Color?> extractDominantColorFromFile(String? filePath) async {
+    if (filePath == null || filePath.isEmpty) return null;
+
+    final cached = _colorCache[filePath];
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return null;
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        FileImage(file),
+        size: const Size(64, 64),
+        maximumColorCount: 8,
+      );
+      
+      final color = paletteGenerator.dominantColor?.color ??
+          paletteGenerator.vibrantColor?.color ??
+          paletteGenerator.mutedColor?.color;
+      
+      if (color != null) {
+        _colorCache[filePath] = color;
+      }
+      
+      return color;
+    } catch (e) {
+      debugPrint('PaletteService file error: $e');
       return null;
     }
   }

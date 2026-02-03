@@ -823,6 +823,14 @@ static Future<Map<String, dynamic>> downloadWithExtensions({
 
   // ==================== LOCAL LIBRARY SCANNING ====================
 
+  /// Set the directory for caching extracted cover art
+  static Future<void> setLibraryCoverCacheDir(String cacheDir) async {
+    _log.i('setLibraryCoverCacheDir: $cacheDir');
+    await _channel.invokeMethod('setLibraryCoverCacheDir', {
+      'cache_dir': cacheDir,
+    });
+  }
+
   /// Scan a folder for audio files and read their metadata
   /// Returns a list of track metadata
   static Future<List<Map<String, dynamic>>> scanLibraryFolder(String folderPath) async {

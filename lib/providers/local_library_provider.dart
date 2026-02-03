@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
@@ -145,6 +146,16 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       scanErrorCount: 0,
     );
 
+    // Set cover cache directory before scanning
+    try {
+      final cacheDir = await getApplicationCacheDirectory();
+      final coverCacheDir = '${cacheDir.path}/library_covers';
+      await PlatformBridge.setLibraryCoverCacheDir(coverCacheDir);
+      _log.i('Cover cache directory set to: $coverCacheDir');
+    } catch (e) {
+      _log.w('Failed to set cover cache directory: $e');
+    }
+
     // Start progress polling
     _startProgressPolling();
 
@@ -227,6 +238,14 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     await _db.clearAll();
     state = LocalLibraryState();
     _log.i('Library cleared');
+  }
+
+  /// Remove a single item from library by ID
+  Future<void> removeItem(String id) async {
+    await _db.delete(id);
+    state = state.copyWith(
+      items: state.items.where((item) => item.id != id).toList(),
+    );
   }
 
   /// Check if a track exists in library

@@ -893,6 +893,13 @@ class MainActivity: FlutterActivity() {
                             result.success(response)
                         }
                         // Local Library Scanning
+                        "setLibraryCoverCacheDir" -> {
+                            val cacheDir = call.argument<String>("cache_dir") ?: ""
+                            withContext(Dispatchers.IO) {
+                                Gobackend.setLibraryCoverCacheDirJSON(cacheDir)
+                            }
+                            result.success(null)
+                        }
                         "scanLibraryFolder" -> {
                             val folderPath = call.argument<String>("folder_path") ?: ""
                             val response = withContext(Dispatchers.IO) {

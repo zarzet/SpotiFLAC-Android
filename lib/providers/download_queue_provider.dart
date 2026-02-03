@@ -2131,10 +2131,10 @@ result = await PlatformBridge.downloadWithExtensions(
       if (result['success'] == true) {
         var filePath = result['file_path'] as String?;
         
-        final wasExisting = filePath != null && filePath.startsWith('EXISTS:');
+        // Check if file already existed (detected via ISRC match in Go backend)
+        final wasExisting = result['already_exists'] == true;
         if (wasExisting) {
-          filePath = filePath.substring(7); // Remove "EXISTS:" prefix
-          _log.i('Using existing file: $filePath');
+          _log.i('File already exists in library: $filePath');
         }
         
         _log.i('Download success, file: $filePath');
@@ -2363,11 +2363,31 @@ result = await PlatformBridge.downloadWithExtensions(
 
         _completedInSession++;
         
+        // Check if this track is already in download history
+        final historyNotifier = ref.read(downloadHistoryProvider.notifier);
+        final existingInHistory = historyNotifier.getBySpotifyId(trackToDownload.id) ??
+            (trackToDownload.isrc != null ? historyNotifier.getByIsrc(trackToDownload.isrc!) : null);
+        
+        if (wasExisting && existingInHistory != null) {
+          // File exists and is already in download history - skip adding
+          _log.i('Track already in library, skipping history update');
+          await _notificationService.showDownloadComplete(
+            trackName: item.track.name,
+            artistName: item.track.artistName,
+            completedCount: _completedInSession,
+            totalCount: _totalQueuedAtStart,
+            alreadyInLibrary: true,
+          );
+          removeItem(item.id);
+          return;
+        }
+        
         await _notificationService.showDownloadComplete(
           trackName: item.track.name,
           artistName: item.track.artistName,
           completedCount: _completedInSession,
           totalCount: _totalQueuedAtStart,
+          alreadyInLibrary: wasExisting,
         );
 
         if (filePath != null) {
