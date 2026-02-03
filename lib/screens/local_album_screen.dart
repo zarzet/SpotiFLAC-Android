@@ -34,12 +34,39 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
   Color? _dominantColor;
   bool _showTitleInAppBar = false;
   final ScrollController _scrollController = ScrollController();
+  late List<LocalLibraryItem> _sortedTracksCache;
+  late Map<int, List<LocalLibraryItem>> _discGroupsCache;
+  late List<int> _sortedDiscNumbersCache;
+  late bool _hasMultipleDiscsCache;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _extractDominantColor();
+    _rebuildTrackCaches();
+    final cachedColor = PaletteService.instance.getCached(widget.coverPath);
+    if (cachedColor != null) {
+      _dominantColor = cachedColor;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _extractDominantColor();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant LocalAlbumScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.tracks, widget.tracks) ||
+        oldWidget.tracks.length != widget.tracks.length) {
+      _rebuildTrackCaches();
+    }
+    if (oldWidget.coverPath != widget.coverPath) {
+      final cachedColor = PaletteService.instance.getCached(widget.coverPath);
+      if (cachedColor != null && cachedColor != _dominantColor) {
+        _dominantColor = cachedColor;
+      }
+      _extractDominantColor();
+    }
   }
 
   @override
@@ -68,7 +95,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     }
   }
 
-  List<LocalLibraryItem> get _sortedTracks {
+  List<LocalLibraryItem> _buildSortedTracks() {
     final tracks = List<LocalLibraryItem>.from(widget.tracks);
     tracks.sort((a, b) {
       // Sort by disc number first, then by track number
@@ -81,6 +108,13 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
       return a.trackName.compareTo(b.trackName);
     });
     return tracks;
+  }
+
+  void _rebuildTrackCaches() {
+    _sortedTracksCache = _buildSortedTracks();
+    _discGroupsCache = _groupTracksByDisc(_sortedTracksCache);
+    _sortedDiscNumbersCache = _discGroupsCache.keys.toList()..sort();
+    _hasMultipleDiscsCache = _discGroupsCache.length > 1;
   }
 
   Map<int, List<LocalLibraryItem>> _groupTracksByDisc(List<LocalLibraryItem> tracks) {
@@ -200,7 +234,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final tracks = _sortedTracks;
+    final tracks = _sortedTracksCache;
     
     // Show empty state if no tracks found
     if (tracks.isEmpty) {
@@ -489,13 +523,12 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
   }
 
   Widget _buildTrackList(BuildContext context, ColorScheme colorScheme, List<LocalLibraryItem> tracks) {
-    final discGroups = _groupTracksByDisc(tracks);
-    final hasMultipleDiscs = discGroups.length > 1;
+    final discGroups = _discGroupsCache;
+    final hasMultipleDiscs = _hasMultipleDiscsCache;
     
     final slivers = <Widget>[];
     
-    final sortedDiscNumbers = discGroups.keys.toList()..sort();
-    for (final discNumber in sortedDiscNumbers) {
+    for (final discNumber in _sortedDiscNumbersCache) {
       final discTracks = discGroups[discNumber]!;
       
       if (hasMultipleDiscs) {
