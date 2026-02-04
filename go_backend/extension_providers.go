@@ -621,19 +621,43 @@ var providerPriorityMu sync.RWMutex
 
 var metadataProviderPriority []string
 var metadataProviderPriorityMu sync.RWMutex
+func persist(key string, value any) {
+	if store := GetExtensionSettingsStore(); store != nil {
+		_ = store.Set("_system", key, value) // ignore errors for simplicity
+	}
+}
 
 func SetProviderPriority(providerIDs []string) {
 	providerPriorityMu.Lock()
 	defer providerPriorityMu.Unlock()
 	providerPriority = providerIDs
 	GoLog("[Extension] Download provider priority set: %v\n", providerIDs)
+	persist("provider_priority", providerIDs)
 }
 
 func GetProviderPriority() []string {
 	providerPriorityMu.RLock()
-	defer providerPriorityMu.RUnlock()
+	if len(providerPriority) > 0 {
+		res := make([]string, len(providerPriority))
+		copy(res, providerPriority)
+		providerPriorityMu.RUnlock()
+		return res
+	}
+	providerPriorityMu.RUnlock()
 
-	if len(providerPriority) == 0 {
+	providerPriorityMu.Lock()
+	defer providerPriorityMu.Unlock()
+
+	if len(providerPriority) > 0 {
+		res := make([]string, len(providerPriority))
+		copy(res, providerPriority)
+		return res
+	}
+
+	if loaded := loadPriorityFromSettings("provider_priority"); len(loaded) > 0 {
+		providerPriority = loaded
+		GoLog("[Extension] Loaded provider priority: %v\n", loaded)
+	} else {
 		return []string{"tidal", "qobuz", "amazon"}
 	}
 
@@ -647,19 +671,55 @@ func SetMetadataProviderPriority(providerIDs []string) {
 	defer metadataProviderPriorityMu.Unlock()
 	metadataProviderPriority = providerIDs
 	GoLog("[Extension] Metadata provider priority set: %v\n", providerIDs)
+	persist("metadata_provider_priority", providerIDs)
 }
 
 func GetMetadataProviderPriority() []string {
 	metadataProviderPriorityMu.RLock()
-	defer metadataProviderPriorityMu.RUnlock()
+	if len(metadataProviderPriority) > 0 {
+		res := make([]string, len(metadataProviderPriority))
+		copy(res, metadataProviderPriority)
+		metadataProviderPriorityMu.RUnlock()
+		return res
+	}
+	metadataProviderPriorityMu.RUnlock()
 
-	if len(metadataProviderPriority) == 0 {
+	metadataProviderPriorityMu.Lock()
+	defer metadataProviderPriorityMu.Unlock()
+
+	if len(metadataProviderPriority) > 0 {
+		res := make([]string, len(metadataProviderPriority))
+		copy(res, metadataProviderPriority)
+		return res
+	}
+
+	if loaded := loadPriorityFromSettings("metadata_provider_priority"); len(loaded) > 0 {
+		metadataProviderPriority = loaded
+		GoLog("[Extension] Loaded metadata provider priority: %v\n", loaded)
+	} else {
 		return []string{"deezer", "spotify"}
 	}
 
 	result := make([]string, len(metadataProviderPriority))
 	copy(result, metadataProviderPriority)
 	return result
+}
+
+func loadPriorityFromSettings(key string) []string {
+	if store := GetExtensionSettingsStore(); store != nil {
+		if val, err := store.Get("_system", key); err == nil {
+			if list, ok := val.([]interface{}); ok {
+				out := make([]string, 0, len(list))
+				for _, v := range list {
+					if s, ok := v.(string); ok {
+						out = append(out, s)
+					}
+				}
+				return out
+			}
+		}
+	}
+	return nil
 }
 
 func isBuiltInProvider(providerID string) bool {
