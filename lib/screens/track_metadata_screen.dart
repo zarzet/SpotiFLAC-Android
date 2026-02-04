@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
+import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/palette_service.dart';
 import 'package:spotiflac_android/utils/mime_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,9 +15,11 @@ import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 
 class TrackMetadataScreen extends ConsumerStatefulWidget {
-  final DownloadHistoryItem item;
+  final DownloadHistoryItem? item;
+  final LocalLibraryItem? localItem;
 
-  const TrackMetadataScreen({super.key, required this.item});
+  const TrackMetadataScreen({super.key, this.item, this.localItem})
+      : assert(item != null || localItem != null, 'Either item or localItem must be provided');
 
   @override
   ConsumerState<TrackMetadataScreen> createState() => _TrackMetadataScreenState();
@@ -88,7 +91,17 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   }
 
   Future<void> _extractDominantColor() async {
-    final coverUrl = widget.item.coverUrl;
+    // For local items with cover path, extract from file
+    if (_isLocalItem && _localCoverPath != null && _localCoverPath!.isNotEmpty) {
+      final color = await PaletteService.instance.extractDominantColorFromFile(_localCoverPath!);
+      if (mounted && color != null && color != _dominantColor) {
+        setState(() => _dominantColor = color);
+      }
+      return;
+    }
+    
+    final coverUrl = _coverUrl;
+    if (coverUrl == null) return;
     
     // Check cache first
     final cachedColor = PaletteService.instance.getCached(coverUrl);
@@ -107,7 +120,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   }
 
   Future<void> _checkFile() async {
-    var filePath = widget.item.filePath;
+    var filePath = _filePath;
     if (filePath.startsWith('EXISTS:')) {
       filePath = filePath.substring(7);
     }
@@ -134,25 +147,38 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     }
   }
 
-  DownloadHistoryItem get item => widget.item;
-  String get trackName => item.trackName;
-  String get artistName => item.artistName;
-  String get albumName => item.albumName;
-  String? get albumArtist => _normalizeOptionalString(item.albumArtist);
-  int? get trackNumber => item.trackNumber;
-  int? get discNumber => item.discNumber;
-  String? get releaseDate => item.releaseDate;
-  String? get isrc => item.isrc;
-  String? get genre => item.genre;
-  String? get label => item.label;
-  String? get copyright => item.copyright;
+  bool get _isLocalItem => widget.localItem != null;
+  DownloadHistoryItem? get _downloadItem => widget.item;
+  LocalLibraryItem? get _localLibraryItem => widget.localItem;
+  
+  String get _itemId => _isLocalItem ? _localLibraryItem!.id : _downloadItem!.id;
+  String get trackName => _isLocalItem ? _localLibraryItem!.trackName : _downloadItem!.trackName;
+  String get artistName => _isLocalItem ? _localLibraryItem!.artistName : _downloadItem!.artistName;
+  String get albumName => _isLocalItem ? _localLibraryItem!.albumName : _downloadItem!.albumName;
+  String? get albumArtist => _normalizeOptionalString(_isLocalItem ? _localLibraryItem!.albumArtist : _downloadItem!.albumArtist);
+  int? get trackNumber => _isLocalItem ? _localLibraryItem!.trackNumber : _downloadItem!.trackNumber;
+  int? get discNumber => _isLocalItem ? _localLibraryItem!.discNumber : _downloadItem!.discNumber;
+  String? get releaseDate => _isLocalItem ? _localLibraryItem!.releaseDate : _downloadItem!.releaseDate;
+  String? get isrc => _isLocalItem ? _localLibraryItem!.isrc : _downloadItem!.isrc;
+  String? get genre => _isLocalItem ? _localLibraryItem!.genre : _downloadItem!.genre;
+  String? get label => _isLocalItem ? null : _downloadItem!.label;
+  String? get copyright => _isLocalItem ? null : _downloadItem!.copyright;
+  int? get duration => _isLocalItem ? _localLibraryItem!.duration : _downloadItem!.duration;
+  int? get bitDepth => _isLocalItem ? _localLibraryItem!.bitDepth : _downloadItem!.bitDepth;
+  int? get sampleRate => _isLocalItem ? _localLibraryItem!.sampleRate : _downloadItem!.sampleRate;
+  
+  String get _filePath => _isLocalItem ? _localLibraryItem!.filePath : _downloadItem!.filePath;
+  String? get _coverUrl => _isLocalItem ? null : _downloadItem!.coverUrl;
+  String? get _localCoverPath => _isLocalItem ? _localLibraryItem!.coverPath : null;
+  String? get _spotifyId => _isLocalItem ? null : _downloadItem!.spotifyId;
+  String get _service => _isLocalItem ? 'local' : _downloadItem!.service;
+  DateTime get _addedAt => _isLocalItem ? _localLibraryItem!.scannedAt : _downloadItem!.downloadedAt;
+  String? get _quality => _isLocalItem ? null : _downloadItem!.quality;
   
   String get cleanFilePath {
-    final path = item.filePath;
+    final path = _filePath;
     return path.startsWith('EXISTS:') ? path.substring(7) : path;
   }
-  int? get bitDepth => item.bitDepth;
-  int? get sampleRate => item.sampleRate;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +313,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
             child: Padding(
               padding: const EdgeInsets.only(top: 60),
               child: Hero(
-                tag: 'cover_${item.id}',
+                tag: 'cover_$_itemId',
                 child: Container(
                   width: coverSize,
                   height: coverSize,
@@ -303,9 +329,9 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: item.coverUrl != null
-? CachedNetworkImage(
-                            imageUrl: item.coverUrl!,
+                    child: _coverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: _coverUrl!,
                             fit: BoxFit.cover,
                             memCacheWidth: (coverSize * 2).toInt(),
                             cacheManager: CoverCacheManager.instance,
@@ -318,14 +344,19 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                               ),
                             ),
                           )
-                        : Container(
-                            color: colorScheme.surfaceContainerHighest,
-                            child: Icon(
-                              Icons.music_note,
-                              size: 64,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                        : _localCoverPath != null && _localCoverPath!.isNotEmpty
+                            ? Image.file(
+                                File(_localCoverPath!),
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                color: colorScheme.surfaceContainerHighest,
+                                child: Icon(
+                                  Icons.music_note,
+                                  size: 64,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                   ),
                 ),
               ),
@@ -448,11 +479,11 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
             
             _buildMetadataGrid(context, colorScheme),
             
-            if (item.spotifyId != null && item.spotifyId!.isNotEmpty) ...[
+            if (_spotifyId != null && _spotifyId!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Builder(
                 builder: (context) {
-                  final isDeezer = item.spotifyId!.contains('deezer');
+                  final isDeezer = _spotifyId!.contains('deezer');
                   return OutlinedButton.icon(
                     onPressed: () => _openServiceUrl(context),
                     icon: const Icon(Icons.open_in_new, size: 18),
@@ -474,10 +505,10 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   }
 
   Future<void> _openServiceUrl(BuildContext context) async {
-    if (item.spotifyId == null) return;
+    if (_spotifyId == null) return;
     
-    final isDeezer = item.spotifyId!.contains('deezer');
-    final rawId = item.spotifyId!.replaceAll('deezer:', '');
+    final isDeezer = _spotifyId!.contains('deezer');
+    final rawId = _spotifyId!.replaceAll('deezer:', '');
     
     final webUrl = isDeezer 
         ? 'https://www.deezer.com/track/$rawId'
@@ -519,12 +550,12 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   Widget _buildMetadataGrid(BuildContext context, ColorScheme colorScheme) {
     // Determine audio quality string - prefer stored quality from download
     String? audioQualityStr;
-    final fileName = item.filePath.split('/').last;
+    final fileName = _filePath.split('/').last;
     final fileExt = fileName.contains('.') ? fileName.split('.').last.toUpperCase() : '';
     
     // Use stored quality from download history if available
-    if (item.quality != null && item.quality!.isNotEmpty) {
-      audioQualityStr = item.quality;
+    if (_quality != null && _quality!.isNotEmpty) {
+      audioQualityStr = _quality;
     } else if (bitDepth != null && sampleRate != null) {
       // Fallback for FLAC files without stored quality
       final sampleRateKHz = (sampleRate! / 1000).toStringAsFixed(1);
@@ -550,8 +581,8 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
         _MetadataItem(context.l10n.trackTrackNumber, trackNumber.toString()),
       if (discNumber != null && discNumber! > 0)
         _MetadataItem(context.l10n.trackDiscNumber, discNumber.toString()),
-      if (item.duration != null)
-        _MetadataItem(context.l10n.trackDuration, _formatDuration(item.duration!)),
+      if (duration != null)
+        _MetadataItem(context.l10n.trackDuration, _formatDuration(duration!)),
       if (audioQualityStr != null)
         _MetadataItem(context.l10n.trackAudioQuality, audioQualityStr),
       if (releaseDate != null && releaseDate!.isNotEmpty)
@@ -566,16 +597,17 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
         _MetadataItem('ISRC', isrc!),
     ];
     
-    if (item.spotifyId != null && item.spotifyId!.isNotEmpty) {
-      final isDeezer = item.spotifyId!.contains('deezer');
-      final cleanId = item.spotifyId!.replaceAll('deezer:', '');
+    if (!_isLocalItem && _spotifyId != null && _spotifyId!.isNotEmpty) {
+      final isDeezer = _spotifyId!.contains('deezer');
+      final cleanId = _spotifyId!.replaceAll('deezer:', '');
       items.add(_MetadataItem(isDeezer ? 'Deezer ID' : 'Spotify ID', cleanId));
     }
     
-    items.addAll([
-      _MetadataItem(context.l10n.trackMetadataService, item.service.toUpperCase()),
-      _MetadataItem(context.l10n.trackDownloaded, _formatFullDate(item.downloadedAt)),
-    ]);
+    items.add(_MetadataItem(context.l10n.trackMetadataService, _service.toUpperCase()));
+    items.add(_MetadataItem(
+      context.l10n.trackDownloaded,
+      _formatFullDate(_addedAt),
+    ));
 
     return Column(
       children: items.map((metadata) {
@@ -728,20 +760,20 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getServiceColor(item.service, colorScheme),
+                    color: _getServiceColor(_service, colorScheme),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _getServiceIcon(item.service),
+                        _getServiceIcon(_service),
                         size: 14,
                         color: Colors.white,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        item.service.toUpperCase(),
+                        _service.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -943,14 +975,14 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
     try {
       // Convert duration from seconds to milliseconds
-      final durationMs = (item.duration ?? 0) * 1000;
+      final durationMs = (duration ?? 0) * 1000;
       
       // First, check if lyrics are embedded in the file
       if (_fileExists) {
         final embeddedResult = await PlatformBridge.getLyricsLRC(
           '',
-          item.trackName,
-          item.artistName,
+          trackName,
+          artistName,
           filePath: cleanFilePath,
           durationMs: 0,
         ).timeout(const Duration(seconds: 5), onTimeout: () => '');
@@ -971,9 +1003,9 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
       
       // No embedded lyrics, fetch from online
       final result = await PlatformBridge.getLyricsLRC(
-        item.spotifyId ?? '',
-        item.trackName,
-        item.artistName,
+        _spotifyId ?? '',
+        trackName,
+        artistName,
         filePath: null, // Don't check file again
         durationMs: durationMs,
       ).timeout(
@@ -1177,16 +1209,31 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           ),
           TextButton(
             onPressed: () async {
-              try {
-                final file = File(cleanFilePath);
-                if (await file.exists()) {
-                  await file.delete();
+              if (_isLocalItem) {
+                // For local items, just delete the file
+                try {
+                  final file = File(cleanFilePath);
+                  if (await file.exists()) {
+                    await file.delete();
+                  }
+                } catch (e) {
+                  debugPrint('Failed to delete file: $e');
                 }
-              } catch (e) {
-                debugPrint('Failed to delete file: $e');
+                // Also remove from local library database
+                // ref.read(localLibraryProvider.notifier).removeItem(_localLibraryItem!.id);
+              } else {
+                // Existing download history deletion logic
+                try {
+                  final file = File(cleanFilePath);
+                  if (await file.exists()) {
+                    await file.delete();
+                  }
+                } catch (e) {
+                  debugPrint('Failed to delete file: $e');
+                }
+                
+                ref.read(downloadHistoryProvider.notifier).removeFromHistory(_downloadItem!.id);
               }
-              
-              ref.read(downloadHistoryProvider.notifier).removeFromHistory(item.id);
               
               if (context.mounted) {
                 Navigator.pop(context);
@@ -1242,7 +1289,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(cleanFilePath)],
-        text: '${item.trackName} - ${item.artistName}',
+        text: '$trackName - $artistName',
       ),
     );
   }

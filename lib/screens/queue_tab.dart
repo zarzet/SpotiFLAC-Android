@@ -1091,6 +1091,21 @@ _precacheCover(historyItem.coverUrl);
     ).then((_) => _searchFocusNode.unfocus());
   }
 
+  void _navigateToLocalMetadataScreen(LocalLibraryItem item) {
+    _searchFocusNode.unfocus();
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            TrackMetadataScreen(localItem: item),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    ).then((_) => _searchFocusNode.unfocus());
+  }
+
 List<DownloadHistoryItem> _filterHistoryItems(
     List<DownloadHistoryItem> items,
     String filterMode,
@@ -2907,7 +2922,9 @@ child: CachedNetworkImage(
             ? () => _toggleSelection(item.id)
             : isDownloaded
                 ? () => _navigateToHistoryMetadataScreen(item.historyItem!)
-                : () => _openFile(item.filePath),
+                : item.localItem != null
+                    ? () => _navigateToLocalMetadataScreen(item.localItem!)
+                    : () => _openFile(item.filePath),
         onLongPress: _isSelectionMode
             ? null
             : () => _enterSelectionMode(item.id),
@@ -3081,7 +3098,9 @@ child: CachedNetworkImage(
           ? () => _toggleSelection(item.id)
           : isDownloaded
               ? () => _navigateToHistoryMetadataScreen(item.historyItem!)
-              : () => _openFile(item.filePath),
+              : item.localItem != null
+                  ? () => _navigateToLocalMetadataScreen(item.localItem!)
+                  : () => _openFile(item.filePath),
       onLongPress: _isSelectionMode
           ? null
           : () => _enterSelectionMode(item.id),

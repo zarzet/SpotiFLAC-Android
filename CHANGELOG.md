@@ -21,6 +21,7 @@
   - Deezer: Full support for track, album, playlist, artist links
   - Tidal: Track links converted via SongLink to Spotify/Deezer for metadata
   - YouTube Music: Handled via ytmusic extension URL handler
+- Local library tracks now open metadata screen on tap
 
 ### Changed
 
@@ -178,31 +179,26 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - Perfect for players like Samsung Music that prefer external .lrc files
   - LRC files include metadata headers (title, artist, by:SpotiFLAC-Mobile)
   - Works with all download services (Tidal, Qobuz, Amazon)
-
 - **CSV Import Quality Selection**: Choose audio quality when importing CSV playlists
   - Quality picker now appears before adding CSV tracks to download queue
   - Select between FLAC qualities (Lossless, Hi-Res, Hi-Res Max) or MP3
   - Respects "Ask quality before download" setting - uses default quality if disabled
-
   - **Persistent Cover Image Cache**: Album/track cover images now cached to persistent storage instead of temporary directory
   - Cover images no longer disappear when app is closed or device restarts
   - Cache stored in `app_flutter/cover_cache/` directory (not cleared by system)
   - Maximum 1000 images cached for up to 365 days
   - Covers are cached when displayed in History, Home, Album, Artist, or any other screen
   - New `CoverCacheManager` service with `clearCache()` and `getStats()` methods for future cache management
-
 - **Extended Metadata from Deezer Enrichment**: Track downloads now include label, copyright, and genre metadata from Deezer
   - New fields in `ExtTrackMetadata`: `label`, `copyright`, `genre`
   - Metadata fetched during `enrichTrack()` via Deezer album API
   - Embedded as FLAC Vorbis comments: `GENRE`, `ORGANIZATION` (label), `COPYRIGHT`
   - Works for both extension downloads and built-in provider downloads (Tidal, Qobuz, Amazon)
-
 - **Track Metadata Screen Extended Info**: Genre, label, and copyright now displayed in track metadata screen
   - Added `genre`, `label`, `copyright` fields to `DownloadHistoryItem` model
   - Metadata is stored in download history and persists across app restarts
   - New localization strings: `trackGenre`, `trackLabel`, `trackCopyright`
-
-- **`utils.randomUserAgent()` for Extensions**: New utility function for extensions to get random browser User-Agent strings
+- `**utils.randomUserAgent()` for Extensions**: New utility function for extensions to get random browser User-Agent strings
   - Returns modern Chrome User-Agent format: `Chrome/{120-145}.0.{6000-7499}.{100-299}` with `Windows NT 10.0`
   - Useful for extensions that need to rotate User-Agents to avoid detection
 
@@ -211,7 +207,6 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
 - **Portuguese Language Bug**: Fixed locale parsing for languages with country codes (e.g., pt_PT, es_ES)
   - App now correctly loads Portuguese and Spanish translations
   - Updated Portuguese label to "Português (Brasil)"
-
 - **VM Race Condition Panic**: Fixed `panic during execution: runtime error: index out of range [-2]` crash when switching search providers
   - Root cause: Goja VM was being accessed concurrently by multiple goroutines without synchronization
   - Added `VMMu sync.Mutex` to `LoadedExtension` struct
@@ -220,16 +215,13 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
     - `EnrichTrack`, `CheckAvailability`, `GetDownloadURL`, `Download`
     - `CustomSearch`, `HandleURL`, `MatchTrack`, `PostProcess`
   - Prevents race conditions when rapidly switching between extension search providers
-
 - **Tidal Release Date Fallback**: Fixed missing release date in FLAC metadata when downloading from Tidal
   - Now uses Tidal API's release date when `req.ReleaseDate` is empty
   - Ensures release date is always embedded in downloaded files
-
 - **Extended Metadata for M4A→FLAC Conversion**: Fixed genre, label, and copyright not being embedded when converting Amazon M4A to FLAC
   - Flutter now extracts extended metadata from Go backend response
   - Passes `genre`, `label`, `copyright` parameters to `_embedMetadataAndCover()`
   - Tags correctly embedded during FFmpeg conversion
-
 - **Extended Metadata for MP3 Conversion**: Genre, label, and copyright now embedded in MP3 files when converting from FLAC
   - Added `genre`, `label`, `copyright` parameters to `_embedMetadataToMp3()`
   - Tags embedded as ID3v2: `GENRE`, `ORGANIZATION` (label), `COPYRIGHT`
@@ -290,7 +282,6 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - `go_backend/httputil.go`: Updated `getRandomUserAgent()` to use modern Chrome versions
   - `go_backend/tidal.go`: Added release date fallback logic
   - `go_backend/exports.go`: Added `Genre`, `Label`, `Copyright` fields to `DownloadResponse`
-
 - **Flutter Changes**:
   - `lib/services/cover_cache_manager.dart`: New persistent cache manager for cover images (365 days, 1000 images max)
   - `lib/widgets/cached_cover_image.dart`: Wrapper widget for CachedNetworkImage with persistent cache
@@ -315,7 +306,6 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - Spanish: Credits 125 ([@credits125](https://crowdin.com/profile/credits125))
   - Portuguese: Pedro Marcondes ([@justapedro](https://crowdin.com/profile/justapedro))
   - Russian: Владислав ([@odinokiy_kot](https://crowdin.com/profile/odinokiy_kot))
-
 - **Quick Search Provider Switcher** ([#76](https://github.com/zarzet/SpotiFLAC-Mobile/issues/76)): Dropdown menu in search bar for instant provider switching
   - Tap the search icon to reveal a dropdown menu with all available search providers
   - Shows default provider (Deezer based on metadata source setting) at the top
@@ -325,56 +315,46 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - Search hint text updates immediately when switching providers
   - Re-triggers search automatically if there's existing text in the search bar
   - Eliminates need to navigate to Settings > Extensions > Search Provider
-
 - **Extension Button Setting Type** ([#74](https://github.com/zarzet/SpotiFLAC-Mobile/issues/74)): New setting type for extension actions
   - Extensions can define `button` type in manifest settings
   - Triggers JavaScript function when tapped (e.g., start OAuth flow)
   - Useful for authentication, manual sync, or any custom action
-
 - **Genre & Label Metadata** ([#75](https://github.com/zarzet/SpotiFLAC-Mobile/issues/75)): Downloaded tracks now include genre and record label information
   - Fetches genre and label from Deezer album API for each track
   - Embeds GENRE, ORGANIZATION (label), and COPYRIGHT tags into FLAC files
   - Works automatically when Deezer track ID is available (via ISRC matching)
   - Supports all download services (Tidal, Qobuz, Amazon) and extension downloads
-
 - **MP3 Quality Option** ([#69](https://github.com/zarzet/SpotiFLAC-Mobile/issues/69)): Optional MP3 download format with FLAC-to-MP3 conversion
   - New "Enable MP3 Option" toggle in Settings > Download > Audio Quality
   - When enabled, MP3 (320kbps) appears as a quality option alongside FLAC options
   - Available in both the quality picker dialog and default quality settings
   - Works with all services (Tidal, Qobuz, Amazon) and extensions
-
 - **MP3 Metadata Embedding**: Full metadata support for MP3 files
   - Cover art embedded using ID3v2 tags
   - Synced lyrics embedded (fetched from lrclib.net)
   - All metadata preserved: title, artist, album, album artist, track/disc number, date, ISRC
   - Automatic tag conversion from Vorbis comments (FLAC) to ID3v2 (MP3)
-
 - **Dominant Color Header**: Album, Playlist, Downloaded Album, and Track Metadata screens now feature dynamic header backgrounds
   - Extracts dominant color from cover art using `palette_generator`
   - Creates a gradient from dominant color to theme surface color
   - Smooth 500ms color transition animation
-
 - **Larger Cover Art**: Cover images on detail screens are now 50% of screen width (previously 140px fixed)
   - More prominent album artwork display
   - Larger shadow and rounded corners (20px radius)
   - Higher resolution cover caching
-
 - **Sticky Title**: Title appears in AppBar when scrolling past the info card
   - Smooth fade-in animation (200ms) when scrolling down
   - Title hidden when header is expanded (shows in info card instead)
   - AppBar uses theme color (surface) for clean, native look
   - Works on Album, Playlist, Downloaded Album, Track Metadata, and Artist screens
-
 - **Artist Name in Album Screen**: Album info card now displays artist name below album title
   - Extracted from first track's artist metadata
   - Styled with `onSurfaceVariant` color for visual hierarchy
-
 - **Disc Separation for Multi-Disc Albums** ([#70](https://github.com/zarzet/SpotiFLAC-Mobile/issues/70)): Downloaded albums with multiple discs now display tracks grouped by disc
   - Visual disc separator header showing "Disc 1", "Disc 2", etc.
   - Tracks sorted by disc number first, then by track number
   - Single-disc albums display normally without separators
   - Fixes confusion when albums have duplicate track numbers across discs
-
 - **Album Grouping in Recents** ([#70](https://github.com/zarzet/SpotiFLAC-Mobile/issues/70)): Downloads now show as albums instead of individual tracks in the Recent section
   - Prevents flooding the recents list when downloading full albums
   - Groups tracks by album name and artist
@@ -387,7 +367,6 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - MP3 files now saved in the same folder as FLAC (no separate MP3 subfolder)
   - Original FLAC file automatically deleted after successful conversion
   - New `embedMetadataToMp3()` method for MP3-specific tag embedding
-
 - **Sticky Header Theme Integration**: AppBar background uses `colorScheme.surface` instead of dominant color when collapsed
   - Dark theme: Black background with white text
   - Light theme: White background with black text
@@ -399,12 +378,10 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - MP3 files now show "320kbps" instead of FLAC's bit depth/sample rate
   - History no longer stores FLAC audio specs for converted MP3 files
   - Both File Info badges and metadata grid show correct MP3 quality
-
 - **Empty Catch Blocks**: Fixed analyzer warnings for empty catch blocks
   - `download_queue_provider.dart`: Added comments explaining why polling errors are silently ignored
   - `track_provider.dart`: Added comments explaining why availability check errors are silently ignored
   - `ffmpeg_service.dart`: Added proper error logging for temp file cleanup failures
-
 - **Russian Plural Forms**: Fixed ICU syntax warnings in Russian localization
   - Removed redundant `=1` clauses that were overriding `one` plural category
   - Affected 10 plural strings including track counts and delete confirmations
@@ -424,24 +401,20 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - Thread-safe cache with automatic expiration
   - Cache key based on artist, track, and duration
   - Log indicator shows "(cached)" when lyrics are served from cache
-
 - **Lyrics Duration Matching**: Improved lyrics accuracy with duration-based matching
   - Compares track duration with lrclib.net results
   - 10-second tolerance to handle version differences (radio edit, remaster, etc.)
   - Prioritizes synced lyrics over plain text when duration matches
   - Falls back gracefully if no duration match found
-
 - **Deezer Cover Art Upgrade**: Cover art from Deezer CDN now automatically upgraded to maximum quality
   - Detects Deezer CDN URLs (`cdn-images.dzcdn.net`)
   - Upgrades cover resolution to 1800x1800 (max available)
   - Works alongside existing cover upgrade
-
 - **Live Search for Extensions**: Search-as-you-type functionality for extension search
   - 800ms debounce delay to prevent excessive API calls
   - Minimum 3 characters required before searching
   - Concurrency control to prevent race conditions in extension runtime
   - Queues pending searches if a search is already in progress
-
 - **Russian Language Support**: Added Russian (Русский) translation - 99% complete
   - Translated via Crowdin community contributions
   - Covers all UI elements, settings, and error messages
@@ -452,12 +425,10 @@ Same as 3.3.1 but fixes crash issues caused by FFmpeg.
   - Added per-directory build lock using `sync.Map` and `sync.Mutex`
   - Double-check locking pattern ensures index is built only once
   - Significantly improves performance during CSV import with many tracks
-
 - **Queue Tab Scroll Exception**: Fixed Flutter rendering exception with NestedScrollView
   - Disabled Material 3 stretch overscroll indicator that caused `_StretchController` assertion
   - Wrapped NestedScrollView with ScrollConfiguration to prevent `setState during build` errors
   - Issue was especially noticeable during rapid queue updates (CSV import)
-
 - **CSV Import**: Fixed CSV export not being parsed correctly
   - Added support for `Artist Name(s)` header (with parentheses)
   - Added support for `Track URI` header for track IDs
@@ -524,4 +495,4 @@ SpotiFLAC 3.0 introduces a powerful extension system that allows third-party int
 
 ---
 
-*For older versions, see [GitHub Releases](https://github.com/zarzet/SpotiFLAC-Mobile/releases)*
+*For older versions, see [GitHub Releases*](https://github.com/zarzet/SpotiFLAC-Mobile/releases)
