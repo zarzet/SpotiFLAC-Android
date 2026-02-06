@@ -17,6 +17,7 @@ class LocalLibraryState {
   final String? scanCurrentFile;
   final int scanTotalFiles;
   final int scanErrorCount;
+  final bool scanWasCancelled;
   final DateTime? lastScannedAt;
   final Set<String> _isrcSet;
   final Set<String> _trackKeySet;
@@ -29,6 +30,7 @@ class LocalLibraryState {
     this.scanCurrentFile,
     this.scanTotalFiles = 0,
     this.scanErrorCount = 0,
+    this.scanWasCancelled = false,
     this.lastScannedAt,
   })  : _isrcSet = items
             .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
@@ -72,6 +74,7 @@ class LocalLibraryState {
     String? scanCurrentFile,
     int? scanTotalFiles,
     int? scanErrorCount,
+    bool? scanWasCancelled,
     DateTime? lastScannedAt,
   }) {
     return LocalLibraryState(
@@ -81,6 +84,7 @@ class LocalLibraryState {
       scanCurrentFile: scanCurrentFile ?? this.scanCurrentFile,
       scanTotalFiles: scanTotalFiles ?? this.scanTotalFiles,
       scanErrorCount: scanErrorCount ?? this.scanErrorCount,
+      scanWasCancelled: scanWasCancelled ?? this.scanWasCancelled,
       lastScannedAt: lastScannedAt ?? this.lastScannedAt,
     );
   }
@@ -90,6 +94,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
   final LibraryDatabase _db = LibraryDatabase.instance;
   Timer? _progressTimer;
   bool _isLoaded = false;
+  bool _scanCancelRequested = false;
 
   @override
   LocalLibraryState build() {
@@ -142,6 +147,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       return;
     }
 
+    _scanCancelRequested = false;
     _log.i('Starting library scan: $folderPath');
     state = state.copyWith(
       isScanning: true,
@@ -149,6 +155,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       scanCurrentFile: null,
       scanTotalFiles: 0,
       scanErrorCount: 0,
+      scanWasCancelled: false,
     );
 
     try {
@@ -163,7 +170,14 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     _startProgressPolling();
 
     try {
-      final results = await PlatformBridge.scanLibraryFolder(folderPath);
+      final isSaf = folderPath.startsWith('content://');
+      final results = isSaf
+          ? await PlatformBridge.scanSafTree(folderPath)
+          : await PlatformBridge.scanLibraryFolder(folderPath);
+      if (_scanCancelRequested) {
+        state = state.copyWith(isScanning: false, scanWasCancelled: true);
+        return;
+      }
       
       final items = <LocalLibraryItem>[];
       for (final json in results) {
@@ -187,12 +201,13 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
         isScanning: false,
         scanProgress: 100,
         lastScannedAt: now,
+        scanWasCancelled: false,
       );
 
       _log.i('Scan complete: ${items.length} tracks found');
     } catch (e, stack) {
       _log.e('Library scan failed: $e', e, stack);
-      state = state.copyWith(isScanning: false);
+      state = state.copyWith(isScanning: false, scanWasCancelled: false);
     } finally {
       _stopProgressPolling();
     }
@@ -227,8 +242,9 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     if (!state.isScanning) return;
     
     _log.i('Cancelling library scan');
+    _scanCancelRequested = true;
     await PlatformBridge.cancelLibraryScan();
-    state = state.copyWith(isScanning: false);
+    state = state.copyWith(isScanning: false, scanWasCancelled: true);
     _stopProgressPolling();
   }
 

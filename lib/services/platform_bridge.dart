@@ -67,6 +67,11 @@ class PlatformBridge {
     String? releaseDate,
     String? itemId,
     int durationMs = 0,
+    String storageMode = 'app',
+    String safTreeUri = '',
+    String safRelativeDir = '',
+    String safFileName = '',
+    String safOutputExt = '',
   }) async {
     _log.i('downloadTrack: "$trackName" by $artistName via $service');
     final request = jsonEncode({
@@ -89,6 +94,11 @@ class PlatformBridge {
       'release_date': releaseDate ?? '',
       'item_id': itemId ?? '',
       'duration_ms': durationMs,
+      'storage_mode': storageMode,
+      'saf_tree_uri': safTreeUri,
+      'saf_relative_dir': safRelativeDir,
+      'saf_file_name': safFileName,
+      'saf_output_ext': safOutputExt,
     });
     
     final result = await _channel.invokeMethod('downloadTrack', request);
@@ -125,6 +135,11 @@ class PlatformBridge {
     String? label,
     String? copyright,
     String lyricsMode = 'embed',
+    String storageMode = 'app',
+    String safTreeUri = '',
+    String safRelativeDir = '',
+    String safFileName = '',
+    String safOutputExt = '',
   }) async {
     _log.i('downloadWithFallback: "$trackName" by $artistName (preferred: $preferredService)');
     final request = jsonEncode({
@@ -151,6 +166,11 @@ class PlatformBridge {
       'label': label ?? '',
       'copyright': copyright ?? '',
       'lyrics_mode': lyricsMode,
+      'storage_mode': storageMode,
+      'saf_tree_uri': safTreeUri,
+      'saf_relative_dir': safRelativeDir,
+      'saf_file_name': safFileName,
+      'saf_output_ext': safOutputExt,
     });
     
     final result = await _channel.invokeMethod('downloadWithFallback', request);
@@ -223,6 +243,80 @@ class PlatformBridge {
       'filename': filename,
     });
     return result as String;
+  }
+
+  static Future<Map<String, dynamic>?> pickSafTree() async {
+    final result = await _channel.invokeMethod('pickSafTree');
+    if (result == null) return null;
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<bool> safExists(String uri) async {
+    final result = await _channel.invokeMethod('safExists', {'uri': uri});
+    return result as bool;
+  }
+
+  static Future<bool> safDelete(String uri) async {
+    final result = await _channel.invokeMethod('safDelete', {'uri': uri});
+    return result as bool;
+  }
+
+  static Future<Map<String, dynamic>> safStat(String uri) async {
+    final result = await _channel.invokeMethod('safStat', {'uri': uri});
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> resolveSafFile({
+    required String treeUri,
+    required String fileName,
+    String relativeDir = '',
+  }) async {
+    final result = await _channel.invokeMethod('resolveSafFile', {
+      'tree_uri': treeUri,
+      'relative_dir': relativeDir,
+      'file_name': fileName,
+    });
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<String?> copyContentUriToTemp(String uri) async {
+    final result = await _channel.invokeMethod('safCopyToTemp', {'uri': uri});
+    return result as String?;
+  }
+
+  static Future<bool> replaceContentUriFromPath(
+    String uri,
+    String srcPath,
+  ) async {
+    final result = await _channel.invokeMethod('safReplaceFromPath', {
+      'uri': uri,
+      'src_path': srcPath,
+    });
+    return result as bool;
+  }
+
+  static Future<String?> createSafFileFromPath({
+    required String treeUri,
+    required String relativeDir,
+    required String fileName,
+    required String mimeType,
+    required String srcPath,
+  }) async {
+    final result = await _channel.invokeMethod('safCreateFromPath', {
+      'tree_uri': treeUri,
+      'relative_dir': relativeDir,
+      'file_name': fileName,
+      'mime_type': mimeType,
+      'src_path': srcPath,
+    });
+    return result as String?;
+  }
+
+  static Future<void> openContentUri(String uri, {String mimeType = ''}) async {
+    await _channel.invokeMethod('openContentUri', {
+      'uri': uri,
+      'mime_type': mimeType,
+    });
   }
 
   static Future<Map<String, dynamic>> fetchLyrics(
@@ -593,6 +687,11 @@ static Future<Map<String, dynamic>> downloadWithExtensions({
     String? label,
     String lyricsMode = 'embed',
     String? preferredService,
+    String storageMode = 'app',
+    String safTreeUri = '',
+    String safRelativeDir = '',
+    String safFileName = '',
+    String safOutputExt = '',
   }) async {
     _log.i('downloadWithExtensions: "$trackName" by $artistName${source != null ? ' (source: $source)' : ''}${preferredService != null ? ' (service: $preferredService)' : ''}');
     final request = jsonEncode({
@@ -619,6 +718,11 @@ static Future<Map<String, dynamic>> downloadWithExtensions({
       'label': label ?? '',
       'lyrics_mode': lyricsMode,
       'service': preferredService ?? '',
+      'storage_mode': storageMode,
+      'saf_tree_uri': safTreeUri,
+      'saf_relative_dir': safRelativeDir,
+      'saf_file_name': safFileName,
+      'saf_output_ext': safOutputExt,
     });
     
     final result = await _channel.invokeMethod('downloadWithExtensions', request);
@@ -852,6 +956,15 @@ static Future<Map<String, dynamic>> downloadWithExtensions({
     return list.map((e) => e as Map<String, dynamic>).toList();
   }
 
+  static Future<List<Map<String, dynamic>>> scanSafTree(String treeUri) async {
+    _log.i('scanSafTree: $treeUri');
+    final result = await _channel.invokeMethod('scanSafTree', {
+      'tree_uri': treeUri,
+    });
+    final list = jsonDecode(result as String) as List<dynamic>;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
   /// Get current library scan progress
   static Future<Map<String, dynamic>> getLibraryScanProgress() async {
     final result = await _channel.invokeMethod('getLibraryScanProgress');
@@ -884,6 +997,23 @@ static Future<Map<String, dynamic>> downloadWithExtensions({
   }) async {
     final result = await _channel.invokeMethod('runPostProcessing', {
       'file_path': filePath,
+      'metadata': metadata != null ? jsonEncode(metadata) : '',
+    });
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> runPostProcessingV2(
+    String filePath, {
+    Map<String, dynamic>? metadata,
+  }) async {
+    final input = <String, dynamic>{};
+    if (filePath.startsWith('content://')) {
+      input['uri'] = filePath;
+    } else {
+      input['path'] = filePath;
+    }
+    final result = await _channel.invokeMethod('runPostProcessingV2', {
+      'input': jsonEncode(input),
       'metadata': metadata != null ? jsonEncode(metadata) : '',
     });
     return jsonDecode(result as String) as Map<String, dynamic>;

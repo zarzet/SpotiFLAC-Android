@@ -1123,6 +1123,10 @@ func tryBuiltInProvider(providerID string, req DownloadRequest) (*DownloadRespon
 }
 
 func buildOutputPath(req DownloadRequest) string {
+	if strings.TrimSpace(req.OutputPath) != "" {
+		return strings.TrimSpace(req.OutputPath)
+	}
+
 	metadata := map[string]interface{}{
 		"title":        req.TrackName,
 		"artist":       req.ArtistName,
@@ -1138,7 +1142,14 @@ func buildOutputPath(req DownloadRequest) string {
 		filename = sanitizeFilename(fmt.Sprintf("%s - %s", req.ArtistName, req.TrackName))
 	}
 
-	return fmt.Sprintf("%s/%s.flac", req.OutputDir, filename)
+	ext := strings.TrimSpace(req.OutputExt)
+	if ext == "" {
+		ext = ".flac"
+	} else if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+
+	return fmt.Sprintf("%s/%s%s", req.OutputDir, filename, ext)
 }
 
 func (p *ExtensionProviderWrapper) CustomSearch(query string, options map[string]interface{}) ([]ExtTrackMetadata, error) {
@@ -1340,9 +1351,19 @@ func (p *ExtensionProviderWrapper) MatchTrack(sourceTrack map[string]interface{}
 type PostProcessResult struct {
 	Success     bool   `json:"success"`
 	NewFilePath string `json:"new_file_path,omitempty"`
+	NewFileURI  string `json:"new_file_uri,omitempty"`
 	Error       string `json:"error,omitempty"`
 	BitDepth    int    `json:"bit_depth,omitempty"`
 	SampleRate  int    `json:"sample_rate,omitempty"`
+}
+
+type PostProcessInput struct {
+	Path    string `json:"path,omitempty"`
+	URI     string `json:"uri,omitempty"`
+	Name    string `json:"name,omitempty"`
+	MimeType string `json:"mime_type,omitempty"`
+	Size    int64  `json:"size,omitempty"`
+	IsSAF   bool   `json:"is_saf,omitempty"`
 }
 
 const PostProcessTimeout = 2 * time.Minute
@@ -1369,6 +1390,75 @@ func (p *ExtensionProviderWrapper) PostProcess(filePath string, metadata map[str
 			return null;
 		})()
 	`, filePath, string(metadataJSON), hookID)
+
+	result, err := RunWithTimeoutAndRecover(p.vm, script, PostProcessTimeout)
+	if err != nil {
+		errMsg := err.Error()
+		if IsTimeoutError(err) {
+			errMsg = "postProcess timeout: extension took too long to complete"
+		}
+		return &PostProcessResult{
+			Success: false,
+			Error:   errMsg,
+		}, nil
+	}
+
+	if result == nil || goja.IsUndefined(result) || goja.IsNull(result) {
+		return &PostProcessResult{
+			Success: false,
+			Error:   "postProcess returned null",
+		}, nil
+	}
+
+	exported := result.Export()
+	jsonBytes, err := json.Marshal(exported)
+	if err != nil {
+		return &PostProcessResult{
+			Success: false,
+			Error:   fmt.Sprintf("failed to marshal result: %v", err),
+		}, nil
+	}
+
+	var postResult PostProcessResult
+	if err := json.Unmarshal(jsonBytes, &postResult); err != nil {
+		return &PostProcessResult{
+			Success: false,
+			Error:   fmt.Sprintf("failed to parse result: %v", err),
+		}, nil
+	}
+
+	return &postResult, nil
+}
+
+func (p *ExtensionProviderWrapper) PostProcessV2(input PostProcessInput, metadata map[string]interface{}, hookID string) (*PostProcessResult, error) {
+	if !p.extension.Manifest.HasPostProcessing() {
+		return nil, fmt.Errorf("extension '%s' does not support post-processing", p.extension.ID)
+	}
+
+	if !p.extension.Enabled {
+		return nil, fmt.Errorf("extension '%s' is disabled", p.extension.ID)
+	}
+
+	p.extension.VMMu.Lock()
+	defer p.extension.VMMu.Unlock()
+
+	metadataJSON, _ := json.Marshal(metadata)
+	inputJSON, _ := json.Marshal(input)
+	filePath := input.Path
+
+	script := fmt.Sprintf(`
+		(function() {
+			if (typeof extension !== 'undefined') {
+				if (typeof extension.postProcessV2 === 'function') {
+					return extension.postProcessV2(%s, %s, %q);
+				}
+				if (typeof extension.postProcess === 'function') {
+					return extension.postProcess(%q, %s, %q);
+				}
+			}
+			return null;
+		})()
+	`, string(inputJSON), string(metadataJSON), hookID, filePath, string(metadataJSON), hookID)
 
 	result, err := RunWithTimeoutAndRecover(p.vm, script, PostProcessTimeout)
 	if err != nil {
@@ -1530,4 +1620,59 @@ func (m *ExtensionManager) RunPostProcessing(filePath string, metadata map[strin
 	}
 
 	return &PostProcessResult{Success: true, NewFilePath: currentPath}, nil
+}
+
+// RunPostProcessingV2 runs all enabled post-processing hooks on a file input.
+func (m *ExtensionManager) RunPostProcessingV2(input PostProcessInput, metadata map[string]interface{}) (*PostProcessResult, error) {
+	providers := m.GetPostProcessingProviders()
+	if len(providers) == 0 {
+		return &PostProcessResult{Success: true, NewFilePath: input.Path, NewFileURI: input.URI}, nil
+	}
+
+	currentInput := input
+	for _, provider := range providers {
+		hooks := provider.extension.Manifest.GetPostProcessingHooks()
+		for _, hook := range hooks {
+			if !hook.DefaultEnabled {
+				continue
+			}
+
+			ext := strings.ToLower(filepath.Ext(currentInput.Path))
+			if ext == "" && currentInput.Name != "" {
+				ext = strings.ToLower(filepath.Ext(currentInput.Name))
+			}
+			if len(hook.SupportedFormats) > 0 && ext != "" {
+				supported := false
+				for _, format := range hook.SupportedFormats {
+					if "."+format == ext || format == ext[1:] {
+						supported = true
+						break
+					}
+				}
+				if !supported {
+					continue
+				}
+			}
+
+			GoLog("[PostProcessV2] Running hook %s from %s on %s\n", hook.ID, provider.extension.ID, currentInput.Path)
+
+			result, err := provider.PostProcessV2(currentInput, metadata, hook.ID)
+			if err != nil {
+				GoLog("[PostProcessV2] Hook %s failed: %v\n", hook.ID, err)
+				continue
+			}
+
+			if result.Success && result.NewFilePath != "" {
+				currentInput.Path = result.NewFilePath
+				if currentInput.Name == "" {
+					currentInput.Name = filepath.Base(result.NewFilePath)
+				}
+			}
+			if result.Success && result.NewFileURI != "" {
+				currentInput.URI = result.NewFileURI
+			}
+		}
+	}
+
+	return &PostProcessResult{Success: true, NewFilePath: currentInput.Path, NewFileURI: currentInput.URI}, nil
 }

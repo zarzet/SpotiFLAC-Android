@@ -19,6 +19,7 @@ import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/artist_screen.dart';
 import 'package:spotiflac_android/services/csv_import_service.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/screens/playlist_screen.dart';
 import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
 import 'package:spotiflac_android/models/download_item.dart';
@@ -2569,8 +2570,8 @@ class _TrackItemWithStatus extends ConsumerWidget {
     if (isInHistory) {
       final historyItem = ref.read(downloadHistoryProvider.notifier).getBySpotifyId(track.id);
       if (historyItem != null) {
-        final fileExists = await File(historyItem.filePath).exists();
-        if (fileExists) {
+        final exists = await fileExists(historyItem.filePath);
+        if (exists) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(context.l10n.snackbarAlreadyDownloaded(track.name))),

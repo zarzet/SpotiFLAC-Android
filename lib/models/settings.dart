@@ -8,6 +8,8 @@ class AppSettings {
   final String audioQuality;
   final String filenameFormat;
   final String downloadDirectory;
+  final String storageMode; // 'app' or 'saf'
+  final String downloadTreeUri; // SAF persistable tree URI
   final bool autoFallback;
   final bool embedLyrics;
   final bool maxQualityCover;
@@ -32,7 +34,7 @@ class AppSettings {
   final bool showExtensionStore;
   final String locale;
   final String lyricsMode;
-  final String tidalHighFormat; // Format for Tidal HIGH quality: 'mp3_320' or 'opus_128'
+  final String tidalHighFormat; // Format for Tidal HIGH quality: 'mp3_320', 'opus_256', or 'opus_128'
   final bool useAllFilesAccess; // Android 13+ only: enable MANAGE_EXTERNAL_STORAGE
   final bool autoExportFailedDownloads; // Auto export failed downloads to TXT file
   final String downloadNetworkMode; // 'any' = WiFi + Mobile, 'wifi_only' = WiFi only
@@ -47,6 +49,8 @@ class AppSettings {
     this.audioQuality = 'LOSSLESS',
     this.filenameFormat = '{title} - {artist}',
     this.downloadDirectory = '',
+    this.storageMode = 'app',
+    this.downloadTreeUri = '',
     this.autoFallback = true,
     this.embedLyrics = true,
     this.maxQualityCover = true,
@@ -86,6 +90,8 @@ class AppSettings {
     String? audioQuality,
     String? filenameFormat,
     String? downloadDirectory,
+    String? storageMode,
+    String? downloadTreeUri,
     bool? autoFallback,
     bool? embedLyrics,
     bool? maxQualityCover,
@@ -125,6 +131,8 @@ class AppSettings {
       audioQuality: audioQuality ?? this.audioQuality,
       filenameFormat: filenameFormat ?? this.filenameFormat,
       downloadDirectory: downloadDirectory ?? this.downloadDirectory,
+      storageMode: storageMode ?? this.storageMode,
+      downloadTreeUri: downloadTreeUri ?? this.downloadTreeUri,
       autoFallback: autoFallback ?? this.autoFallback,
       embedLyrics: embedLyrics ?? this.embedLyrics,
       maxQualityCover: maxQualityCover ?? this.maxQualityCover,

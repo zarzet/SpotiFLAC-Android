@@ -34,7 +34,7 @@ class HistoryDatabase {
     
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -52,6 +52,11 @@ class HistoryDatabase {
         album_artist TEXT,
         cover_url TEXT,
         file_path TEXT NOT NULL,
+        storage_mode TEXT,
+        download_tree_uri TEXT,
+        saf_relative_dir TEXT,
+        saf_file_name TEXT,
+        saf_repaired INTEGER,
         service TEXT NOT NULL,
         downloaded_at TEXT NOT NULL,
         isrc TEXT,
@@ -80,7 +85,15 @@ class HistoryDatabase {
   
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     _log.i('Upgrading database from v$oldVersion to v$newVersion');
-    // Future migrations go here
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE history ADD COLUMN storage_mode TEXT');
+      await db.execute('ALTER TABLE history ADD COLUMN download_tree_uri TEXT');
+      await db.execute('ALTER TABLE history ADD COLUMN saf_relative_dir TEXT');
+      await db.execute('ALTER TABLE history ADD COLUMN saf_file_name TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE history ADD COLUMN saf_repaired INTEGER');
+    }
   }
   
   // ==================== iOS Path Normalization ====================
@@ -244,6 +257,11 @@ class HistoryDatabase {
       'album_artist': json['albumArtist'],
       'cover_url': json['coverUrl'],
       'file_path': json['filePath'],
+      'storage_mode': json['storageMode'],
+      'download_tree_uri': json['downloadTreeUri'],
+      'saf_relative_dir': json['safRelativeDir'],
+      'saf_file_name': json['safFileName'],
+      'saf_repaired': json['safRepaired'] == true ? 1 : 0,
       'service': json['service'],
       'downloaded_at': json['downloadedAt'],
       'isrc': json['isrc'],
@@ -272,6 +290,11 @@ class HistoryDatabase {
       'albumArtist': row['album_artist'],
       'coverUrl': row['cover_url'],
       'filePath': _normalizeIosPath(row['file_path'] as String?),
+      'storageMode': row['storage_mode'],
+      'downloadTreeUri': row['download_tree_uri'],
+      'safRelativeDir': row['saf_relative_dir'],
+      'safFileName': row['saf_file_name'],
+      'safRepaired': row['saf_repaired'] == 1 || row['saf_repaired'] == true,
       'service': row['service'],
       'downloadedAt': row['downloaded_at'],
       'isrc': row['isrc'],

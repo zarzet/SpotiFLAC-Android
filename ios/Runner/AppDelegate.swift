@@ -639,6 +639,14 @@ import Gobackend  // Import Go framework
             let response = GobackendRunPostProcessingJSON(filePath, metadataJson, &error)
             if let error = error { throw error }
             return response
+
+        case "runPostProcessingV2":
+            let args = call.arguments as! [String: Any]
+            let inputJson = args["input"] as? String ?? ""
+            let metadataJson = args["metadata"] as? String ?? ""
+            let response = GobackendRunPostProcessingV2JSON(inputJson, metadataJson, &error)
+            if let error = error { throw error }
+            return response
             
         case "getPostProcessingProviders":
             let response = GobackendGetPostProcessingProvidersJSON(&error)

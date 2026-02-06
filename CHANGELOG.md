@@ -1,5 +1,41 @@
 # Changelog
 
+## [3.5.0] - 2026-02-06
+
+### Highlights
+
+- **SAF Storage (Android 10+)**: Proper Storage Access Framework support for download destination (content URIs)
+  - Select download folder via SAF tree picker
+  - Downloads now write to SAF file descriptors (`/proc/self/fd/*`) instead of raw filesystem paths
+  - Works around Android 10+ scoped storage permission errors
+
+### Added
+
+- New settings fields for storage mode + SAF tree URI
+- SAF platform bridge methods: pick tree, stat/exists/delete, open content URI, copy to temp, write back to SAF
+- SAF library scan mode (DocumentFile traversal + metadata read)
+- Library UI toggle to show SAF-repaired history items
+- Scan cancelled banner + retry action for library scans
+- Android DocumentFile dependency for SAF operations
+- Post-processing API v2 (SAF-aware, ready to replace v1)
+
+### Changed
+
+- Download pipeline supports `output_path` + `output_ext` for Go backend
+- Tidal/Qobuz/Amazon/Extension downloads use SAF-aware output when enabled
+- Post-processing hooks run for SAF content URIs (via temp file bridge)
+- File operations in Library/Queue/Track screens now SAF-aware (`open`, `exists`, `delete`, `stat`)
+
+### Fixed
+
+- Android 10+ `permission denied` when writing to `/storage/emulated/0` (now handled via SAF)
+- SAF history repair: auto-resolve missing content URIs using tree + filename
+- SAF download fallback: retry in app-private storage when SAF write fails
+- Tidal DASH manifest writing when output path is a file descriptor (no invalid `.m4a` path)
+- External LRC output in SAF mode
+
+---
+
 ## [3.4.2] - 2026-02-04
 
 ### Improved

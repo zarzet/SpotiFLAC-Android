@@ -1016,13 +1016,17 @@ type QobuzDownloadResult struct {
 	TrackNumber int
 	DiscNumber  int
 	ISRC        string
+	LyricsLRC   string
 }
 
 func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	downloader := NewQobuzDownloader()
 
-	if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
-		return QobuzDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+	isSafOutput := strings.TrimSpace(req.OutputPath) != ""
+	if !isSafOutput {
+		if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
+			return QobuzDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+		}
 	}
 
 	expectedDurationSec := req.DurationMS / 1000
@@ -1130,11 +1134,15 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		"year":   extractYear(req.ReleaseDate),
 		"disc":   req.DiscNumber,
 	})
-	filename = sanitizeFilename(filename) + ".flac"
-	outputPath := filepath.Join(req.OutputDir, filename)
-
-	if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
-		return QobuzDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
+	var outputPath string
+	if isSafOutput {
+		outputPath = strings.TrimSpace(req.OutputPath)
+	} else {
+		filename = sanitizeFilename(filename) + ".flac"
+		outputPath = filepath.Join(req.OutputDir, filename)
+		if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
+			return QobuzDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
+		}
 	}
 
 	qobuzQuality := "27"
@@ -1227,7 +1235,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 			lyricsMode = "embed"
 		}
 
-		if lyricsMode == "external" || lyricsMode == "both" {
+		if !isSafOutput && (lyricsMode == "external" || lyricsMode == "both") {
 			GoLog("[Qobuz] Saving external LRC file...\n")
 			if lrcPath, lrcErr := SaveLRCFile(outputPath, parallelResult.LyricsLRC); lrcErr != nil {
 				GoLog("[Qobuz] Warning: failed to save LRC file: %v\n", lrcErr)
@@ -1248,7 +1256,14 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		fmt.Println("[Qobuz] No lyrics available from parallel fetch")
 	}
 
-	AddToISRCIndex(req.OutputDir, req.ISRC, outputPath)
+	if !isSafOutput {
+		AddToISRCIndex(req.OutputDir, req.ISRC, outputPath)
+	}
+
+	lyricsLRC := ""
+	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		lyricsLRC = parallelResult.LyricsLRC
+	}
 
 	return QobuzDownloadResult{
 		FilePath:    outputPath,
@@ -1261,5 +1276,6 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		TrackNumber: actualTrackNumber,
 		DiscNumber:  req.DiscNumber,
 		ISRC:        track.ISRC,
+		LyricsLRC:   lyricsLRC,
 	}, nil
 }

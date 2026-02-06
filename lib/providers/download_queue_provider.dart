@@ -16,6 +16,7 @@ import 'package:spotiflac_android/services/ffmpeg_service.dart';
 import 'package:spotiflac_android/services/notification_service.dart';
 import 'package:spotiflac_android/services/history_database.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 
 final _log = AppLogger('DownloadQueue');
 final _historyLog = AppLogger('DownloadHistory');
@@ -40,6 +41,11 @@ class DownloadHistoryItem {
   final String? albumArtist;
   final String? coverUrl;
   final String filePath;
+  final String? storageMode;
+  final String? downloadTreeUri;
+  final String? safRelativeDir;
+  final String? safFileName;
+  final bool safRepaired;
   final String service;
   final DateTime downloadedAt;
   final String? isrc;
@@ -63,6 +69,11 @@ class DownloadHistoryItem {
     this.albumArtist,
     this.coverUrl,
     required this.filePath,
+    this.storageMode,
+    this.downloadTreeUri,
+    this.safRelativeDir,
+    this.safFileName,
+    this.safRepaired = false,
     required this.service,
     required this.downloadedAt,
     this.isrc,
@@ -87,6 +98,11 @@ class DownloadHistoryItem {
     'albumArtist': albumArtist,
     'coverUrl': coverUrl,
     'filePath': filePath,
+    'storageMode': storageMode,
+    'downloadTreeUri': downloadTreeUri,
+    'safRelativeDir': safRelativeDir,
+    'safFileName': safFileName,
+    'safRepaired': safRepaired,
     'service': service,
     'downloadedAt': downloadedAt.toIso8601String(),
     'isrc': isrc,
@@ -112,6 +128,11 @@ class DownloadHistoryItem {
         albumArtist: _normalizeOptionalString(json['albumArtist'] as String?),
         coverUrl: json['coverUrl'] as String?,
         filePath: json['filePath'] as String,
+        storageMode: json['storageMode'] as String?,
+        downloadTreeUri: json['downloadTreeUri'] as String?,
+        safRelativeDir: json['safRelativeDir'] as String?,
+        safFileName: json['safFileName'] as String?,
+        safRepaired: json['safRepaired'] == true,
         service: json['service'] as String,
         downloadedAt: DateTime.parse(json['downloadedAt'] as String),
         isrc: json['isrc'] as String?,
@@ -127,6 +148,44 @@ class DownloadHistoryItem {
         label: json['label'] as String?,
         copyright: json['copyright'] as String?,
       );
+
+  DownloadHistoryItem copyWith({
+    String? filePath,
+    String? storageMode,
+    String? downloadTreeUri,
+    String? safRelativeDir,
+    String? safFileName,
+    bool? safRepaired,
+  }) {
+    return DownloadHistoryItem(
+      id: id,
+      trackName: trackName,
+      artistName: artistName,
+      albumName: albumName,
+      albumArtist: albumArtist,
+      coverUrl: coverUrl,
+      filePath: filePath ?? this.filePath,
+      storageMode: storageMode ?? this.storageMode,
+      downloadTreeUri: downloadTreeUri ?? this.downloadTreeUri,
+      safRelativeDir: safRelativeDir ?? this.safRelativeDir,
+      safFileName: safFileName ?? this.safFileName,
+      safRepaired: safRepaired ?? this.safRepaired,
+      service: service,
+      downloadedAt: downloadedAt,
+      isrc: isrc,
+      spotifyId: spotifyId,
+      trackNumber: trackNumber,
+      discNumber: discNumber,
+      duration: duration,
+      releaseDate: releaseDate,
+      quality: quality,
+      bitDepth: bitDepth,
+      sampleRate: sampleRate,
+      genre: genre,
+      label: label,
+      copyright: copyright,
+    );
+  }
 }
 
 class DownloadHistoryState {
@@ -204,8 +263,81 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
       
       state = state.copyWith(items: items);
       _historyLog.i('Loaded ${items.length} items from SQLite database');
+
+      if (Platform.isAndroid) {
+        Future.microtask(() async {
+          await _repairMissingSafEntries(items);
+        });
+      }
     } catch (e, stack) {
       _historyLog.e('Failed to load history from database: $e', e, stack);
+    }
+  }
+
+  String _fileNameFromUri(String uri) {
+    try {
+      final parsed = Uri.parse(uri);
+      if (parsed.pathSegments.isNotEmpty) {
+        return Uri.decodeComponent(parsed.pathSegments.last);
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  Future<void> _repairMissingSafEntries(List<DownloadHistoryItem> items) async {
+    final updatedItems = [...items];
+    var changed = false;
+
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item.storageMode != 'saf') continue;
+      if (item.safRepaired) continue;
+      if (item.downloadTreeUri == null || item.downloadTreeUri!.isEmpty) {
+        continue;
+      }
+      if (item.filePath.isEmpty || !isContentUri(item.filePath)) {
+        continue;
+      }
+
+      final exists = await fileExists(item.filePath);
+      if (exists) continue;
+
+      final fallbackName = item.safFileName ?? _fileNameFromUri(item.filePath);
+      if (fallbackName.isEmpty) {
+        _historyLog.w('Missing SAF filename for history item: ${item.id}');
+        continue;
+      }
+
+      try {
+        final resolved = await PlatformBridge.resolveSafFile(
+          treeUri: item.downloadTreeUri!,
+          relativeDir: item.safRelativeDir ?? '',
+          fileName: fallbackName,
+        );
+        final newUri = resolved['uri'] as String? ?? '';
+        if (newUri.isEmpty) continue;
+
+        final newRelativeDir = resolved['relative_dir'] as String?;
+        final updated = item.copyWith(
+          filePath: newUri,
+          safRelativeDir: (newRelativeDir != null && newRelativeDir.isNotEmpty)
+              ? newRelativeDir
+              : item.safRelativeDir,
+          safFileName: fallbackName,
+          safRepaired: true,
+        );
+
+        updatedItems[i] = updated;
+        changed = true;
+        await _db.upsert(updated.toJson());
+        _historyLog.i('Repaired SAF URI for history item: ${item.id}');
+      } catch (e) {
+        _historyLog.w('Failed to repair SAF URI: $e');
+      }
+    }
+
+    if (changed) {
+      state = state.copyWith(items: updatedItems);
     }
   }
 
@@ -795,6 +927,111 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         .trim();
   }
 
+  bool _isSafMode(AppSettings settings) {
+    return Platform.isAndroid &&
+        settings.storageMode == 'saf' &&
+        settings.downloadTreeUri.isNotEmpty;
+  }
+
+  bool _isSafWriteFailure(Map<String, dynamic> result) {
+    final error = (result['error'] ?? result['message'] ?? '')
+        .toString()
+        .toLowerCase();
+    if (error.isEmpty) return false;
+    return error.contains('saf') ||
+        error.contains('content uri') ||
+        error.contains('permission denied') ||
+        error.contains('documentfile');
+  }
+
+  Future<String> _buildRelativeOutputDir(
+    Track track,
+    String folderOrganization, {
+    bool separateSingles = false,
+    String albumFolderStructure = 'artist_album',
+  }) async {
+    final albumArtist = _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+
+    if (separateSingles) {
+      final isSingle = track.isSingle;
+      final artistName = _sanitizeFolderName(albumArtist);
+
+      if (albumFolderStructure == 'artist_album_singles') {
+        if (isSingle) {
+          return '$artistName/Singles';
+        }
+        final albumName = _sanitizeFolderName(track.albumName);
+        return '$artistName/$albumName';
+      }
+
+      if (isSingle) {
+        return 'Singles';
+      }
+
+      final albumName = _sanitizeFolderName(track.albumName);
+      final year = _extractYear(track.releaseDate);
+      switch (albumFolderStructure) {
+        case 'album_only':
+          return 'Albums/$albumName';
+        case 'artist_year_album':
+          final yearAlbum = year != null ? '[$year] $albumName' : albumName;
+          return 'Albums/$artistName/$yearAlbum';
+        case 'year_album':
+          final yearAlbum = year != null ? '[$year] $albumName' : albumName;
+          return 'Albums/$yearAlbum';
+        default:
+          return 'Albums/$artistName/$albumName';
+      }
+    }
+
+    if (folderOrganization == 'none') {
+      return '';
+    }
+
+    switch (folderOrganization) {
+      case 'artist':
+        return _sanitizeFolderName(albumArtist);
+      case 'album':
+        return _sanitizeFolderName(track.albumName);
+      case 'artist_album':
+        final artistName = _sanitizeFolderName(albumArtist);
+        final albumName = _sanitizeFolderName(track.albumName);
+        return '$artistName/$albumName';
+      default:
+        return '';
+    }
+  }
+
+  String _determineOutputExt(String quality, String service) {
+    if (service.toLowerCase() == 'tidal' && quality == 'HIGH') {
+      return '.m4a';
+    }
+    return '.flac';
+  }
+
+  String _mimeTypeForExt(String ext) {
+    switch (ext.toLowerCase()) {
+      case '.m4a':
+        return 'audio/mp4';
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.opus':
+        return 'audio/ogg';
+      case '.flac':
+      default:
+        return 'audio/flac';
+    }
+  }
+
+  Future<String?> _getSafMimeType(String uri) async {
+    try {
+      final stat = await PlatformBridge.safStat(uri);
+      return stat['mime_type'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   String? _extractYear(String? releaseDate) {
     if (releaseDate == null || releaseDate.isEmpty) return null;
     final match = _yearRegex.firstMatch(releaseDate);
@@ -1123,7 +1360,10 @@ void removeItem(String id) {
         'cover_url': track.coverUrl ?? '',
       };
       
-      final result = await PlatformBridge.runPostProcessing(filePath, metadata: metadata);
+      final result = await PlatformBridge.runPostProcessingV2(
+        filePath,
+        metadata: metadata,
+      );
       
       if (result['success'] == true) {
         final hooksRun = result['hooks_run'] as int? ?? 0;
@@ -1610,11 +1850,82 @@ void removeItem(String id) {
     }
   }
 
+  Future<String?> _copySafToTemp(String uri) async {
+    try {
+      return await PlatformBridge.copyContentUriToTemp(uri);
+    } catch (e) {
+      _log.w('Failed to copy SAF uri to temp: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _writeTempToSaf({
+    required String treeUri,
+    required String relativeDir,
+    required String fileName,
+    required String mimeType,
+    required String srcPath,
+  }) async {
+    try {
+      return await PlatformBridge.createSafFileFromPath(
+        treeUri: treeUri,
+        relativeDir: relativeDir,
+        fileName: fileName,
+        mimeType: mimeType,
+        srcPath: srcPath,
+      );
+    } catch (e) {
+      _log.w('Failed to write temp file to SAF: $e');
+      return null;
+    }
+  }
+
+  Future<void> _writeLrcToSaf({
+    required String treeUri,
+    required String relativeDir,
+    required String baseName,
+    required String lrcContent,
+  }) async {
+    try {
+      if (lrcContent.isEmpty) return;
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = '${tempDir.path}/$baseName.lrc';
+      await File(tempPath).writeAsString(lrcContent);
+      final lrcName = '$baseName.lrc';
+      final uri = await _writeTempToSaf(
+        treeUri: treeUri,
+        relativeDir: relativeDir,
+        fileName: lrcName,
+        mimeType: 'text/plain',
+        srcPath: tempPath,
+      );
+      if (uri != null) {
+        _log.d('External LRC saved to SAF: $lrcName');
+      } else {
+        _log.w('Failed to write external LRC to SAF');
+      }
+      try {
+        await File(tempPath).delete();
+      } catch (_) {}
+    } catch (e) {
+      _log.w('Failed to create external LRC in SAF: $e');
+    }
+  }
+
+  Future<void> _deleteSafFile(String uri) async {
+    try {
+      await PlatformBridge.safDelete(uri);
+    } catch (e) {
+      _log.w('Failed to delete SAF file: $e');
+    }
+  }
+
 Future<void> _processQueue() async {
     if (state.isProcessing) return;
 
     // Check network connectivity before starting
     final settings = ref.read(settingsProvider);
+    final isSafMode = _isSafMode(settings);
     if (settings.downloadNetworkMode == 'wifi_only') {
       final connectivityResult = await Connectivity().checkConnectivity();
       final hasWifi = connectivityResult.contains(ConnectivityResult.wifi);
@@ -1651,13 +1962,13 @@ Future<void> _processQueue() async {
       }
     }
 
-if (state.outputDir.isEmpty) {
+    if (!isSafMode && state.outputDir.isEmpty) {
       _log.d('Output dir empty, initializing...');
       await _initOutputDir();
     }
 
     // iOS: Validate that outputDir is writable (not iCloud Drive which Go can't access)
-    if (Platform.isIOS && state.outputDir.isNotEmpty) {
+    if (!isSafMode && Platform.isIOS && state.outputDir.isNotEmpty) {
       final isICloudPath = state.outputDir.contains('Mobile Documents') ||
           state.outputDir.contains('CloudDocs') ||
           state.outputDir.contains('com~apple~CloudDocs');
@@ -1673,7 +1984,7 @@ if (state.outputDir.isEmpty) {
       }
     }
 
-    if (state.outputDir.isEmpty) {
+    if (!isSafMode && state.outputDir.isEmpty) {
       _log.d('Using fallback directory...');
       final dir = await getApplicationDocumentsDirectory();
       final musicDir = Directory('${dir.path}/SpotiFLAC');
@@ -1683,7 +1994,42 @@ if (state.outputDir.isEmpty) {
       state = state.copyWith(outputDir: musicDir.path);
     }
 
-    _log.d('Output directory: ${state.outputDir}');
+    if (!isSafMode) {
+      _log.d('Output directory: ${state.outputDir}');
+    } else {
+      _log.d('Output directory: SAF (tree_uri=${settings.downloadTreeUri})');
+      // Validate SAF permission is still accessible
+      try {
+        final testResult = await PlatformBridge.createSafFileFromPath(
+          treeUri: settings.downloadTreeUri,
+          relativeDir: '',
+          fileName: '.spotiflac_test',
+          mimeType: 'application/octet-stream',
+          srcPath: '',
+        );
+        // If we got a result, permission is valid (file creation may fail but that's ok)
+        // If permission is revoked, this will throw
+        if (testResult != null) {
+          // Clean up test file
+          await PlatformBridge.safDelete(testResult);
+        }
+      } catch (e) {
+        _log.e('SAF permission validation failed: $e');
+        _log.w('SAF tree URI may be invalid or permission revoked');
+        // Mark all queued items as failed
+        for (final item in state.items) {
+          if (item.status == DownloadStatus.queued) {
+            updateItemStatus(
+              item.id,
+              DownloadStatus.failed,
+              error: 'SAF permission invalid or revoked. Please reconfigure download location in Settings.',
+            );
+          }
+        }
+        state = state.copyWith(isProcessing: false);
+        return;
+      }
+    }
     _log.d('Concurrent downloads: ${state.concurrentDownloads}');
 
     if (state.concurrentDownloads > 1) {
@@ -1931,14 +2277,48 @@ _log.i(
       final normalizedAlbumArtist =
           _normalizeOptionalString(trackToDownload.albumArtist);
 
-      final outputDir = await _buildOutputDir(
-        trackToDownload,
-        settings.folderOrganization,
-        separateSingles: settings.separateSingles,
-        albumFolderStructure: settings.albumFolderStructure,
-      );
-
       final quality = item.qualityOverride ?? state.audioQuality;
+      final isSafMode = _isSafMode(settings);
+      final relativeOutputDir = isSafMode
+          ? await _buildRelativeOutputDir(
+              trackToDownload,
+              settings.folderOrganization,
+              separateSingles: settings.separateSingles,
+              albumFolderStructure: settings.albumFolderStructure,
+            )
+          : '';
+      String? appOutputDir;
+      final initialOutputDir = isSafMode
+          ? relativeOutputDir
+          : await _buildOutputDir(
+              trackToDownload,
+              settings.folderOrganization,
+              separateSingles: settings.separateSingles,
+              albumFolderStructure: settings.albumFolderStructure,
+            );
+      var effectiveOutputDir = initialOutputDir;
+      var effectiveSafMode = isSafMode;
+
+      String? safFileName;
+      String? safBaseName;
+      String safOutputExt = _determineOutputExt(quality, item.service);
+      if (isSafMode) {
+        final baseName = await PlatformBridge.buildFilename(
+          state.filenameFormat,
+          {
+            'title': trackToDownload.name,
+            'artist': trackToDownload.artistName,
+            'album': trackToDownload.albumName,
+            'track': trackToDownload.trackNumber ?? 0,
+            'disc': trackToDownload.discNumber ?? 0,
+            'year': _extractYear(trackToDownload.releaseDate) ?? '',
+          },
+        );
+        final sanitized = await PlatformBridge.sanitizeFilename(baseName);
+        safBaseName = sanitized;
+        safFileName = '$sanitized$safOutputExt';
+      }
+      String? finalSafFileName = safFileName;
 
       String? genre;
       String? label;
@@ -1985,63 +2365,86 @@ _log.i(
       final hasActiveExtensions = extensionState.extensions.any((e) => e.enabled);
       final useExtensions = settings.useExtensionProviders && hasActiveExtensions;
 
-      if (useExtensions) {
-        _log.d('Using extension providers for download');
-        _log.d(
-          'Quality: $quality${item.qualityOverride != null ? ' (override)' : ''}',
-        );
-        _log.d('Output dir: $outputDir');
-result = await PlatformBridge.downloadWithExtensions(
-          isrc: trackToDownload.isrc ?? '',
-          spotifyId: trackToDownload.id,
-          trackName: trackToDownload.name,
-          artistName: trackToDownload.artistName,
-          albumName: trackToDownload.albumName,
-          albumArtist: normalizedAlbumArtist,
-          coverUrl: trackToDownload.coverUrl,
-          outputDir: outputDir,
-          filenameFormat: state.filenameFormat,
-          quality: quality,
-          trackNumber: trackToDownload.trackNumber ?? 1,
-          discNumber: trackToDownload.discNumber ?? 1,
-          releaseDate: trackToDownload.releaseDate,
-          itemId: item.id,
-          durationMs: trackToDownload.duration,
-          source: trackToDownload.source,
-          genre: genre,
-          label: label,
-          lyricsMode: settings.lyricsMode,
-          preferredService: item.service,
-        );
-      } else if (state.autoFallback) {
-        _log.d('Using auto-fallback mode');
-        _log.d(
-          'Quality: $quality${item.qualityOverride != null ? ' (override)' : ''}',
-        );
-        _log.d('Output dir: $outputDir');
-        result = await PlatformBridge.downloadWithFallback(
-          isrc: trackToDownload.isrc ?? '',
-          spotifyId: trackToDownload.id,
-          trackName: trackToDownload.name,
-          artistName: trackToDownload.artistName,
-          albumName: trackToDownload.albumName,
-          albumArtist: normalizedAlbumArtist,
-          coverUrl: trackToDownload.coverUrl,
-          outputDir: outputDir,
-          filenameFormat: state.filenameFormat,
-          quality: quality,
-          trackNumber: trackToDownload.trackNumber ?? 1,
-          discNumber: trackToDownload.discNumber ?? 1,
-          releaseDate: trackToDownload.releaseDate,
-          preferredService: item.service,
-          itemId: item.id,
-          durationMs: trackToDownload.duration,
-          genre: genre,
-          label: label,
-          lyricsMode: settings.lyricsMode,
-        );
-      } else {
-        result = await PlatformBridge.downloadTrack(
+      Future<Map<String, dynamic>> runDownload({
+        required bool useSaf,
+        required String outputDir,
+      }) async {
+        final storageMode = useSaf ? 'saf' : 'app';
+        final treeUri = useSaf ? settings.downloadTreeUri : '';
+        final relativeDir = useSaf ? outputDir : '';
+        final fileName = useSaf ? (safFileName ?? '') : '';
+        final outputExt = useSaf ? safOutputExt : '';
+
+        if (useExtensions) {
+          _log.d('Using extension providers for download');
+          _log.d(
+            'Quality: $quality${item.qualityOverride != null ? ' (override)' : ''}',
+          );
+          _log.d('Output dir: $outputDir');
+          return PlatformBridge.downloadWithExtensions(
+            isrc: trackToDownload.isrc ?? '',
+            spotifyId: trackToDownload.id,
+            trackName: trackToDownload.name,
+            artistName: trackToDownload.artistName,
+            albumName: trackToDownload.albumName,
+            albumArtist: normalizedAlbumArtist,
+            coverUrl: trackToDownload.coverUrl,
+            outputDir: outputDir,
+            filenameFormat: state.filenameFormat,
+            quality: quality,
+            trackNumber: trackToDownload.trackNumber ?? 1,
+            discNumber: trackToDownload.discNumber ?? 1,
+            releaseDate: trackToDownload.releaseDate,
+            itemId: item.id,
+            durationMs: trackToDownload.duration,
+            source: trackToDownload.source,
+            genre: genre,
+            label: label,
+            lyricsMode: settings.lyricsMode,
+            preferredService: item.service,
+            storageMode: storageMode,
+            safTreeUri: treeUri,
+            safRelativeDir: relativeDir,
+            safFileName: fileName,
+            safOutputExt: outputExt,
+          );
+        }
+
+        if (state.autoFallback) {
+          _log.d('Using auto-fallback mode');
+          _log.d(
+            'Quality: $quality${item.qualityOverride != null ? ' (override)' : ''}',
+          );
+          _log.d('Output dir: $outputDir');
+          return PlatformBridge.downloadWithFallback(
+            isrc: trackToDownload.isrc ?? '',
+            spotifyId: trackToDownload.id,
+            trackName: trackToDownload.name,
+            artistName: trackToDownload.artistName,
+            albumName: trackToDownload.albumName,
+            albumArtist: normalizedAlbumArtist,
+            coverUrl: trackToDownload.coverUrl,
+            outputDir: outputDir,
+            filenameFormat: state.filenameFormat,
+            quality: quality,
+            trackNumber: trackToDownload.trackNumber ?? 1,
+            discNumber: trackToDownload.discNumber ?? 1,
+            releaseDate: trackToDownload.releaseDate,
+            preferredService: item.service,
+            itemId: item.id,
+            durationMs: trackToDownload.duration,
+            genre: genre,
+            label: label,
+            lyricsMode: settings.lyricsMode,
+            storageMode: storageMode,
+            safTreeUri: treeUri,
+            safRelativeDir: relativeDir,
+            safFileName: fileName,
+            safOutputExt: outputExt,
+          );
+        }
+
+        return PlatformBridge.downloadTrack(
           isrc: trackToDownload.isrc ?? '',
           service: item.service,
           spotifyId: trackToDownload.id,
@@ -2058,7 +2461,39 @@ result = await PlatformBridge.downloadWithExtensions(
           releaseDate: trackToDownload.releaseDate,
           itemId: item.id,
           durationMs: trackToDownload.duration,
+          storageMode: storageMode,
+          safTreeUri: treeUri,
+          safRelativeDir: relativeDir,
+          safFileName: fileName,
+          safOutputExt: outputExt,
         );
+      }
+
+      result = await runDownload(
+        useSaf: effectiveSafMode,
+        outputDir: effectiveOutputDir,
+      );
+
+      if (effectiveSafMode &&
+          result['success'] != true &&
+          _isSafWriteFailure(result)) {
+        _log.w('SAF write failed, retrying with app-private storage');
+        appOutputDir ??= await _buildOutputDir(
+          trackToDownload,
+          settings.folderOrganization,
+          separateSingles: settings.separateSingles,
+          albumFolderStructure: settings.albumFolderStructure,
+        );
+        final fallbackResult = await runDownload(
+          useSaf: false,
+          outputDir: appOutputDir,
+        );
+        if (fallbackResult['success'] == true) {
+          effectiveSafMode = false;
+          effectiveOutputDir = appOutputDir;
+          finalSafFileName = null;
+          result = fallbackResult;
+        }
       }
 
       _log.d('Result: $result');
@@ -2071,21 +2506,18 @@ result = await PlatformBridge.downloadWithExtensions(
         _log.i('Download was cancelled, skipping result processing');
         final filePath = result['file_path'] as String?;
         if (filePath != null && result['success'] == true) {
-          try {
-            final file = File(filePath);
-            if (await file.exists()) {
-              await file.delete();
-              _log.d('Deleted cancelled download file: $filePath');
-            }
-          } catch (e) {
-            _log.w('Failed to delete cancelled file: $e');
-          }
+          await deleteFile(filePath);
+          _log.d('Deleted cancelled download file: $filePath');
         }
         return;
       }
 
       if (result['success'] == true) {
         var filePath = result['file_path'] as String?;
+        final reportedFileName = result['file_name'] as String?;
+        if (effectiveSafMode && reportedFileName != null && reportedFileName.isNotEmpty) {
+          finalSafFileName = reportedFileName;
+        }
         
         // Check if file already existed (detected via ISRC match in Go backend)
         final wasExisting = result['already_exists'] == true;
@@ -2110,177 +2542,378 @@ result = await PlatformBridge.downloadWithExtensions(
           _log.i('Actual quality: $actualQuality');
         }
 
-        if (filePath != null && filePath.endsWith('.m4a')) {
-          // For HIGH quality (Tidal AAC 320kbps), convert to MP3 or Opus
-          if (quality == 'HIGH') {
-            final tidalHighFormat = settings.tidalHighFormat;
-            _log.i('Tidal HIGH quality download, converting M4A to $tidalHighFormat...');
-            
-            try {
-              updateItemStatus(
-                item.id,
-                DownloadStatus.downloading,
-                progress: 0.95,
-              );
-              
-              final format = tidalHighFormat.startsWith('opus') ? 'opus' : 'mp3';
-              final convertedPath = await FFmpegService.convertM4aToLossy(
-                filePath,
-                format: format,
-                bitrate: tidalHighFormat,
-                deleteOriginal: true,
-              );
-              
-              if (convertedPath != null) {
-                filePath = convertedPath;
-                final bitrateDisplay = tidalHighFormat.contains('_') 
-                    ? '${tidalHighFormat.split('_').last}kbps' 
-                    : '320kbps';
-                actualQuality = '${format.toUpperCase()} $bitrateDisplay';
-                _log.i('Successfully converted M4A to $format: $convertedPath');
-                
-                _log.i('Embedding metadata to $format...');
-                updateItemStatus(
-                  item.id,
-                  DownloadStatus.downloading,
-                  progress: 0.99,
-                );
-                
-                final backendGenre = result['genre'] as String?;
-                final backendLabel = result['label'] as String?;
-                final backendCopyright = result['copyright'] as String?;
-                
-                if (format == 'mp3') {
-                  await _embedMetadataToMp3(
-                    convertedPath, 
-                    trackToDownload,
-                    genre: backendGenre ?? genre,
-                    label: backendLabel ?? label,
-                    copyright: backendCopyright,
+        final isContentUriPath = filePath != null && isContentUri(filePath);
+        final mimeType = isContentUriPath ? await _getSafMimeType(filePath) : null;
+        final isM4aFile = filePath != null &&
+            (filePath.endsWith('.m4a') ||
+                (mimeType != null && mimeType.contains('mp4')));
+
+        if (isM4aFile) {
+          // At this point filePath is guaranteed non-null by isM4aFile check
+          final currentFilePath = filePath;
+          
+          if (isContentUriPath && effectiveSafMode) {
+            if (quality == 'HIGH') {
+              final tidalHighFormat = settings.tidalHighFormat;
+              _log.i('Tidal HIGH quality (SAF), converting M4A to $tidalHighFormat...');
+
+              final tempPath = await _copySafToTemp(currentFilePath);
+              if (tempPath != null) {
+                String? convertedPath;
+                try {
+                  updateItemStatus(
+                    item.id,
+                    DownloadStatus.downloading,
+                    progress: 0.95,
                   );
-                } else {
-                  await _embedMetadataToOpus(
-                    convertedPath, 
-                    trackToDownload,
-                    genre: backendGenre ?? genre,
-                    label: backendLabel ?? label,
-                    copyright: backendCopyright,
+
+                  final format = tidalHighFormat.startsWith('opus') ? 'opus' : 'mp3';
+                  convertedPath = await FFmpegService.convertM4aToLossy(
+                    tempPath,
+                    format: format,
+                    bitrate: tidalHighFormat,
+                    deleteOriginal: false,
                   );
+
+                  if (convertedPath != null) {
+                    _log.i('Successfully converted M4A to $format (temp): $convertedPath');
+                    _log.i('Embedding metadata to $format...');
+                    updateItemStatus(
+                      item.id,
+                      DownloadStatus.downloading,
+                      progress: 0.99,
+                    );
+
+                    final backendGenre = result['genre'] as String?;
+                    final backendLabel = result['label'] as String?;
+                    final backendCopyright = result['copyright'] as String?;
+
+                    if (format == 'mp3') {
+                      await _embedMetadataToMp3(
+                        convertedPath,
+                        trackToDownload,
+                        genre: backendGenre ?? genre,
+                        label: backendLabel ?? label,
+                        copyright: backendCopyright,
+                      );
+                    } else {
+                      await _embedMetadataToOpus(
+                        convertedPath,
+                        trackToDownload,
+                        genre: backendGenre ?? genre,
+                        label: backendLabel ?? label,
+                        copyright: backendCopyright,
+                      );
+                    }
+
+                    final newExt = format == 'opus' ? '.opus' : '.mp3';
+                    final newFileName = '${safBaseName ?? 'track'}$newExt';
+                    final newUri = await _writeTempToSaf(
+                      treeUri: settings.downloadTreeUri,
+                      relativeDir: effectiveOutputDir,
+                      fileName: newFileName,
+                      mimeType: _mimeTypeForExt(newExt),
+                      srcPath: convertedPath,
+                    );
+
+                    if (newUri != null) {
+                      await _deleteSafFile(currentFilePath);
+                      filePath = newUri;
+                      finalSafFileName = newFileName;
+                      final bitrateDisplay = tidalHighFormat.contains('_')
+                          ? '${tidalHighFormat.split('_').last}kbps'
+                          : '320kbps';
+                      actualQuality = '${format.toUpperCase()} $bitrateDisplay';
+                    } else {
+                      _log.w('Failed to write converted $format to SAF, keeping M4A');
+                      actualQuality = 'AAC 320kbps';
+                    }
+                  } else {
+                    _log.w('M4A to $format conversion failed, keeping M4A file');
+                    actualQuality = 'AAC 320kbps';
+                  }
+                } catch (e) {
+                  _log.w('SAF M4A conversion failed: $e');
+                  actualQuality = 'AAC 320kbps';
+                } finally {
+                  // Clean up temp files
+                  try { await File(tempPath).delete(); } catch (_) {}
+                  if (convertedPath != null) {
+                    try { await File(convertedPath).delete(); } catch (_) {}
+                  }
                 }
-                _log.d('Metadata embedded successfully');
-              } else {
-                _log.w('M4A to $format conversion failed, keeping M4A file');
-                actualQuality = 'AAC 320kbps';
               }
-            } catch (e) {
-              _log.w('M4A conversion process failed: $e, keeping M4A file');
-              actualQuality = 'AAC 320kbps';
+            } else {
+              _log.d('M4A file detected (SAF), converting to FLAC...');
+              final tempPath = await _copySafToTemp(currentFilePath);
+              if (tempPath != null) {
+                String? flacPath;
+                try {
+                  final length = await File(tempPath).length();
+                  if (length < 1024) {
+                    _log.w('Temp M4A is too small (<1KB), skipping conversion');
+                  } else {
+                    updateItemStatus(
+                      item.id,
+                      DownloadStatus.downloading,
+                      progress: 0.95,
+                    );
+                    flacPath = await FFmpegService.convertM4aToFlac(tempPath);
+                    if (flacPath != null) {
+                      _log.d('Converted to FLAC (temp): $flacPath');
+                      _log.d('Embedding metadata and cover to converted FLAC...');
+
+                      Track finalTrack = trackToDownload;
+                      if (result.containsKey('track_number') ||
+                          result.containsKey('release_date')) {
+                        final backendTrackNum = result['track_number'] as int?;
+                        final backendDiscNum = result['disc_number'] as int?;
+                        final backendYear = result['release_date'] as String?;
+                        final backendAlbum = result['album'] as String?;
+
+                        final newTrackNumber =
+                            (backendTrackNum != null && backendTrackNum > 0)
+                                ? backendTrackNum
+                                : trackToDownload.trackNumber;
+                        final newDiscNumber =
+                            (backendDiscNum != null && backendDiscNum > 0)
+                                ? backendDiscNum
+                                : trackToDownload.discNumber;
+
+                        finalTrack = Track(
+                          id: trackToDownload.id,
+                          name: trackToDownload.name,
+                          artistName: trackToDownload.artistName,
+                          albumName: backendAlbum ?? trackToDownload.albumName,
+                          albumArtist: normalizedAlbumArtist,
+                          coverUrl: trackToDownload.coverUrl,
+                          duration: trackToDownload.duration,
+                          isrc: trackToDownload.isrc,
+                          trackNumber: newTrackNumber,
+                          discNumber: newDiscNumber,
+                          releaseDate: backendYear ?? trackToDownload.releaseDate,
+                          deezerId: trackToDownload.deezerId,
+                          availability: trackToDownload.availability,
+                          albumType: trackToDownload.albumType,
+                          source: trackToDownload.source,
+                        );
+                      }
+
+                      final backendGenre = result['genre'] as String?;
+                      final backendLabel = result['label'] as String?;
+                      final backendCopyright = result['copyright'] as String?;
+
+                      await _embedMetadataAndCover(
+                        flacPath,
+                        finalTrack,
+                        genre: backendGenre ?? genre,
+                        label: backendLabel ?? label,
+                        copyright: backendCopyright,
+                      );
+
+                      final newFileName = '${safBaseName ?? 'track'}.flac';
+                      final newUri = await _writeTempToSaf(
+                        treeUri: settings.downloadTreeUri,
+                        relativeDir: effectiveOutputDir,
+                        fileName: newFileName,
+                        mimeType: _mimeTypeForExt('.flac'),
+                        srcPath: flacPath,
+                      );
+
+                      if (newUri != null) {
+                        await _deleteSafFile(currentFilePath);
+                        filePath = newUri;
+                        finalSafFileName = newFileName;
+                      } else {
+                        _log.w('Failed to write FLAC to SAF, keeping M4A');
+                      }
+                    } else {
+                      _log.w('FFmpeg conversion returned null, keeping M4A file');
+                    }
+                  }
+                } catch (e) {
+                  _log.w('SAF M4A->FLAC conversion failed: $e');
+                } finally {
+                  // Clean up temp files
+                  try { await File(tempPath).delete(); } catch (_) {}
+                  if (flacPath != null) {
+                    try { await File(flacPath).delete(); } catch (_) {}
+                  }
+                }
+              }
             }
           } else {
-            _log.d(
-              'M4A file detected (Hi-Res DASH stream), attempting conversion to FLAC...',
-            );
+            // Local file path flow (original)
+            if (quality == 'HIGH') {
+              final tidalHighFormat = settings.tidalHighFormat;
+              _log.i('Tidal HIGH quality download, converting M4A to $tidalHighFormat...');
 
-          try {
-            final file = File(filePath);
-            if (!await file.exists()) {
-              _log.e('File does not exist at path: $filePath');
-            } else {
-              final length = await file.length();
-              _log.i('File size before conversion: ${length / 1024} KB');
-
-              if (length < 1024) {
-                _log.w(
-                  'File is too small (<1KB), skipping conversion. Download might be corrupt.',
-                );
-              } else {
+              try {
                 updateItemStatus(
                   item.id,
                   DownloadStatus.downloading,
                   progress: 0.95,
                 );
-                final flacPath = await FFmpegService.convertM4aToFlac(filePath);
 
-                if (flacPath != null) {
-                  filePath = flacPath;
-                  _log.d('Converted to FLAC: $flacPath');
+                final format = tidalHighFormat.startsWith('opus') ? 'opus' : 'mp3';
+                final convertedPath = await FFmpegService.convertM4aToLossy(
+                  currentFilePath,
+                  format: format,
+                  bitrate: tidalHighFormat,
+                  deleteOriginal: true,
+                );
 
-                  _log.d('Embedding metadata and cover to converted FLAC...');
-                  try {
-                    Track finalTrack = trackToDownload;
-                    if (result.containsKey('track_number') ||
-                        result.containsKey('release_date')) {
-                      _log.d(
-                        'Using metadata from backend response for embedding',
-                      );
-                      final backendTrackNum = result['track_number'] as int?;
-                      final backendDiscNum = result['disc_number'] as int?;
-                      final backendYear = result['release_date'] as String?;
-                      final backendAlbum = result['album'] as String?;
+                if (convertedPath != null) {
+                  filePath = convertedPath;
+                  final bitrateDisplay = tidalHighFormat.contains('_')
+                      ? '${tidalHighFormat.split('_').last}kbps'
+                      : '320kbps';
+                  actualQuality = '${format.toUpperCase()} $bitrateDisplay';
+                  _log.i('Successfully converted M4A to $format: $convertedPath');
 
-                      _log.d(
-                        'Backend metadata - Track: $backendTrackNum, Disc: $backendDiscNum, Year: $backendYear',
-                      );
+                  _log.i('Embedding metadata to $format...');
+                  updateItemStatus(
+                    item.id,
+                    DownloadStatus.downloading,
+                    progress: 0.99,
+                  );
 
-                      final newTrackNumber =
-                          (backendTrackNum != null && backendTrackNum > 0)
-                          ? backendTrackNum
-                          : trackToDownload.trackNumber;
-                      final newDiscNumber =
-                          (backendDiscNum != null && backendDiscNum > 0)
-                          ? backendDiscNum
-                          : trackToDownload.discNumber;
+                  final backendGenre = result['genre'] as String?;
+                  final backendLabel = result['label'] as String?;
+                  final backendCopyright = result['copyright'] as String?;
 
-                      _log.d(
-                        'Final metadata for embedding - Track: $newTrackNumber, Disc: $newDiscNumber',
-                      );
-
-                      finalTrack = Track(
-                        id: trackToDownload.id,
-                        name: trackToDownload.name,
-                        artistName: trackToDownload.artistName,
-                        albumName: backendAlbum ?? trackToDownload.albumName,
-                        albumArtist: normalizedAlbumArtist,
-                        coverUrl: trackToDownload.coverUrl,
-                        duration: trackToDownload.duration,
-                        isrc: trackToDownload.isrc,
-                        trackNumber: newTrackNumber,
-                        discNumber: newDiscNumber,
-                        releaseDate: backendYear ?? trackToDownload.releaseDate,
-                        deezerId: trackToDownload.deezerId,
-                        availability: trackToDownload.availability,
-                        albumType: trackToDownload.albumType,
-                        source: trackToDownload.source,
-                      );
-                    }
-
-                    final backendGenre = result['genre'] as String?;
-                    final backendLabel = result['label'] as String?;
-                    final backendCopyright = result['copyright'] as String?;
-                    
-                    if (backendGenre != null || backendLabel != null || backendCopyright != null) {
-                      _log.d('Extended metadata from backend - Genre: $backendGenre, Label: $backendLabel, Copyright: $backendCopyright');
-                    }
-
-                    await _embedMetadataAndCover(
-                      flacPath, 
-                      finalTrack,
+                  if (format == 'mp3') {
+                    await _embedMetadataToMp3(
+                      convertedPath,
+                      trackToDownload,
                       genre: backendGenre ?? genre,
                       label: backendLabel ?? label,
                       copyright: backendCopyright,
                     );
-                    _log.d('Metadata and cover embedded successfully');
-                  } catch (e) {
-                    _log.w('Warning: Failed to embed metadata/cover: $e');
+                  } else {
+                    await _embedMetadataToOpus(
+                      convertedPath,
+                      trackToDownload,
+                      genre: backendGenre ?? genre,
+                      label: backendLabel ?? label,
+                      copyright: backendCopyright,
+                    );
                   }
+                  _log.d('Metadata embedded successfully');
                 } else {
-                  _log.w('FFmpeg conversion returned null, keeping M4A file');
+                  _log.w('M4A to $format conversion failed, keeping M4A file');
+                  actualQuality = 'AAC 320kbps';
                 }
+              } catch (e) {
+                _log.w('M4A conversion process failed: $e, keeping M4A file');
+                actualQuality = 'AAC 320kbps';
+              }
+            } else {
+              _log.d(
+                'M4A file detected (Hi-Res DASH stream), attempting conversion to FLAC...',
+              );
+
+              try {
+                final file = File(currentFilePath);
+                if (!await file.exists()) {
+                  _log.e('File does not exist at path: $filePath');
+                } else {
+                  final length = await file.length();
+                  _log.i('File size before conversion: ${length / 1024} KB');
+
+                  if (length < 1024) {
+                    _log.w(
+                      'File is too small (<1KB), skipping conversion. Download might be corrupt.',
+                    );
+                  } else {
+                    updateItemStatus(
+                      item.id,
+                      DownloadStatus.downloading,
+                      progress: 0.95,
+                    );
+                    final flacPath = await FFmpegService.convertM4aToFlac(currentFilePath);
+
+                    if (flacPath != null) {
+                      filePath = flacPath;
+                      _log.d('Converted to FLAC: $flacPath');
+
+                      _log.d('Embedding metadata and cover to converted FLAC...');
+                      try {
+                        Track finalTrack = trackToDownload;
+                        if (result.containsKey('track_number') ||
+                            result.containsKey('release_date')) {
+                          _log.d(
+                            'Using metadata from backend response for embedding',
+                          );
+                          final backendTrackNum = result['track_number'] as int?;
+                          final backendDiscNum = result['disc_number'] as int?;
+                          final backendYear = result['release_date'] as String?;
+                          final backendAlbum = result['album'] as String?;
+
+                          _log.d(
+                            'Backend metadata - Track: $backendTrackNum, Disc: $backendDiscNum, Year: $backendYear',
+                          );
+
+                          final newTrackNumber =
+                              (backendTrackNum != null && backendTrackNum > 0)
+                                  ? backendTrackNum
+                                  : trackToDownload.trackNumber;
+                          final newDiscNumber =
+                              (backendDiscNum != null && backendDiscNum > 0)
+                                  ? backendDiscNum
+                                  : trackToDownload.discNumber;
+
+                          _log.d(
+                            'Final metadata for embedding - Track: $newTrackNumber, Disc: $newDiscNumber',
+                          );
+
+                          finalTrack = Track(
+                            id: trackToDownload.id,
+                            name: trackToDownload.name,
+                            artistName: trackToDownload.artistName,
+                            albumName: backendAlbum ?? trackToDownload.albumName,
+                            albumArtist: normalizedAlbumArtist,
+                            coverUrl: trackToDownload.coverUrl,
+                            duration: trackToDownload.duration,
+                            isrc: trackToDownload.isrc,
+                            trackNumber: newTrackNumber,
+                            discNumber: newDiscNumber,
+                            releaseDate: backendYear ?? trackToDownload.releaseDate,
+                            deezerId: trackToDownload.deezerId,
+                            availability: trackToDownload.availability,
+                            albumType: trackToDownload.albumType,
+                            source: trackToDownload.source,
+                          );
+                        }
+
+                        final backendGenre = result['genre'] as String?;
+                        final backendLabel = result['label'] as String?;
+                        final backendCopyright = result['copyright'] as String?;
+
+                        if (backendGenre != null || backendLabel != null || backendCopyright != null) {
+                          _log.d('Extended metadata from backend - Genre: $backendGenre, Label: $backendLabel, Copyright: $backendCopyright');
+                        }
+
+                        await _embedMetadataAndCover(
+                          flacPath,
+                          finalTrack,
+                          genre: backendGenre ?? genre,
+                          label: backendLabel ?? label,
+                          copyright: backendCopyright,
+                        );
+                        _log.d('Metadata and cover embedded successfully');
+                      } catch (e) {
+                        _log.w('Warning: Failed to embed metadata/cover: $e');
+                      }
+                    } else {
+                      _log.w('FFmpeg conversion returned null, keeping M4A file');
+                    }
+                  }
+                }
+              } catch (e) {
+                _log.w('FFmpeg conversion process failed: $e, keeping M4A file');
               }
             }
-          } catch (e) {
-            _log.w('FFmpeg conversion process failed: $e, keeping M4A file');
-          }
           }
         }
 
@@ -2291,15 +2924,8 @@ result = await PlatformBridge.downloadWithExtensions(
         if (itemAfterDownload.status == DownloadStatus.skipped) {
           _log.i('Download was cancelled during finalization, cleaning up');
           if (filePath != null) {
-            try {
-              final file = File(filePath);
-              if (await file.exists()) {
-                await file.delete();
-                _log.d('Deleted cancelled download file: $filePath');
-              }
-            } catch (e) {
-              _log.w('Failed to delete cancelled file: $e');
-            }
+            await deleteFile(filePath);
+            _log.d('Deleted cancelled download file: $filePath');
           }
           return;
         }
@@ -2310,6 +2936,43 @@ result = await PlatformBridge.downloadWithExtensions(
           progress: 1.0,
           filePath: filePath,
         );
+
+        final lyricsMode = settings.lyricsMode;
+        final shouldSaveExternalLrc =
+            settings.embedLyrics && (lyricsMode == 'external' || lyricsMode == 'both');
+        if (shouldSaveExternalLrc &&
+            effectiveSafMode &&
+            filePath != null &&
+            isContentUri(filePath)) {
+          String? lrcContent = result['lyrics_lrc'] as String?;
+          if (lrcContent == null || lrcContent.isEmpty) {
+            try {
+              lrcContent = await PlatformBridge.getLyricsLRC(
+                trackToDownload.id,
+                trackToDownload.name,
+                trackToDownload.artistName,
+                durationMs: trackToDownload.duration * 1000,
+              );
+            } catch (e) {
+              _log.w('Failed to fetch lyrics for external LRC: $e');
+            }
+          }
+
+          if (lrcContent != null && lrcContent.isNotEmpty) {
+            final baseName = finalSafFileName != null
+                ? finalSafFileName.replaceFirst(RegExp(r'\.[^.]+$'), '')
+                : safBaseName ??
+                    await PlatformBridge.sanitizeFilename(
+                      '${trackToDownload.artistName} - ${trackToDownload.name}',
+                    );
+            await _writeLrcToSaf(
+              treeUri: settings.downloadTreeUri,
+              relativeDir: effectiveOutputDir,
+              baseName: baseName,
+              lrcContent: lrcContent,
+            );
+          }
+        }
 
         if (filePath != null) {
           await _runPostProcessingHooks(filePath, trackToDownload);
@@ -2385,6 +3048,11 @@ result = await PlatformBridge.downloadWithExtensions(
                   albumArtist: historyAlbumArtist,
                   coverUrl: trackToDownload.coverUrl,
                   filePath: filePath,
+                  storageMode: effectiveSafMode ? 'saf' : 'app',
+                  downloadTreeUri: effectiveSafMode ? settings.downloadTreeUri : null,
+                  safRelativeDir: effectiveSafMode ? effectiveOutputDir : null,
+                  safFileName: effectiveSafMode ? (finalSafFileName ?? safFileName) : null,
+                  safRepaired: false,
                   service: result['service'] as String? ?? item.service,
                   downloadedAt: DateTime.now(),
                   isrc: (backendISRC != null && backendISRC.isNotEmpty)

@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
-import 'package:spotiflac_android/utils/mime_utils.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/models/download_item.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
@@ -279,6 +278,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   String _localFilterQueryCache = '';
   List<LocalLibraryItem> _filteredLocalItemsCache = const [];
   final Map<String, _UnifiedCacheEntry> _unifiedItemsCache = {};
+  bool _showSafRepairedBadge = false;
 
   // Advanced filters
   String? _filterSource; // null = all, 'downloaded', 'local'
@@ -637,10 +637,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         if (item != null) {
           try {
             final cleanPath = _cleanFilePath(item.filePath);
-            final file = File(cleanPath);
-            if (await file.exists()) {
-              await file.delete();
-            }
+            await deleteFile(cleanPath);
           } catch (_) {}
           
           // Remove from appropriate database
@@ -695,7 +692,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     }
     _pendingChecks.add(cleanPath);
     Future.microtask(() async {
-      final exists = await File(cleanPath).exists();
+      final exists = await fileExists(cleanPath);
       _pendingChecks.remove(cleanPath);
       final previous = _fileExistsCache[cleanPath];
       _fileExistsCache[cleanPath] = exists;
@@ -1020,8 +1017,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   Future<void> _openFile(String filePath) async {
     final cleanPath = _cleanFilePath(filePath);
     try {
-      final mimeType = audioMimeTypeForPath(cleanPath);
-      await OpenFilex.open(cleanPath, type: mimeType);
+      await openFile(cleanPath);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1315,6 +1311,7 @@ final queueItems = ref.watch(downloadQueueProvider.select((s) => s.items));
     final groupedLocalAlbums = historyStats.groupedLocalAlbums;
     final albumCount = historyStats.totalAlbumCount;
     final singleCount = historyStats.totalSingleTracks;
+    final hasSafRepairedItems = allHistoryItems.any((item) => item.safRepaired);
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -1584,6 +1581,7 @@ const Spacer(),
                     albumCounts: historyStats.albumCounts,
                     localAlbumCounts: historyStats.localAlbumCounts,
                     localLibraryItems: localLibraryItems,
+                    hasSafRepairedItems: hasSafRepairedItems,
                   );
                 },
               ),
@@ -1705,6 +1703,7 @@ child: _buildSelectionBottomBar(
     required Map<String, int> albumCounts,
     required Map<String, int> localAlbumCounts,
     required List<LocalLibraryItem> localLibraryItems,
+    required bool hasSafRepairedItems,
   }) {
     final historyItems = _resolveHistoryItems(
       filterMode: filterMode,
@@ -1778,6 +1777,27 @@ child: _buildSelectionBottomBar(
                         style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                         ),
+                      ),
+                    ),
+                  if (!_isSelectionMode && hasSafRepairedItems)
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _showSafRepairedBadge = !_showSafRepairedBadge;
+                        });
+                      },
+                      icon: Icon(
+                        _showSafRepairedBadge ? Icons.build : Icons.build_outlined,
+                        size: 18,
+                      ),
+                      tooltip: _showSafRepairedBadge
+                          ? 'Hide SAF repaired badge'
+                          : 'Show SAF repaired badge',
+                      style: IconButton.styleFrom(
+                        backgroundColor: _showSafRepairedBadge
+                            ? colorScheme.tertiaryContainer.withValues(alpha: 0.6)
+                            : colorScheme.surfaceContainerHighest,
+                        visualDensity: VisualDensity.compact,
                       ),
                     ),
                   if (!_isSelectionMode && filteredUnifiedItems.isNotEmpty)
@@ -2911,6 +2931,10 @@ child: CachedNetworkImage(
     final sourceTextColor = isDownloaded
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSecondaryContainer;
+    final showSafRepaired = _showSafRepairedBadge &&
+        isDownloaded &&
+        item.historyItem != null &&
+        item.historyItem!.safRepaired;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -3007,6 +3031,38 @@ child: CachedNetworkImage(
                                 ),
                           ),
                         ),
+                        if (showSafRepaired) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.build,
+                                  size: 10,
+                                  color: colorScheme.onTertiaryContainer,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'SAF repaired',
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onTertiaryContainer,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Text(
                           dateStr,
@@ -3092,6 +3148,10 @@ child: CachedNetworkImage(
     final fileExists = _checkFileExists(item.filePath);
     final isSelected = _selectedIds.contains(item.id);
     final isDownloaded = item.source == LibraryItemSource.downloaded;
+    final showSafRepaired = _showSafRepairedBadge &&
+        isDownloaded &&
+        item.historyItem != null &&
+        item.historyItem!.safRepaired;
 
     return GestureDetector(
       onTap: _isSelectionMode
@@ -3165,6 +3225,23 @@ child: CachedNetworkImage(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                               ),
+                        ),
+                      ),
+                    ),
+                  if (showSafRepaired)
+                    Positioned(
+                      left: 4,
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.build,
+                          size: 12,
+                          color: colorScheme.onTertiaryContainer,
                         ),
                       ),
                     ),

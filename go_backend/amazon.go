@@ -243,13 +243,17 @@ type AmazonDownloadResult struct {
 	TrackNumber int
 	DiscNumber  int
 	ISRC        string
+	LyricsLRC   string
 }
 
 func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	downloader := NewAmazonDownloader()
 
-	if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
-		return AmazonDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+	isSafOutput := strings.TrimSpace(req.OutputPath) != ""
+	if !isSafOutput {
+		if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
+			return AmazonDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+		}
 	}
 
 	amazonURL := ""
@@ -288,7 +292,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		}
 	}
 
-	if req.OutputDir != "." {
+	if !isSafOutput && req.OutputDir != "." {
 		if err := os.MkdirAll(req.OutputDir, 0755); err != nil {
 			return AmazonDownloadResult{}, fmt.Errorf("failed to create output directory: %w", err)
 		}
@@ -310,11 +314,15 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		"year":   extractYear(req.ReleaseDate),
 		"disc":   req.DiscNumber,
 	})
-	filename = sanitizeFilename(filename) + ".flac"
-	outputPath := filepath.Join(req.OutputDir, filename)
-
-	if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
-		return AmazonDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
+	var outputPath string
+	if isSafOutput {
+		outputPath = strings.TrimSpace(req.OutputPath)
+	} else {
+		filename = sanitizeFilename(filename) + ".flac"
+		outputPath = filepath.Join(req.OutputDir, filename)
+		if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
+			return AmazonDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
+		}
 	}
 
 	// START PARALLEL: Fetch cover and lyrics while downloading audio
@@ -417,7 +425,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 			lyricsMode = "embed"
 		}
 
-		if lyricsMode == "external" || lyricsMode == "both" {
+		if !isSafOutput && (lyricsMode == "external" || lyricsMode == "both") {
 			GoLog("[Amazon] Saving external LRC file...\n")
 			if lrcPath, lrcErr := SaveLRCFile(outputPath, parallelResult.LyricsLRC); lrcErr != nil {
 				GoLog("[Amazon] Warning: failed to save LRC file: %v\n", lrcErr)
@@ -459,13 +467,20 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	}
 
 	// Add to ISRC index for fast duplicate checking
-	AddToISRCIndex(req.OutputDir, req.ISRC, outputPath)
+	if !isSafOutput {
+		AddToISRCIndex(req.OutputDir, req.ISRC, outputPath)
+	}
 
 	bitDepth := 0
 	sampleRate := 0
 	if err == nil {
 		bitDepth = quality.BitDepth
 		sampleRate = quality.SampleRate
+	}
+
+	lyricsLRC := ""
+	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		lyricsLRC = parallelResult.LyricsLRC
 	}
 
 	return AmazonDownloadResult{
@@ -479,5 +494,6 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		TrackNumber: actualTrackNum,
 		DiscNumber:  actualDiscNum,
 		ISRC:        req.ISRC,
+		LyricsLRC:   lyricsLRC,
 	}, nil
 }

@@ -117,7 +117,8 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
       return;
     }
 
-    if (!await Directory(libraryPath).exists()) {
+    if (!libraryPath.startsWith('content://') &&
+        !await Directory(libraryPath).exists()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.libraryFolderNotExist)),
@@ -290,6 +291,53 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
             SliverToBoxAdapter(
               child: SettingsSectionHeader(title: context.l10n.libraryActions),
             ),
+            if (libraryState.scanWasCancelled)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_outlined,
+                          color: colorScheme.onTertiaryContainer,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Scan cancelled',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onTertiaryContainer,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'You can retry the scan when ready.',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onTertiaryContainer.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _startScan,
+                          child: Text(context.l10n.dialogRetry),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: SettingsGroup(
                 children: [

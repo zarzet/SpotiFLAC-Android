@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 
 final _log = AppLogger('LibraryDatabase');
 
@@ -341,7 +341,7 @@ class LibraryDatabase {
     int removed = 0;
     for (final row in rows) {
       final filePath = row['file_path'] as String;
-      if (!await File(filePath).exists()) {
+      if (!await fileExists(filePath)) {
         await db.delete('library', where: 'id = ?', whereArgs: [row['id']]);
         removed++;
       }

@@ -8,6 +8,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
+import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class DownloadSettingsPage extends ConsumerStatefulWidget {
@@ -680,9 +681,17 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     if (Platform.isIOS) {
       _showIOSDirectoryOptions(context, ref);
     } else {
-      final result = await FilePicker.platform.getDirectoryPath();
+      final result = await PlatformBridge.pickSafTree();
       if (result != null) {
-        ref.read(settingsProvider.notifier).setDownloadDirectory(result);
+        final treeUri = result['tree_uri'] as String? ?? '';
+        final displayName = result['display_name'] as String? ?? '';
+        if (treeUri.isNotEmpty) {
+          ref.read(settingsProvider.notifier).setStorageMode('saf');
+          ref.read(settingsProvider.notifier).setDownloadTreeUri(
+                treeUri,
+                displayName: displayName.isNotEmpty ? displayName : treeUri,
+              );
+        }
       }
     }
   }
@@ -899,6 +908,8 @@ ListTile(
     switch (format) {
       case 'mp3_320':
         return 'MP3 320kbps';
+      case 'opus_256':
+        return 'Opus 256kbps';
       case 'opus_128':
         return 'Opus 128kbps';
       default:
@@ -953,8 +964,18 @@ ListTile(
             ),
             ListTile(
               leading: const Icon(Icons.graphic_eq),
+              title: const Text('Opus 256kbps'),
+              subtitle: const Text('Best quality Opus, ~8MB per track'),
+              trailing: current == 'opus_256' ? Icon(Icons.check, color: colorScheme.primary) : null,
+              onTap: () {
+                ref.read(settingsProvider.notifier).setTidalHighFormat('opus_256');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.graphic_eq),
               title: const Text('Opus 128kbps'),
-              subtitle: const Text('Modern codec, ~4MB per track'),
+              subtitle: const Text('Smallest size, ~4MB per track'),
               trailing: current == 'opus_128' ? Icon(Icons.check, color: colorScheme.primary) : null,
               onTap: () {
                 ref.read(settingsProvider.notifier).setTidalHighFormat('opus_128');
@@ -1167,6 +1188,7 @@ class _ServiceSelector extends ConsumerWidget {
                 label: 'Amazon',
                 isSelected: effectiveService == 'amazon',
                 isDisabled: true,
+                disabledReason: 'Coming soon',
                 onTap: () {},
               ),
             ],

@@ -344,8 +344,30 @@ Padding(
                 ),
                 child: Icon(Icons.graphic_eq, color: colorScheme.onPrimaryContainer, size: 20),
               ),
+              title: const Text('Opus 256kbps'),
+              subtitle: const Text('Best quality Opus, ~8MB per track'),
+              trailing: currentFormat == 'opus_256'
+                  ? Icon(Icons.check_circle, color: colorScheme.primary)
+                  : null,
+              onTap: () {
+                ref.read(settingsProvider.notifier).setTidalHighFormat('opus_256');
+                Navigator.pop(modalContext); // Close format picker
+                Navigator.pop(context); // Close service picker
+                widget.onSelect('HIGH', _selectedService);
+              },
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.graphic_eq, color: colorScheme.onPrimaryContainer, size: 20),
+              ),
               title: const Text('Opus 128kbps'),
-              subtitle: const Text('Modern codec, ~4MB per track'),
+              subtitle: const Text('Smallest size, ~4MB per track'),
               trailing: currentFormat == 'opus_128'
                   ? Icon(Icons.check_circle, color: colorScheme.primary)
                   : null,

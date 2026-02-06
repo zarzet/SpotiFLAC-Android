@@ -1,13 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/services/palette_service.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
-import 'package:spotiflac_android/utils/mime_utils.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 
@@ -180,10 +178,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
         final item = currentTracks.where((e) => e.id == id).firstOrNull;
         if (item != null) {
           try {
-            final file = File(item.filePath);
-            if (await file.exists()) {
-              await file.delete();
-            }
+            await deleteFile(item.filePath);
           } catch (_) {}
           historyNotifier.removeFromHistory(id);
           deletedCount++;
@@ -202,8 +197,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
 
   Future<void> _openFile(String filePath) async {
     try {
-      final mimeType = audioMimeTypeForPath(filePath);
-      await OpenFilex.open(filePath, type: mimeType);
+      await openFile(filePath);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

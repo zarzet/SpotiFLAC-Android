@@ -1024,13 +1024,16 @@ func (t *TidalDownloader) downloadFromManifest(ctx context.Context, manifestB64,
 	}
 
 	// For DASH format, determine correct M4A path
-	// If outputPath already ends with .m4a, use it directly
-	// Otherwise, convert .flac to .m4a
+	// If outputPath already ends with .m4a, use it directly.
+	// If outputPath ends with .flac, convert .flac to .m4a.
+	// Otherwise (e.g., SAF /proc/self/fd/*), use outputPath as-is.
 	var m4aPath string
 	if strings.HasSuffix(outputPath, ".m4a") {
 		m4aPath = outputPath
-	} else {
+	} else if strings.HasSuffix(outputPath, ".flac") {
 		m4aPath = strings.TrimSuffix(outputPath, ".flac") + ".m4a"
+	} else {
+		m4aPath = outputPath
 	}
 	GoLog("[Tidal] DASH format - downloading %d segments directly to: %s\n", len(mediaURLs), m4aPath)
 
@@ -1406,8 +1409,11 @@ func isLatinScript(s string) bool {
 func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	downloader := NewTidalDownloader()
 
-	if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
-		return TidalDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+	isSafOutput := strings.TrimSpace(req.OutputPath) != ""
+	if !isSafOutput {
+		if existingFile, exists := checkISRCExistsInternal(req.OutputDir, req.ISRC); exists {
+			return TidalDownloadResult{FilePath: "EXISTS:" + existingFile}, nil
+		}
 	}
 
 	expectedDurationSec := req.DurationMS / 1000
@@ -1606,31 +1612,49 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		"disc":   req.DiscNumber,
 	})
 
-	var outputPath string
-	var m4aPath string
-	if quality == "HIGH" {
-		filename = sanitizeFilename(filename) + ".m4a"
-		outputPath = filepath.Join(req.OutputDir, filename)
-		m4aPath = outputPath
-	} else {
-		filename = sanitizeFilename(filename) + ".flac"
-		outputPath = filepath.Join(req.OutputDir, filename)
-		m4aPath = strings.TrimSuffix(outputPath, ".flac") + ".m4a"
+	outputExt := strings.TrimSpace(req.OutputExt)
+	if outputExt == "" {
+		if quality == "HIGH" {
+			outputExt = ".m4a"
+		} else {
+			outputExt = ".flac"
+		}
+	} else if !strings.HasPrefix(outputExt, ".") {
+		outputExt = "." + outputExt
 	}
 
-	if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
-		return TidalDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
-	}
-	if quality != "HIGH" {
-		if fileInfo, statErr := os.Stat(m4aPath); statErr == nil && fileInfo.Size() > 0 {
-			return TidalDownloadResult{FilePath: "EXISTS:" + m4aPath}, nil
+	var outputPath string
+	var m4aPath string
+	if isSafOutput {
+		outputPath = strings.TrimSpace(req.OutputPath)
+		m4aPath = outputPath
+	} else {
+		if outputExt == ".m4a" || quality == "HIGH" {
+			filename = sanitizeFilename(filename) + ".m4a"
+			outputPath = filepath.Join(req.OutputDir, filename)
+			m4aPath = outputPath
+		} else {
+			filename = sanitizeFilename(filename) + ".flac"
+			outputPath = filepath.Join(req.OutputDir, filename)
+			m4aPath = strings.TrimSuffix(outputPath, ".flac") + ".m4a"
+		}
+
+		if fileInfo, statErr := os.Stat(outputPath); statErr == nil && fileInfo.Size() > 0 {
+			return TidalDownloadResult{FilePath: "EXISTS:" + outputPath}, nil
+		}
+		if quality != "HIGH" {
+			if fileInfo, statErr := os.Stat(m4aPath); statErr == nil && fileInfo.Size() > 0 {
+				return TidalDownloadResult{FilePath: "EXISTS:" + m4aPath}, nil
+			}
 		}
 	}
 
-	tmpPath := outputPath + ".m4a.tmp"
-	if _, err := os.Stat(tmpPath); err == nil {
-		GoLog("[Tidal] Cleaning up leftover temp file: %s\n", tmpPath)
-		os.Remove(tmpPath)
+	if !isSafOutput {
+		tmpPath := outputPath + ".m4a.tmp"
+		if _, err := os.Stat(tmpPath); err == nil {
+			GoLog("[Tidal] Cleaning up leftover temp file: %s\n", tmpPath)
+			os.Remove(tmpPath)
+		}
 	}
 
 	GoLog("[Tidal] Using quality: %s\n", quality)
@@ -1682,11 +1706,13 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}
 
 	actualOutputPath := outputPath
-	if _, err := os.Stat(m4aPath); err == nil {
-		actualOutputPath = m4aPath
-		GoLog("[Tidal] File saved as M4A (DASH stream): %s\n", actualOutputPath)
-	} else if _, err := os.Stat(outputPath); err != nil {
-		return TidalDownloadResult{}, fmt.Errorf("download completed but file not found at %s or %s", outputPath, m4aPath)
+	if !isSafOutput {
+		if _, err := os.Stat(m4aPath); err == nil {
+			actualOutputPath = m4aPath
+			GoLog("[Tidal] File saved as M4A (DASH stream): %s\n", actualOutputPath)
+		} else if _, err := os.Stat(outputPath); err != nil {
+			return TidalDownloadResult{}, fmt.Errorf("download completed but file not found at %s or %s", outputPath, m4aPath)
+		}
 	}
 
 	releaseDate := req.ReleaseDate
@@ -1725,7 +1751,15 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		GoLog("[Tidal] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
-	if strings.HasSuffix(actualOutputPath, ".flac") {
+	actualExt := outputExt
+	if strings.HasPrefix(downloadInfo.URL, "MANIFEST:") {
+		actualExt = ".m4a"
+	}
+	if actualExt == "" && !isSafOutput {
+		actualExt = strings.ToLower(filepath.Ext(actualOutputPath))
+	}
+
+	if (isSafOutput && actualExt == ".flac") || (!isSafOutput && strings.HasSuffix(actualOutputPath, ".flac")) {
 		if err := EmbedMetadataWithCoverData(actualOutputPath, metadata, coverData); err != nil {
 			fmt.Printf("Warning: failed to embed metadata: %v\n", err)
 		}
@@ -1736,7 +1770,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 				lyricsMode = "embed"
 			}
 
-			if lyricsMode == "external" || lyricsMode == "both" {
+			if !isSafOutput && (lyricsMode == "external" || lyricsMode == "both") {
 				GoLog("[Tidal] Saving external LRC file...\n")
 				if lrcPath, lrcErr := SaveLRCFile(actualOutputPath, parallelResult.LyricsLRC); lrcErr != nil {
 					GoLog("[Tidal] Warning: failed to save LRC file: %v\n", lrcErr)
@@ -1756,7 +1790,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		} else if req.EmbedLyrics {
 			fmt.Println("[Tidal] No lyrics available from parallel fetch")
 		}
-	} else if strings.HasSuffix(actualOutputPath, ".m4a") {
+	} else if (isSafOutput && actualExt == ".m4a") || (!isSafOutput && strings.HasSuffix(actualOutputPath, ".m4a")) {
 		if quality == "HIGH" {
 			GoLog("[Tidal] HIGH quality M4A - skipping metadata embedding (file from server is already valid)\n")
 
@@ -1766,7 +1800,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 					lyricsMode = "embed"
 				}
 
-				if lyricsMode == "external" || lyricsMode == "both" {
+				if !isSafOutput && (lyricsMode == "external" || lyricsMode == "both") {
 					GoLog("[Tidal] Saving external LRC file for M4A (mode: %s)...\n", lyricsMode)
 					if lrcPath, lrcErr := SaveLRCFile(actualOutputPath, parallelResult.LyricsLRC); lrcErr != nil {
 						GoLog("[Tidal] Warning: failed to save LRC file: %v\n", lrcErr)
@@ -1780,7 +1814,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		}
 	}
 
-	AddToISRCIndex(req.OutputDir, req.ISRC, actualOutputPath)
+	if !isSafOutput {
+		AddToISRCIndex(req.OutputDir, req.ISRC, actualOutputPath)
+	}
 
 	bitDepth := downloadInfo.BitDepth
 	sampleRate := downloadInfo.SampleRate
@@ -1788,15 +1824,9 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	if quality == "HIGH" {
 		bitDepth = 0
 		sampleRate = 44100
-		if parallelResult != nil && parallelResult.LyricsLRC != "" {
-			lyricsMode := req.LyricsMode
-			if lyricsMode == "" {
-				lyricsMode = "embed"
-			}
-			if lyricsMode == "embed" || lyricsMode == "both" {
-				lyricsLRC = parallelResult.LyricsLRC
-			}
-		}
+	}
+	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		lyricsLRC = parallelResult.LyricsLRC
 	}
 
 	return TidalDownloadResult{

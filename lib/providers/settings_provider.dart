@@ -48,6 +48,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
     }
     
     if (lastMigration < _currentMigrationVersion) {
+      if (state.downloadTreeUri.isNotEmpty && state.storageMode != 'saf') {
+        state = state.copyWith(storageMode: 'saf');
+      }
       await prefs.setInt(_migrationVersionKey, _currentMigrationVersion);
     }
   }
@@ -117,6 +120,22 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void setDownloadDirectory(String directory) {
     state = state.copyWith(downloadDirectory: directory);
+    _saveSettings();
+  }
+
+  void setStorageMode(String mode) {
+    final normalized = mode == 'saf' ? 'saf' : 'app';
+    state = state.copyWith(storageMode: normalized);
+    _saveSettings();
+  }
+
+  void setDownloadTreeUri(String uri, {String? displayName}) {
+    final nextDisplay = displayName ?? state.downloadDirectory;
+    state = state.copyWith(
+      downloadTreeUri: uri,
+      storageMode: uri.isNotEmpty ? 'saf' : state.storageMode,
+      downloadDirectory: nextDisplay,
+    );
     _saveSettings();
   }
 

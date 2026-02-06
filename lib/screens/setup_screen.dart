@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
+import 'package:spotiflac_android/services/platform_bridge.dart';
 
 class SetupScreen extends ConsumerStatefulWidget {
   const SetupScreen({super.key});
@@ -22,6 +23,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   bool _storagePermissionGranted = false;
   bool _notificationPermissionGranted = false;
   String? _selectedDirectory;
+  String? _selectedTreeUri;
   bool _isLoading = false;
   int _androidSdkVersion = 0;
   
@@ -246,13 +248,19 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       if (Platform.isIOS) {
         await _showIOSDirectoryOptions();
       } else {
-        String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
-          dialogTitle: context.l10n.setupSelectDownloadFolder,
-        );
+        final result = await PlatformBridge.pickSafTree();
+        if (result != null) {
+          final treeUri = result['tree_uri'] as String? ?? '';
+          final displayName = result['display_name'] as String? ?? '';
+          if (treeUri.isNotEmpty) {
+            setState(() {
+              _selectedTreeUri = treeUri;
+              _selectedDirectory = displayName.isNotEmpty ? displayName : treeUri;
+            });
+          }
+        }
 
-        if (selectedDirectory != null) {
-          setState(() => _selectedDirectory = selectedDirectory);
-        } else {
+        if (_selectedTreeUri == null || _selectedTreeUri!.isEmpty) {
           final defaultDir = await _getDefaultDirectory();
           if (mounted) {
             final useDefault = await showDialog<bool>(
@@ -268,7 +276,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             );
 
             if (useDefault == true) {
-              setState(() => _selectedDirectory = defaultDir);
+              setState(() {
+                _selectedTreeUri = '';
+                _selectedDirectory = defaultDir;
+              });
             }
           }
         }
@@ -387,12 +398,21 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final dir = Directory(_selectedDirectory!);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
+      if (!Platform.isAndroid || _selectedTreeUri == null || _selectedTreeUri!.isEmpty) {
+        final dir = Directory(_selectedDirectory!);
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        ref.read(settingsProvider.notifier).setStorageMode('app');
+        ref.read(settingsProvider.notifier).setDownloadDirectory(_selectedDirectory!);
+        ref.read(settingsProvider.notifier).setDownloadTreeUri('');
+      } else {
+        ref.read(settingsProvider.notifier).setStorageMode('saf');
+        ref.read(settingsProvider.notifier).setDownloadTreeUri(
+          _selectedTreeUri!,
+          displayName: _selectedDirectory,
+        );
       }
-
-      ref.read(settingsProvider.notifier).setDownloadDirectory(_selectedDirectory!);
       
       if (_useSpotifyApi && 
           _clientIdController.text.trim().isNotEmpty && 

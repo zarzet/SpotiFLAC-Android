@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/palette_service.dart';
-import 'package:spotiflac_android/utils/mime_utils.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
@@ -128,9 +127,9 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     bool exists = false;
     int? size;
     try {
-      final stat = await FileStat.stat(filePath);
-      exists = stat.type != FileSystemEntityType.notFound;
-      if (exists) {
+      final stat = await fileStat(filePath);
+      if (stat != null) {
+        exists = true;
         size = stat.size;
       }
     } catch (_) {}
@@ -1212,10 +1211,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
               if (_isLocalItem) {
                 // For local items, just delete the file
                 try {
-                  final file = File(cleanFilePath);
-                  if (await file.exists()) {
-                    await file.delete();
-                  }
+                  await deleteFile(cleanFilePath);
                 } catch (e) {
                   debugPrint('Failed to delete file: $e');
                 }
@@ -1224,10 +1220,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
               } else {
                 // Existing download history deletion logic
                 try {
-                  final file = File(cleanFilePath);
-                  if (await file.exists()) {
-                    await file.delete();
-                  }
+                  await deleteFile(cleanFilePath);
                 } catch (e) {
                   debugPrint('Failed to delete file: $e');
                 }
@@ -1249,13 +1242,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
   Future<void> _openFile(BuildContext context, String filePath) async {
     try {
-      final mimeType = audioMimeTypeForPath(filePath);
-      final result = await OpenFilex.open(filePath, type: mimeType);
-      if (result.type != ResultType.done && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.trackCannotOpen(result.message))),
-        );
-      }
+      await openFile(filePath);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1276,8 +1263,8 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   }
 
   Future<void> _shareFile(BuildContext context) async {
-    final file = File(cleanFilePath);
-    if (!await file.exists()) {
+    String sharePath = cleanFilePath;
+    if (!await fileExists(sharePath)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.snackbarFileNotFound)),
@@ -1285,10 +1272,23 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
       }
       return;
     }
+
+    if (isContentUri(sharePath)) {
+      final tempPath = await PlatformBridge.copyContentUriToTemp(sharePath);
+      if (tempPath == null || tempPath.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.snackbarCannotOpenFile('Failed to prepare file for sharing'))),
+          );
+        }
+        return;
+      }
+      sharePath = tempPath;
+    }
     
     await SharePlus.instance.share(
       ShareParams(
-        files: [XFile(cleanFilePath)],
+        files: [XFile(sharePath)],
         text: '$trackName - $artistName',
       ),
     );

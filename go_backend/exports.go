@@ -128,6 +128,8 @@ type DownloadRequest struct {
 	AlbumArtist          string `json:"album_artist"`
 	CoverURL             string `json:"cover_url"`
 	OutputDir            string `json:"output_dir"`
+	OutputPath           string `json:"output_path,omitempty"`
+	OutputExt            string `json:"output_ext,omitempty"`
 	FilenameFormat       string `json:"filename_format"`
 	Quality              string `json:"quality"`
 	EmbedLyrics          bool   `json:"embed_lyrics"`
@@ -199,8 +201,10 @@ func DownloadTrack(requestJSON string) (string, error) {
 	req.AlbumName = strings.TrimSpace(req.AlbumName)
 	req.AlbumArtist = strings.TrimSpace(req.AlbumArtist)
 	req.OutputDir = strings.TrimSpace(req.OutputDir)
+	req.OutputPath = strings.TrimSpace(req.OutputPath)
+	req.OutputExt = strings.TrimSpace(req.OutputExt)
 
-	if req.OutputDir != "" {
+	if req.OutputPath == "" && req.OutputDir != "" {
 		AddAllowedDownloadDir(req.OutputDir)
 	}
 
@@ -240,6 +244,7 @@ func DownloadTrack(requestJSON string) (string, error) {
 				TrackNumber: qobuzResult.TrackNumber,
 				DiscNumber:  qobuzResult.DiscNumber,
 				ISRC:        qobuzResult.ISRC,
+				LyricsLRC:   qobuzResult.LyricsLRC,
 			}
 		}
 		err = qobuzErr
@@ -257,6 +262,7 @@ func DownloadTrack(requestJSON string) (string, error) {
 				TrackNumber: amazonResult.TrackNumber,
 				DiscNumber:  amazonResult.DiscNumber,
 				ISRC:        amazonResult.ISRC,
+				LyricsLRC:   amazonResult.LyricsLRC,
 			}
 		}
 		err = amazonErr
@@ -336,8 +342,10 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 	req.AlbumName = strings.TrimSpace(req.AlbumName)
 	req.AlbumArtist = strings.TrimSpace(req.AlbumArtist)
 	req.OutputDir = strings.TrimSpace(req.OutputDir)
+	req.OutputPath = strings.TrimSpace(req.OutputPath)
+	req.OutputExt = strings.TrimSpace(req.OutputExt)
 
-	if req.OutputDir != "" {
+	if req.OutputPath == "" && req.OutputDir != "" {
 		AddAllowedDownloadDir(req.OutputDir)
 	}
 
@@ -402,6 +410,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					TrackNumber: qobuzResult.TrackNumber,
 					DiscNumber:  qobuzResult.DiscNumber,
 					ISRC:        qobuzResult.ISRC,
+					LyricsLRC:   qobuzResult.LyricsLRC,
 				}
 			} else if !errors.Is(qobuzErr, ErrDownloadCancelled) {
 				GoLog("[DownloadWithFallback] Qobuz error: %v\n", qobuzErr)
@@ -421,6 +430,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					TrackNumber: amazonResult.TrackNumber,
 					DiscNumber:  amazonResult.DiscNumber,
 					ISRC:        amazonResult.ISRC,
+					LyricsLRC:   amazonResult.LyricsLRC,
 				}
 			} else if !errors.Is(amazonErr, ErrDownloadCancelled) {
 				GoLog("[DownloadWithFallback] Amazon error: %v\n", amazonErr)
@@ -567,6 +577,14 @@ func ReadFileMetadata(filePath string) (string, error) {
 
 func SetDownloadDirectory(path string) error {
 	return setDownloadDir(path)
+}
+
+// AllowDownloadDir adds a directory to the extension file sandbox allowlist.
+func AllowDownloadDir(path string) {
+	if strings.TrimSpace(path) == "" {
+		return
+	}
+	AddAllowedDownloadDir(path)
 }
 
 func CheckDuplicate(outputDir, isrc string) (string, error) {
@@ -1260,6 +1278,17 @@ func DownloadWithExtensionsJSON(requestJSON string) (string, error) {
 		return "", fmt.Errorf("invalid request: %w", err)
 	}
 
+	req.TrackName = strings.TrimSpace(req.TrackName)
+	req.ArtistName = strings.TrimSpace(req.ArtistName)
+	req.AlbumName = strings.TrimSpace(req.AlbumName)
+	req.AlbumArtist = strings.TrimSpace(req.AlbumArtist)
+	req.OutputDir = strings.TrimSpace(req.OutputDir)
+	req.OutputPath = strings.TrimSpace(req.OutputPath)
+	req.OutputExt = strings.TrimSpace(req.OutputExt)
+	if req.OutputPath == "" && req.OutputDir != "" {
+		AddAllowedDownloadDir(req.OutputDir)
+	}
+
 	result, err := DownloadWithExtensionFallback(req)
 	if err != nil {
 		return "", err
@@ -1946,6 +1975,35 @@ func RunPostProcessingJSON(filePath, metadataJSON string) (string, error) {
 
 	manager := GetExtensionManager()
 	result, err := manager.RunPostProcessing(filePath, metadata)
+	if err != nil {
+		return "", err
+	}
+
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonBytes), nil
+}
+
+func RunPostProcessingV2JSON(inputJSON, metadataJSON string) (string, error) {
+	var metadata map[string]interface{}
+	if metadataJSON != "" {
+		if err := json.Unmarshal([]byte(metadataJSON), &metadata); err != nil {
+			metadata = make(map[string]interface{})
+		}
+	}
+
+	var input PostProcessInput
+	if inputJSON != "" {
+		if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
+			input = PostProcessInput{}
+		}
+	}
+
+	manager := GetExtensionManager()
+	result, err := manager.RunPostProcessingV2(input, metadata)
 	if err != nil {
 		return "", err
 	}

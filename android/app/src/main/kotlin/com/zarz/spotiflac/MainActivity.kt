@@ -1,7 +1,11 @@
 package com.zarz.spotiflac
 
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.documentfile.provider.DocumentFile
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterShellArgs
@@ -12,11 +16,59 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.util.Locale
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.zarz.spotiflac/backend"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pendingSafTreeResult: MethodChannel.Result? = null
+    private val safScanLock = Any()
+    private var safScanProgress = SafScanProgress()
+    @Volatile private var safScanCancel = false
+    @Volatile private var safScanActive = false
+    private val safTreeLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        val result = pendingSafTreeResult ?: return@registerForActivityResult
+        pendingSafTreeResult = null
+
+        if (activityResult.resultCode != Activity.RESULT_OK) {
+            result.success(null)
+            return@registerForActivityResult
+        }
+
+        val data = activityResult.data
+        val uri = data?.data
+        if (uri == null) {
+            result.success(null)
+            return@registerForActivityResult
+        }
+
+        val takeFlags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        try {
+            contentResolver.takePersistableUriPermission(uri, takeFlags)
+        } catch (e: Exception) {
+            android.util.Log.w("SpotiFLAC", "Failed to persist SAF permission: ${e.message}")
+        }
+
+        val payload = JSONObject()
+        payload.put("tree_uri", uri.toString())
+        result.success(payload.toString())
+    }
+
+    data class SafScanProgress(
+        var totalFiles: Int = 0,
+        var scannedFiles: Int = 0,
+        var currentFile: String = "",
+        var errorCount: Int = 0,
+        var progressPct: Double = 0.0,
+        var isComplete: Boolean = false,
+    )
 
     companion object {
         // Minimum API level we consider "safe" for Impeller (Android 10+)
@@ -149,6 +201,474 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun normalizeExt(ext: String?): String {
+        if (ext.isNullOrBlank()) return ""
+        return if (ext.startsWith(".")) ext.lowercase(Locale.ROOT) else ".${ext.lowercase(Locale.ROOT)}"
+    }
+
+    private fun mimeTypeForExt(ext: String?): String {
+        return when (normalizeExt(ext)) {
+            ".m4a" -> "audio/mp4"
+            ".mp3" -> "audio/mpeg"
+            ".opus" -> "audio/ogg"
+            ".flac" -> "audio/flac"
+            else -> "application/octet-stream"
+        }
+    }
+
+    private fun sanitizeFilename(name: String): String {
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+    }
+
+    private fun ensureDocumentDir(treeUri: Uri, relativeDir: String): DocumentFile? {
+        var current = DocumentFile.fromTreeUri(this, treeUri) ?: return null
+        if (relativeDir.isBlank()) return current
+
+        val parts = relativeDir.split("/").filter { it.isNotBlank() }
+        for (part in parts) {
+            val existing = current.findFile(part)
+            current = if (existing != null && existing.isDirectory) {
+                existing
+            } else {
+                current.createDirectory(part) ?: return null
+            }
+        }
+        return current
+    }
+
+    private fun findDocumentDir(treeUri: Uri, relativeDir: String): DocumentFile? {
+        var current = DocumentFile.fromTreeUri(this, treeUri) ?: return null
+        if (relativeDir.isBlank()) return current
+
+        val parts = relativeDir.split("/").filter { it.isNotBlank() }
+        for (part in parts) {
+            val existing = current.findFile(part)
+            if (existing == null || !existing.isDirectory) return null
+            current = existing
+        }
+        return current
+    }
+
+    private fun resetSafScanProgress() {
+        synchronized(safScanLock) {
+            safScanProgress = SafScanProgress()
+        }
+    }
+
+    private fun updateSafScanProgress(block: (SafScanProgress) -> Unit) {
+        synchronized(safScanLock) {
+            block(safScanProgress)
+        }
+    }
+
+    private fun safProgressToJson(): String {
+        val snapshot = synchronized(safScanLock) { safScanProgress.copy() }
+        val obj = JSONObject()
+        obj.put("total_files", snapshot.totalFiles)
+        obj.put("scanned_files", snapshot.scannedFiles)
+        obj.put("current_file", snapshot.currentFile)
+        obj.put("error_count", snapshot.errorCount)
+        obj.put("progress_pct", snapshot.progressPct)
+        obj.put("is_complete", snapshot.isComplete)
+        return obj.toString()
+    }
+
+    private fun resolveSafFile(treeUriStr: String, relativeDir: String, fileName: String): String {
+        val obj = JSONObject()
+        if (treeUriStr.isBlank() || fileName.isBlank()) {
+            obj.put("uri", "")
+            obj.put("relative_dir", "")
+            return obj.toString()
+        }
+
+        val treeUri = Uri.parse(treeUriStr)
+        val targetDir = findDocumentDir(treeUri, relativeDir)
+        if (targetDir != null) {
+            val direct = targetDir.findFile(fileName)
+            if (direct != null && direct.isFile) {
+                obj.put("uri", direct.uri.toString())
+                obj.put("relative_dir", relativeDir)
+                return obj.toString()
+            }
+        }
+
+        val root = DocumentFile.fromTreeUri(this, treeUri) ?: run {
+            obj.put("uri", "")
+            obj.put("relative_dir", "")
+            return obj.toString()
+        }
+
+        val queue: ArrayDeque<Pair<DocumentFile, String>> = ArrayDeque()
+        queue.add(root to "")
+        var visited = 0
+        val maxVisited = 20000
+
+        while (queue.isNotEmpty()) {
+            if (visited > maxVisited) break
+            val (dir, path) = queue.removeFirst()
+            for (child in dir.listFiles()) {
+                visited++
+                if (child.isDirectory) {
+                    val childName = child.name ?: continue
+                    val childPath = if (path.isBlank()) childName else "$path/$childName"
+                    queue.add(child to childPath)
+                } else if (child.isFile) {
+                    if (child.name == fileName) {
+                        obj.put("uri", child.uri.toString())
+                        obj.put("relative_dir", path)
+                        return obj.toString()
+                    }
+                }
+            }
+        }
+
+        obj.put("uri", "")
+        obj.put("relative_dir", "")
+        return obj.toString()
+    }
+
+    private fun buildSafFileName(req: JSONObject, outputExt: String): String {
+        val provided = req.optString("saf_file_name", "")
+        if (provided.isNotBlank()) return provided
+
+        val trackName = req.optString("track_name", "track")
+        val artistName = req.optString("artist_name", "")
+        val baseName = if (artistName.isNotBlank()) "$artistName - $trackName" else trackName
+        return sanitizeFilename(baseName) + outputExt
+    }
+
+    private fun errorJson(message: String): String {
+        val obj = JSONObject()
+        obj.put("success", false)
+        obj.put("error", message)
+        obj.put("message", message)
+        return obj.toString()
+    }
+
+    private fun copyUriToTemp(uri: Uri, fallbackExt: String? = null): String? {
+        val mime = contentResolver.getType(uri)
+        val ext = when (mime) {
+            "audio/mp4" -> ".m4a"
+            "audio/mpeg" -> ".mp3"
+            "audio/ogg" -> ".opus"
+            "audio/flac" -> ".flac"
+            else -> fallbackExt ?: ""
+        }
+        val suffix: String? = if (ext.isNotBlank()) ext else null
+        val tempFile = File.createTempFile("saf_", suffix, cacheDir)
+        contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(tempFile).use { output ->
+                input.copyTo(output)
+            }
+        } ?: return null
+        return tempFile.absolutePath
+    }
+
+    private fun writeUriFromPath(uri: Uri, srcPath: String): Boolean {
+        val srcFile = File(srcPath)
+        if (!srcFile.exists()) return false
+        contentResolver.openOutputStream(uri, "wt")?.use { output ->
+            FileInputStream(srcFile).use { input ->
+                input.copyTo(output)
+            }
+        } ?: return false
+        return true
+    }
+
+    private fun handleSafDownload(requestJson: String, downloader: (String) -> String): String {
+        val req = JSONObject(requestJson)
+        val storageMode = req.optString("storage_mode", "")
+        val treeUriStr = req.optString("saf_tree_uri", "")
+        if (storageMode != "saf" || treeUriStr.isBlank()) {
+            return downloader(requestJson)
+        }
+
+        val treeUri = Uri.parse(treeUriStr)
+        val relativeDir = req.optString("saf_relative_dir", "")
+        val outputExt = normalizeExt(req.optString("saf_output_ext", ""))
+        val mimeType = mimeTypeForExt(outputExt)
+        val targetDir = ensureDocumentDir(treeUri, relativeDir)
+            ?: return errorJson("Failed to access SAF directory")
+
+        val fileName = buildSafFileName(req, outputExt)
+        val existing = targetDir.findFile(fileName)
+        if (existing != null && existing.isFile && existing.length() > 0) {
+            val obj = JSONObject()
+            obj.put("success", true)
+            obj.put("message", "File already exists")
+            obj.put("file_path", existing.uri.toString())
+            obj.put("file_name", existing.name ?: fileName)
+            obj.put("already_exists", true)
+            return obj.toString()
+        }
+
+        val document = existing ?: targetDir.createFile(mimeType, fileName)
+            ?: return errorJson("Failed to create SAF file")
+
+        val pfd = contentResolver.openFileDescriptor(document.uri, "rw")
+            ?: return errorJson("Failed to open SAF file")
+
+        try {
+            req.put("output_path", "/proc/self/fd/${pfd.fd}")
+            req.put("output_ext", outputExt)
+            val response = downloader(req.toString())
+            val respObj = JSONObject(response)
+            if (respObj.optBoolean("success", false)) {
+                respObj.put("file_path", document.uri.toString())
+                respObj.put("file_name", document.name ?: fileName)
+            } else {
+                document.delete()
+            }
+            return respObj.toString()
+        } catch (e: Exception) {
+            document.delete()
+            return errorJson("SAF download failed: ${e.message}")
+        } finally {
+            try {
+                pfd.close()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun scanSafTree(treeUriStr: String): String {
+        if (treeUriStr.isBlank()) return "[]"
+
+        val treeUri = Uri.parse(treeUriStr)
+        val root = DocumentFile.fromTreeUri(this, treeUri) ?: return "[]"
+
+        resetSafScanProgress()
+        safScanCancel = false
+        safScanActive = true
+
+        val supportedExt = setOf(".flac", ".m4a", ".mp3", ".opus", ".ogg")
+        val audioFiles = mutableListOf<Pair<DocumentFile, String>>()
+
+        val queue: ArrayDeque<Pair<DocumentFile, String>> = ArrayDeque()
+        queue.add(root to "")
+
+        while (queue.isNotEmpty()) {
+            if (safScanCancel) {
+                updateSafScanProgress { it.isComplete = true }
+                return "[]"
+            }
+
+            val (dir, path) = queue.removeFirst()
+            for (child in dir.listFiles()) {
+                if (safScanCancel) {
+                    updateSafScanProgress { it.isComplete = true }
+                    return "[]"
+                }
+
+                if (child.isDirectory) {
+                    val childName = child.name ?: continue
+                    val childPath = if (path.isBlank()) childName else "$path/$childName"
+                    queue.add(child to childPath)
+                } else if (child.isFile) {
+                    val name = child.name ?: continue
+                    val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                    if (ext.isNotBlank() && supportedExt.contains(".$ext")) {
+                        audioFiles.add(child to path)
+                    }
+                }
+            }
+        }
+
+        updateSafScanProgress {
+            it.totalFiles = audioFiles.size
+        }
+
+        if (audioFiles.isEmpty()) {
+            updateSafScanProgress {
+                it.isComplete = true
+                it.progressPct = 100.0
+            }
+            return "[]"
+        }
+
+        val results = JSONArray()
+        var scanned = 0
+        var errors = 0
+
+        for ((doc, _) in audioFiles) {
+            if (safScanCancel) {
+                updateSafScanProgress { it.isComplete = true }
+                return "[]"
+            }
+
+            val name = doc.name ?: ""
+            updateSafScanProgress {
+                it.currentFile = name
+            }
+
+            val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            val fallbackExt = if (ext.isNotBlank()) ".${ext}" else null
+            val tempPath = copyUriToTemp(doc.uri, fallbackExt)
+            if (tempPath == null) {
+                errors++
+            } else {
+                try {
+                    val metadataJson = Gobackend.readAudioMetadataJSON(tempPath)
+                    if (metadataJson.isNotBlank()) {
+                        val obj = JSONObject(metadataJson)
+                        obj.put("filePath", doc.uri.toString())
+                        results.put(obj)
+                    } else {
+                        errors++
+                    }
+                } catch (_: Exception) {
+                    errors++
+                } finally {
+                    try {
+                        File(tempPath).delete()
+                    } catch (_: Exception) {}
+                }
+            }
+
+            scanned++
+            val pct = scanned.toDouble() / audioFiles.size.toDouble() * 100.0
+            updateSafScanProgress {
+                it.scannedFiles = scanned
+                it.errorCount = errors
+                it.progressPct = pct
+            }
+        }
+
+        updateSafScanProgress {
+            it.isComplete = true
+            it.progressPct = 100.0
+        }
+
+        return results.toString()
+    }
+
+    private fun runPostProcessingSaf(fileUriStr: String, metadataJson: String): String {
+        val uri = Uri.parse(fileUriStr)
+        val doc = DocumentFile.fromSingleUri(this, uri)
+            ?: return errorJson("SAF file not found")
+
+        val tempInput = copyUriToTemp(uri) ?: return errorJson("Failed to copy SAF file to temp")
+        val tempDir = File(tempInput).parentFile?.absolutePath ?: ""
+        if (tempDir.isNotBlank()) {
+            try {
+                Gobackend.allowDownloadDir(tempDir)
+            } catch (_: Exception) {}
+        }
+
+        val response = Gobackend.runPostProcessingJSON(tempInput, metadataJson)
+        val respObj = JSONObject(response)
+        if (!respObj.optBoolean("success", false)) {
+            try {
+                File(tempInput).delete()
+            } catch (_: Exception) {}
+            return response
+        }
+
+        val newPath = respObj.optString("new_file_path", "")
+        val outputPath = if (newPath.isNotBlank()) newPath else tempInput
+        val outputFile = File(outputPath)
+        if (!outputFile.exists()) {
+            try {
+                File(tempInput).delete()
+            } catch (_: Exception) {}
+            respObj.put("success", false)
+            respObj.put("error", "postProcess output not found")
+            return respObj.toString()
+        }
+
+        val newName = outputFile.name
+        if (!newName.isNullOrBlank() && doc.name != null && doc.name != newName) {
+            try {
+                doc.renameTo(newName)
+            } catch (_: Exception) {}
+        }
+
+        val writeOk = writeUriFromPath(uri, outputFile.absolutePath)
+        if (!writeOk) {
+            respObj.put("success", false)
+            respObj.put("error", "failed to write postProcess output to SAF")
+            return respObj.toString()
+        }
+
+        try {
+            if (outputPath != tempInput) {
+                outputFile.delete()
+            }
+            File(tempInput).delete()
+        } catch (_: Exception) {}
+
+        respObj.put("new_file_path", uri.toString())
+        respObj.put("file_path", uri.toString())
+        return respObj.toString()
+    }
+
+    private fun runPostProcessingSafV2(fileUriStr: String, metadataJson: String): String {
+        val uri = Uri.parse(fileUriStr)
+        val doc = DocumentFile.fromSingleUri(this, uri)
+            ?: return errorJson("SAF file not found")
+
+        val tempInput = copyUriToTemp(uri) ?: return errorJson("Failed to copy SAF file to temp")
+        val tempDir = File(tempInput).parentFile?.absolutePath ?: ""
+        if (tempDir.isNotBlank()) {
+            try {
+                Gobackend.allowDownloadDir(tempDir)
+            } catch (_: Exception) {}
+        }
+
+        val inputObj = JSONObject()
+        inputObj.put("path", tempInput)
+        inputObj.put("uri", fileUriStr)
+        inputObj.put("name", doc.name ?: File(tempInput).name)
+        inputObj.put("mime_type", doc.type ?: contentResolver.getType(uri) ?: "")
+        inputObj.put("size", doc.length())
+        inputObj.put("is_saf", true)
+
+        val response = Gobackend.runPostProcessingV2JSON(inputObj.toString(), metadataJson)
+        val respObj = JSONObject(response)
+        if (!respObj.optBoolean("success", false)) {
+            try {
+                File(tempInput).delete()
+            } catch (_: Exception) {}
+            return response
+        }
+
+        val newPath = respObj.optString("new_file_path", "")
+        val outputPath = if (newPath.isNotBlank()) newPath else tempInput
+        val outputFile = File(outputPath)
+        if (!outputFile.exists()) {
+            try {
+                File(tempInput).delete()
+            } catch (_: Exception) {}
+            respObj.put("success", false)
+            respObj.put("error", "postProcess output not found")
+            return respObj.toString()
+        }
+
+        val newName = outputFile.name
+        if (!newName.isNullOrBlank() && doc.name != null && doc.name != newName) {
+            try {
+                doc.renameTo(newName)
+            } catch (_: Exception) {}
+        }
+
+        val writeOk = writeUriFromPath(uri, outputFile.absolutePath)
+        if (!writeOk) {
+            respObj.put("success", false)
+            respObj.put("error", "failed to write postProcess output to SAF")
+            return respObj.toString()
+        }
+
+        try {
+            if (outputPath != tempInput) {
+                outputFile.delete()
+            }
+            File(tempInput).delete()
+        } catch (_: Exception) {}
+
+        respObj.put("new_file_path", uri.toString())
+        respObj.put("file_path", uri.toString())
+        return respObj.toString()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Update the intent so receive_sharing_intent can access the new data
@@ -204,14 +724,18 @@ class MainActivity: FlutterActivity() {
                         "downloadTrack" -> {
                             val requestJson = call.arguments as String
                             val response = withContext(Dispatchers.IO) {
-                                Gobackend.downloadTrack(requestJson)
+                                handleSafDownload(requestJson) { json ->
+                                    Gobackend.downloadTrack(json)
+                                }
                             }
                             result.success(response)
                         }
                         "downloadWithFallback" -> {
                             val requestJson = call.arguments as String
                             val response = withContext(Dispatchers.IO) {
-                                Gobackend.downloadWithFallback(requestJson)
+                                handleSafDownload(requestJson) { json ->
+                                    Gobackend.downloadWithFallback(json)
+                                }
                             }
                             result.success(response)
                         }
@@ -306,6 +830,115 @@ class MainActivity: FlutterActivity() {
                                 Gobackend.sanitizeFilename(filename)
                             }
                             result.success(response)
+                        }
+                        "pickSafTree" -> {
+                            if (pendingSafTreeResult != null) {
+                                result.error("saf_pending", "SAF picker already active", null)
+                                return@launch
+                            }
+                            pendingSafTreeResult = result
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                            intent.addFlags(
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                            )
+                            safTreeLauncher.launch(intent)
+                        }
+                        "safExists" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val exists = withContext(Dispatchers.IO) {
+                                val uri = Uri.parse(uriStr)
+                                DocumentFile.fromSingleUri(this@MainActivity, uri)?.exists() == true
+                            }
+                            result.success(exists)
+                        }
+                        "safDelete" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val deleted = withContext(Dispatchers.IO) {
+                                val uri = Uri.parse(uriStr)
+                                DocumentFile.fromSingleUri(this@MainActivity, uri)?.delete() == true
+                            }
+                            result.success(deleted)
+                        }
+                        "safStat" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                val uri = Uri.parse(uriStr)
+                                val doc = DocumentFile.fromSingleUri(this@MainActivity, uri)
+                                val obj = JSONObject()
+                                if (doc != null && doc.exists()) {
+                                    obj.put("exists", true)
+                                    obj.put("size", doc.length())
+                                    obj.put("modified", doc.lastModified())
+                                    obj.put("mime_type", doc.type ?: contentResolver.getType(uri) ?: "")
+                                } else {
+                                    obj.put("exists", false)
+                                    obj.put("size", 0)
+                                    obj.put("modified", 0)
+                                    obj.put("mime_type", "")
+                                }
+                                obj.toString()
+                            }
+                            result.success(response)
+                        }
+                        "resolveSafFile" -> {
+                            val treeUriStr = call.argument<String>("tree_uri") ?: ""
+                            val relativeDir = call.argument<String>("relative_dir") ?: ""
+                            val fileName = call.argument<String>("file_name") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                resolveSafFile(treeUriStr, relativeDir, fileName)
+                            }
+                            result.success(response)
+                        }
+                        "safCopyToTemp" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val tempPath = withContext(Dispatchers.IO) {
+                                copyUriToTemp(Uri.parse(uriStr))
+                            }
+                            result.success(tempPath)
+                        }
+                        "safReplaceFromPath" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val srcPath = call.argument<String>("src_path") ?: ""
+                            val ok = withContext(Dispatchers.IO) {
+                                writeUriFromPath(Uri.parse(uriStr), srcPath)
+                            }
+                            result.success(ok)
+                        }
+                        "safCreateFromPath" -> {
+                            val treeUriStr = call.argument<String>("tree_uri") ?: ""
+                            val relativeDir = call.argument<String>("relative_dir") ?: ""
+                            val fileName = call.argument<String>("file_name") ?: ""
+                            val mimeType = call.argument<String>("mime_type") ?: "application/octet-stream"
+                            val srcPath = call.argument<String>("src_path") ?: ""
+                            val createdUri = withContext(Dispatchers.IO) {
+                                if (treeUriStr.isBlank()) return@withContext null
+                                val dir = ensureDocumentDir(Uri.parse(treeUriStr), relativeDir) ?: return@withContext null
+                                val existing = dir.findFile(fileName)
+                                val doc = existing ?: dir.createFile(mimeType, fileName) ?: return@withContext null
+                                if (!writeUriFromPath(doc.uri, srcPath)) {
+                                    doc.delete()
+                                    return@withContext null
+                                }
+                                doc.uri.toString()
+                            }
+                            result.success(createdUri)
+                        }
+                        "openContentUri" -> {
+                            val uriStr = call.argument<String>("uri") ?: ""
+                            val mimeType = call.argument<String>("mime_type") ?: ""
+                            try {
+                                val uri = Uri.parse(uriStr)
+                                val type = if (mimeType.isNotBlank()) mimeType else contentResolver.getType(uri) ?: "*/*"
+                                val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type)
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                startActivity(intent)
+                                result.success(null)
+                            } catch (e: Exception) {
+                                result.error("open_failed", e.message, null)
+                            }
                         }
                         "fetchLyrics" -> {
                             val spotifyId = call.argument<String>("spotify_id") ?: ""
@@ -669,7 +1302,9 @@ class MainActivity: FlutterActivity() {
                         "downloadWithExtensions" -> {
                             val requestJson = call.arguments as String
                             val response = withContext(Dispatchers.IO) {
-                                Gobackend.downloadWithExtensionsJSON(requestJson)
+                                handleSafDownload(requestJson) { json ->
+                                    Gobackend.downloadWithExtensionsJSON(json)
+                                }
                             }
                             result.success(response)
                         }
@@ -838,7 +1473,36 @@ class MainActivity: FlutterActivity() {
                             val filePath = call.argument<String>("file_path") ?: ""
                             val metadataJson = call.argument<String>("metadata") ?: ""
                             val response = withContext(Dispatchers.IO) {
-                                Gobackend.runPostProcessingJSON(filePath, metadataJson)
+                                if (filePath.startsWith("content://")) {
+                                    runPostProcessingSaf(filePath, metadataJson)
+                                } else {
+                                    Gobackend.runPostProcessingJSON(filePath, metadataJson)
+                                }
+                            }
+                            result.success(response)
+                        }
+                        "runPostProcessingV2" -> {
+                            val inputJson = call.argument<String>("input") ?: ""
+                            val metadataJson = call.argument<String>("metadata") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                val inputObj = if (inputJson.isNotBlank()) JSONObject(inputJson) else JSONObject()
+                                val uriStr = inputObj.optString("uri", "")
+                                val pathStr = inputObj.optString("path", "")
+                                val effectiveUri = when {
+                                    uriStr.startsWith("content://") -> uriStr
+                                    pathStr.startsWith("content://") -> pathStr
+                                    else -> ""
+                                }
+
+                                if (effectiveUri.isNotBlank()) {
+                                    runPostProcessingSafV2(effectiveUri, metadataJson)
+                                } else {
+                                    if (pathStr.isNotBlank()) {
+                                        inputObj.put("name", File(pathStr).name)
+                                        inputObj.put("is_saf", false)
+                                    }
+                                    Gobackend.runPostProcessingV2JSON(inputObj.toString(), metadataJson)
+                                }
                             }
                             result.success(response)
                         }
@@ -917,18 +1581,31 @@ class MainActivity: FlutterActivity() {
                         "scanLibraryFolder" -> {
                             val folderPath = call.argument<String>("folder_path") ?: ""
                             val response = withContext(Dispatchers.IO) {
+                                safScanActive = false
                                 Gobackend.scanLibraryFolderJSON(folderPath)
+                            }
+                            result.success(response)
+                        }
+                        "scanSafTree" -> {
+                            val treeUri = call.argument<String>("tree_uri") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                scanSafTree(treeUri)
                             }
                             result.success(response)
                         }
                         "getLibraryScanProgress" -> {
                             val response = withContext(Dispatchers.IO) {
-                                Gobackend.getLibraryScanProgressJSON()
+                                if (safScanActive) {
+                                    safProgressToJson()
+                                } else {
+                                    Gobackend.getLibraryScanProgressJSON()
+                                }
                             }
                             result.success(response)
                         }
                         "cancelLibraryScan" -> {
                             withContext(Dispatchers.IO) {
+                                safScanCancel = true
                                 Gobackend.cancelLibraryScanJSON()
                             }
                             result.success(null)
