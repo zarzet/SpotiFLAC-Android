@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.5.0] - 2026-02-06
+## [3.5.0-beta.1] - 2026-02-06
 
 ### Highlights
 - **SAF Storage (Android 10+)**: Proper Storage Access Framework support for download destination (content URIs)
