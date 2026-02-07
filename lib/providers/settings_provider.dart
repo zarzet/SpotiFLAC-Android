@@ -8,7 +8,7 @@ import 'package:spotiflac_android/utils/logger.dart';
 
 const _settingsKey = 'app_settings';
 const _migrationVersionKey = 'settings_migration_version';
-const _currentMigrationVersion = 1;
+const _currentMigrationVersion = 2;
 const _spotifyClientSecretKey = 'spotify_client_secret';
 
 class SettingsNotifier extends Notifier<AppSettings> {
@@ -51,7 +51,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
       if (state.downloadTreeUri.isNotEmpty && state.storageMode != 'saf') {
         state = state.copyWith(storageMode: 'saf');
       }
+      // Migration 2: existing users who already completed setup should skip tutorial
+      if (!state.isFirstLaunch && !state.hasCompletedTutorial) {
+        state = state.copyWith(hasCompletedTutorial: true);
+      }
       await prefs.setInt(_migrationVersionKey, _currentMigrationVersion);
+      await _saveSettings();
     }
   }
 
