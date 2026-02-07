@@ -137,6 +137,7 @@ class DonatePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
+                                  'By supporting SpotiFLAC, you become part of this app\'s history. '
                                   'Your name will remain in this version permanently as a token of appreciation. '
                                   'The supporter list is updated manually each month and embedded directly in the app '
                                   '-- no remote server is used. Even if your support period ends, your name stays in '

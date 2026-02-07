@@ -2676,5 +2676,6 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get cleanupOrphanedDownloadsNone => 'Tidak ada entri unduhan tidak valid';
+  String get cleanupOrphanedDownloadsNone =>
+      'Tidak ada entri unduhan tidak valid';
 }
