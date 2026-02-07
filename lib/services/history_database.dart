@@ -450,10 +450,46 @@ class HistoryDatabase {
     return null;
   }
   
-  /// Close database
+/// Close database
   Future<void> close() async {
     final db = await database;
     await db.close();
     _database = null;
+  }
+  
+  /// Get all file paths from download history
+  /// Used to exclude downloaded files from local library scan
+  Future<Set<String>> getAllFilePaths() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT file_path FROM history WHERE file_path IS NOT NULL AND file_path != ""'
+    );
+    return rows.map((r) => r['file_path'] as String).toSet();
+  }
+  
+  /// Get all entries with file paths for orphan detection
+  /// Returns list of (id, file_path, storage_mode, download_tree_uri, saf_relative_dir, saf_file_name)
+  Future<List<Map<String, dynamic>>> getAllEntriesWithPaths() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT id, file_path, storage_mode, download_tree_uri, saf_relative_dir, saf_file_name
+      FROM history 
+      WHERE file_path IS NOT NULL AND file_path != ""
+    ''');
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+  
+  /// Delete multiple entries by IDs
+  Future<int> deleteByIds(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final count = await db.rawDelete(
+      'DELETE FROM history WHERE id IN ($placeholders)',
+      ids,
+    );
+    _log.i('Deleted $count orphaned entries');
+    return count;
   }
 }

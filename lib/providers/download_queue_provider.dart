@@ -408,6 +408,59 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
     return DownloadHistoryItem.fromJson(json);
   }
 
+  /// Remove history entries where the file no longer exists on disk
+  /// Returns the number of orphaned entries removed
+  Future<int> cleanupOrphanedDownloads() async {
+    _historyLog.i('Starting orphaned downloads cleanup...');
+    
+    final entries = await _db.getAllEntriesWithPaths();
+    final orphanedIds = <String>[];
+    
+    for (final entry in entries) {
+      final id = entry['id'] as String;
+      final filePath = entry['file_path'] as String?;
+      
+      if (filePath == null || filePath.isEmpty) continue;
+      
+      bool exists = false;
+      
+      if (filePath.startsWith('content://')) {
+        // SAF path - check via platform bridge
+        try {
+          exists = await PlatformBridge.safExists(filePath);
+        } catch (e) {
+          _historyLog.w('Error checking SAF file existence: $e');
+          exists = false;
+        }
+      } else {
+        // Regular file path
+        exists = File(filePath).existsSync();
+      }
+      
+      if (!exists) {
+        orphanedIds.add(id);
+        _historyLog.d('Found orphaned entry: $id ($filePath)');
+      }
+    }
+    
+    if (orphanedIds.isEmpty) {
+      _historyLog.i('No orphaned entries found');
+      return 0;
+    }
+    
+    // Delete from database
+    final deletedCount = await _db.deleteByIds(orphanedIds);
+    
+    // Update in-memory state
+    final orphanedSet = orphanedIds.toSet();
+    state = state.copyWith(
+      items: state.items.where((item) => !orphanedSet.contains(item.id)).toList(),
+    );
+    
+    _historyLog.i('Cleaned up $deletedCount orphaned entries');
+    return deletedCount;
+  }
+  
   void clearHistory() {
     state = DownloadHistoryState();
     _db.clearAll().catchError((e) {

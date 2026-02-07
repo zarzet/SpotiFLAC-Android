@@ -223,6 +223,12 @@ class OptionsSettingsPage extends ConsumerWidget {
               child: SettingsGroup(
                 children: [
                   SettingsItem(
+                    icon: Icons.cleaning_services_outlined,
+                    title: context.l10n.cleanupOrphanedDownloads,
+                    subtitle: context.l10n.cleanupOrphanedDownloadsSubtitle,
+                    onTap: () => _cleanupOrphanedDownloads(context, ref),
+                  ),
+                  SettingsItem(
                     icon: Icons.delete_forever,
                     title: context.l10n.optionsClearHistory,
                     subtitle: context.l10n.optionsClearHistorySubtitle,
@@ -292,6 +298,52 @@ class OptionsSettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _cleanupOrphanedDownloads(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(context.l10n.cleanupOrphanedDownloads),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final removed = await ref
+          .read(downloadHistoryProvider.notifier)
+          .cleanupOrphanedDownloads();
+      
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              removed > 0
+                  ? context.l10n.cleanupOrphanedDownloadsResult(removed)
+                  : context.l10n.cleanupOrphanedDownloadsNone,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   void _showSpotifyCredentialsDialog(
