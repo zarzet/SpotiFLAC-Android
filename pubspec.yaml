@@ -42,7 +42,7 @@ dependencies:
 
   # Material Expressive 3 / Dynamic Color
   dynamic_color: ^1.7.0
-  material_color_utilities: ^0.11.1
+  material_color_utilities: 0.13.0
   palette_generator: ^0.3.3+4
 
   # Permissions
