@@ -2999,5 +2999,24 @@
   "tutorialExample": "CONTOH",
   "@tutorialExample": {
     "description": "Example label in tutorial"
-  }
+  },
+
+  "libraryForceFullScan": "Pindai Ulang Penuh",
+  "@libraryForceFullScan": {"description": "Button to force a complete rescan of library"},
+  "libraryForceFullScanSubtitle": "Pindai ulang semua file, abaikan cache",
+  "@libraryForceFullScanSubtitle": {"description": "Subtitle for force full scan button"},
+
+  "cleanupOrphanedDownloads": "Bersihkan Entri Unduhan Tidak Valid",
+  "@cleanupOrphanedDownloads": {"description": "Button to remove history entries for deleted files"},
+  "cleanupOrphanedDownloadsSubtitle": "Hapus entri riwayat untuk file yang tidak ada lagi",
+  "@cleanupOrphanedDownloadsSubtitle": {"description": "Subtitle for orphaned cleanup button"},
+  "cleanupOrphanedDownloadsResult": "Menghapus {count} entri unduhan tidak valid dari riwayat",
+  "@cleanupOrphanedDownloadsResult": {
+    "description": "Snackbar message after orphan cleanup",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "cleanupOrphanedDownloadsNone": "Tidak ada entri unduhan tidak valid",
+  "@cleanupOrphanedDownloadsNone": {"description": "Snackbar when no orphans found"}
 }

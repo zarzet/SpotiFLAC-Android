@@ -2655,4 +2655,26 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get tutorialExample => 'CONTOH';
+
+  @override
+  String get libraryForceFullScan => 'Pindai Ulang Penuh';
+
+  @override
+  String get libraryForceFullScanSubtitle =>
+      'Pindai ulang semua file, abaikan cache';
+
+  @override
+  String get cleanupOrphanedDownloads => 'Bersihkan Entri Unduhan Tidak Valid';
+
+  @override
+  String get cleanupOrphanedDownloadsSubtitle =>
+      'Hapus entri riwayat untuk file yang tidak ada lagi';
+
+  @override
+  String cleanupOrphanedDownloadsResult(int count) {
+    return 'Menghapus $count entri unduhan tidak valid dari riwayat';
+  }
+
+  @override
+  String get cleanupOrphanedDownloadsNone => 'Tidak ada entri unduhan tidak valid';
 }
