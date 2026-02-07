@@ -764,10 +764,9 @@ type qobuzAPIResult struct {
 // Qobuz API timeout configuration
 // Mobile networks are more unstable, so we use longer timeouts
 const (
-	qobuzAPITimeoutDesktop = 15 * time.Second
-	qobuzAPITimeoutMobile  = 25 * time.Second
-	qobuzMaxRetries        = 2 // Number of retries per API
-	qobuzRetryDelay        = 500 * time.Millisecond
+	qobuzAPITimeoutMobile = 25 * time.Second
+	qobuzMaxRetries       = 2 // Number of retries per API
+	qobuzRetryDelay       = 500 * time.Millisecond
 )
 
 // getQobuzAPITimeout returns appropriate timeout based on platform

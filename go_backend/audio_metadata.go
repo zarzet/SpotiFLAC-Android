@@ -430,11 +430,12 @@ func extendedHeaderSize(data []byte, version byte) int {
 		return 0
 	}
 	var size int
-	if version == 3 {
+	switch version {
+	case 3:
 		size = int(binary.BigEndian.Uint32(data[:4]))
-	} else if version == 4 {
+	case 4:
 		size = syncsafeToInt(data[:4])
-	} else {
+	default:
 		return 0
 	}
 	if size <= 0 {
@@ -622,14 +623,6 @@ func readOggPageWithHeader(file *os.File) (*oggPage, error) {
 		segmentTable: segmentTable,
 		data:         pageData,
 	}, nil
-}
-
-func readOggPage(file *os.File) ([]byte, error) {
-	page, err := readOggPageWithHeader(file)
-	if err != nil {
-		return nil, err
-	}
-	return page.data, nil
 }
 
 func collectOggPackets(file *os.File, maxPackets, maxPages int) ([][]byte, error) {
@@ -930,11 +923,12 @@ func extractMP3CoverArt(filePath string) ([]byte, string, error) {
 		}
 
 		var frameSize int
-		if majorVersion == 2 {
+		switch majorVersion {
+		case 2:
 			frameSize = int(tagData[pos+3])<<16 | int(tagData[pos+4])<<8 | int(tagData[pos+5])
-		} else if majorVersion == 4 {
+		case 4:
 			frameSize = int(tagData[pos+4])<<21 | int(tagData[pos+5])<<14 | int(tagData[pos+6])<<7 | int(tagData[pos+7])
-		} else {
+		default:
 			frameSize = int(tagData[pos+4])<<24 | int(tagData[pos+5])<<16 | int(tagData[pos+6])<<8 | int(tagData[pos+7])
 		}
 
