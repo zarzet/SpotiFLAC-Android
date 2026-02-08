@@ -624,6 +624,14 @@
   "@aboutDabMusicDesc": {
     "description": "Credit for DAB Music API"
   },
+  "aboutSpotiSaver": "SpotiSaver",
+  "@aboutSpotiSaver": {
+    "description": "Name of SpotiSaver API service - DO NOT TRANSLATE"
+  },
+  "aboutSpotiSaverDesc": "Tidal Hi-Res FLAC streaming endpoints. A key piece of the lossless puzzle!",
+  "@aboutSpotiSaverDesc": {
+    "description": "Credit for SpotiSaver API"
+  },
   "aboutAppDescription": "Descarga pistas de Spotify con calidad sin pérdida de Tidal, Qobuz y Amazon Music.",
   "@aboutAppDescription": {
     "description": "App description in header card"
@@ -3208,6 +3216,18 @@
   "libraryFilterDateYear": "This Year",
   "@libraryFilterDateYear": {
     "description": "Filter option - this year"
+  },
+  "libraryFilterSort": "Sort",
+  "@libraryFilterSort": {
+    "description": "Filter section - sort order"
+  },
+  "libraryFilterSortLatest": "Latest",
+  "@libraryFilterSortLatest": {
+    "description": "Sort option - newest first"
+  },
+  "libraryFilterSortOldest": "Oldest",
+  "@libraryFilterSortOldest": {
+    "description": "Sort option - oldest first"
   },
   "libraryFilterActive": "{count} filter(s) active",
   "@libraryFilterActive": {
