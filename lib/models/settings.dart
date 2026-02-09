@@ -19,6 +19,7 @@ class AppSettings {
   final String updateChannel;
   final bool hasSearchedBefore;
   final String folderOrganization;
+  final bool useAlbumArtistForFolders;
   final String historyViewMode;
   final String historyFilterMode;
   final bool askQualityBeforeDownload;
@@ -63,6 +64,7 @@ class AppSettings {
     this.updateChannel = 'stable',
     this.hasSearchedBefore = false,
     this.folderOrganization = 'none',
+    this.useAlbumArtistForFolders = true,
     this.historyViewMode = 'grid',
     this.historyFilterMode = 'all',
     this.askQualityBeforeDownload = true,
@@ -106,6 +108,7 @@ class AppSettings {
     String? updateChannel,
     bool? hasSearchedBefore,
     String? folderOrganization,
+    bool? useAlbumArtistForFolders,
     String? historyViewMode,
     String? historyFilterMode,
     bool? askQualityBeforeDownload,
@@ -149,6 +152,8 @@ class AppSettings {
       updateChannel: updateChannel ?? this.updateChannel,
       hasSearchedBefore: hasSearchedBefore ?? this.hasSearchedBefore,
       folderOrganization: folderOrganization ?? this.folderOrganization,
+      useAlbumArtistForFolders:
+          useAlbumArtistForFolders ?? this.useAlbumArtistForFolders,
       historyViewMode: historyViewMode ?? this.historyViewMode,
       historyFilterMode: historyFilterMode ?? this.historyFilterMode,
       askQualityBeforeDownload: askQualityBeforeDownload ?? this.askQualityBeforeDownload,

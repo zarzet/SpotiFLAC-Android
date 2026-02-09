@@ -1,5 +1,35 @@
 # Changelog
 
+## [3.5.3] - 2026-02-09
+
+### Added
+
+- CSV import flow now includes a new option: **Skip already downloaded songs** before enqueueing tracks
+- Added regression test suite for cross-script matching behavior in Go backend (`go_backend/matching_test.go`)
+
+### Changed
+
+- CSV import confirmation dialog now supports filtering out tracks already present in download history (matched by Spotify ID and ISRC)
+- CSV import enqueue feedback now reports added/skipped counts when duplicate downloads are skipped
+- Home search now prioritizes **Recent Access** when search field is focused with empty input, even if old search results still exist in memory
+- Search filter/result sections are now hidden while Recent Access mode is active to avoid stale-result overlap
+- Recent Access now shows a localized empty-state message when no recent items are available
+- Normalized collapsing AppBar top inset across iOS/Android so header height/animation stays visually consistent on Apple devices
+- Storage & Cache UX improved: `Clear all cache` now preserves web/runtime cache by default (optional), with explicit warnings/actions for runtime cache resets
+- Local library settings now include a display count for tracks excluded because they already exist in download history
+- Responsive layout tuning applied across key screens to reduce hardcoded-height overflow issues on smaller devices
+
+### Fixed
+
+- Fixed false-positive cross-script matching in Qobuz/Tidal where unrelated titles/artists in different scripts could be incorrectly accepted
+- Cross-script title/artist matching now requires transliteration-aware normalization and strict similarity checks instead of auto-accepting script differences
+- Qobuz metadata fallback no longer scans all results when zero title matches are found; title verification is now required
+- Qobuz metadata final validation now rejects results when title does not match expected track name
+- Fixed Home search regression where Recent Access panel could disappear after previous searches
+- Fixed Local Library card/layout crash caused by `Flex` usage under unbounded height constraints
+- Hardened FFmpeg metadata embedding temp-file naming to prevent rare collisions during parallel downloads/fallback flows (Qobuz → Tidal) that could cause missing embedded metadata
+- Fixed SAF external lyrics naming where some providers saved `.lrc` files as `.lrc.txt`; LRC export now uses neutral MIME to preserve `.lrc` extension
+
 ## [3.5.2] - 2026-02-08
 
 ### Performance

@@ -226,6 +226,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setUseAlbumArtistForFolders(bool enabled) {
+    state = state.copyWith(useAlbumArtistForFolders: enabled);
+    _saveSettings();
+  }
+
   void setHistoryViewMode(String mode) {
     state = state.copyWith(historyViewMode: mode);
     _saveSettings();

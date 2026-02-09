@@ -81,158 +81,11 @@ func qobuzArtistsMatch(expectedArtist, foundArtist string) bool {
 	expectedLatin := qobuzIsLatinScript(expectedArtist)
 	foundLatin := qobuzIsLatinScript(foundArtist)
 	if expectedLatin != foundLatin {
-		if qobuzCrossScriptEquivalent(expectedArtist, foundArtist) {
-			GoLog("[Qobuz] Artist names in different scripts but transliteration matched: '%s' vs '%s'\n", expectedArtist, foundArtist)
-			return true
-		}
-	}
-
-	return false
-}
-
-func qobuzNormalizeScriptAware(value string) string {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	normalized = CleanToASCII(JapaneseToRomaji(normalized))
-	normalized = strings.Join(strings.Fields(normalized), " ")
-	return strings.TrimSpace(normalized)
-}
-
-func qobuzCrossScriptEquivalent(expected, found string) bool {
-	normExpected := qobuzNormalizeScriptAware(expected)
-	normFound := qobuzNormalizeScriptAware(found)
-
-	if normExpected == "" || normFound == "" {
-		return false
-	}
-
-	if normExpected == normFound {
+		GoLog("[Qobuz] Artist names in different scripts, assuming match: '%s' vs '%s'\n", expectedArtist, foundArtist)
 		return true
 	}
 
-	compactExpected := strings.ReplaceAll(normExpected, " ", "")
-	compactFound := strings.ReplaceAll(normFound, " ", "")
-	if len(compactExpected) >= 6 && len(compactFound) >= 6 {
-		if compactExpected == compactFound ||
-			strings.Contains(compactExpected, compactFound) ||
-			strings.Contains(compactFound, compactExpected) {
-			return true
-		}
-
-		shorterLen := len(compactExpected)
-		if len(compactFound) < shorterLen {
-			shorterLen = len(compactFound)
-		}
-
-		maxDistance := 1
-		if shorterLen >= 10 {
-			maxDistance = 2
-		}
-		if shorterLen >= 16 {
-			maxDistance = 3
-		}
-
-		if qobuzEditDistanceWithin(compactExpected, compactFound, maxDistance) {
-			if qobuzCommonPrefixLen(compactExpected, compactFound) >= 4 ||
-				qobuzCommonSuffixLen(compactExpected, compactFound) >= 4 {
-				return true
-			}
-		}
-	}
-
 	return false
-}
-
-func qobuzCommonPrefixLen(a, b string) int {
-	max := len(a)
-	if len(b) < max {
-		max = len(b)
-	}
-	count := 0
-	for i := 0; i < max; i++ {
-		if a[i] != b[i] {
-			break
-		}
-		count++
-	}
-	return count
-}
-
-func qobuzCommonSuffixLen(a, b string) int {
-	i := len(a) - 1
-	j := len(b) - 1
-	count := 0
-	for i >= 0 && j >= 0 {
-		if a[i] != b[j] {
-			break
-		}
-		count++
-		i--
-		j--
-	}
-	return count
-}
-
-func qobuzEditDistanceWithin(a, b string, maxDistance int) bool {
-	if maxDistance < 0 {
-		return false
-	}
-
-	if a == b {
-		return true
-	}
-
-	lenA := len(a)
-	lenB := len(b)
-	diff := lenA - lenB
-	if diff < 0 {
-		diff = -diff
-	}
-	if diff > maxDistance {
-		return false
-	}
-
-	prev := make([]int, lenB+1)
-	for j := 0; j <= lenB; j++ {
-		prev[j] = j
-	}
-
-	for i := 1; i <= lenA; i++ {
-		curr := make([]int, lenB+1)
-		curr[0] = i
-		minInRow := curr[0]
-
-		for j := 1; j <= lenB; j++ {
-			cost := 0
-			if a[i-1] != b[j-1] {
-				cost = 1
-			}
-
-			insertCost := curr[j-1] + 1
-			deleteCost := prev[j] + 1
-			replaceCost := prev[j-1] + cost
-
-			best := insertCost
-			if deleteCost < best {
-				best = deleteCost
-			}
-			if replaceCost < best {
-				best = replaceCost
-			}
-
-			curr[j] = best
-			if best < minInRow {
-				minInRow = best
-			}
-		}
-
-		if minInRow > maxDistance {
-			return false
-		}
-
-		prev = curr
-	}
-
-	return prev[lenB] <= maxDistance
 }
 
 func qobuzSplitArtists(artists string) []string {
@@ -324,10 +177,8 @@ func qobuzTitlesMatch(expectedTitle, foundTitle string) bool {
 	expectedLatin := qobuzIsLatinScript(expectedTitle)
 	foundLatin := qobuzIsLatinScript(foundTitle)
 	if expectedLatin != foundLatin {
-		if qobuzCrossScriptEquivalent(expectedTitle, foundTitle) {
-			GoLog("[Qobuz] Titles in different scripts but transliteration matched: '%s' vs '%s'\n", expectedTitle, foundTitle)
-			return true
-		}
+		GoLog("[Qobuz] Titles in different scripts, assuming match: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return true
 	}
 
 	return false
@@ -851,11 +702,8 @@ func (q *QobuzDownloader) SearchTrackByMetadataWithDuration(trackName, artistNam
 	GoLog("[Qobuz] Title matches: %d out of %d results\n", len(titleMatches), len(allTracks))
 
 	tracksToCheck := titleMatches
-	if strings.TrimSpace(trackName) != "" && len(titleMatches) == 0 {
-		return nil, fmt.Errorf("no tracks found with matching title (expected '%s')", trackName)
-	}
-
-	if strings.TrimSpace(trackName) == "" {
+	if len(titleMatches) == 0 {
+		GoLog("[Qobuz] WARNING: No title matches for '%s', checking all %d results\n", trackName, len(allTracks))
 		for i := range allTracks {
 			tracksToCheck = append(tracksToCheck, &allTracks[i])
 		}
@@ -1304,16 +1152,10 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	if track == nil {
 		GoLog("[Qobuz] Trying metadata search: '%s' by '%s'\n", req.TrackName, req.ArtistName)
 		track, err = downloader.SearchTrackByMetadataWithDuration(req.TrackName, req.ArtistName, expectedDurationSec)
-		if track != nil {
-			if !qobuzTitlesMatch(req.TrackName, track.Title) {
-				GoLog("[Qobuz] Title mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
-					req.TrackName, track.Title)
-				track = nil
-			} else if !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
-				GoLog("[Qobuz] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
-					req.ArtistName, track.Performer.Name)
-				track = nil
-			}
+		if track != nil && !qobuzArtistsMatch(req.ArtistName, track.Performer.Name) {
+			GoLog("[Qobuz] Artist mismatch from metadata search: expected '%s', got '%s'. Rejecting.\n",
+				req.ArtistName, track.Performer.Name)
+			track = nil
 		}
 	}
 

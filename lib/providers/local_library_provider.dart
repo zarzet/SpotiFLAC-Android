@@ -11,6 +11,7 @@ import 'package:spotiflac_android/utils/logger.dart';
 final _log = AppLogger('LocalLibrary');
 
 const _lastScannedAtKey = 'local_library_last_scanned_at';
+const _excludedDownloadedCountKey = 'local_library_excluded_downloaded_count';
 
 class LocalLibraryState {
   final List<LocalLibraryItem> items;
@@ -22,6 +23,7 @@ class LocalLibraryState {
   final int scanErrorCount;
   final bool scanWasCancelled;
   final DateTime? lastScannedAt;
+  final int excludedDownloadedCount;
   final Set<String> _isrcSet;
   final Set<String> _trackKeySet;
   final Map<String, LocalLibraryItem> _byIsrc;
@@ -36,6 +38,7 @@ class LocalLibraryState {
     this.scanErrorCount = 0,
     this.scanWasCancelled = false,
     this.lastScannedAt,
+    this.excludedDownloadedCount = 0,
   }) : _isrcSet = items
            .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
            .map((item) => item.isrc!)
@@ -81,6 +84,7 @@ class LocalLibraryState {
     int? scanErrorCount,
     bool? scanWasCancelled,
     DateTime? lastScannedAt,
+    int? excludedDownloadedCount,
   }) {
     return LocalLibraryState(
       items: items ?? this.items,
@@ -92,6 +96,8 @@ class LocalLibraryState {
       scanErrorCount: scanErrorCount ?? this.scanErrorCount,
       scanWasCancelled: scanWasCancelled ?? this.scanWasCancelled,
       lastScannedAt: lastScannedAt ?? this.lastScannedAt,
+      excludedDownloadedCount:
+          excludedDownloadedCount ?? this.excludedDownloadedCount,
     );
   }
 }
@@ -126,19 +132,27 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       final items = jsonList.map((e) => LocalLibraryItem.fromJson(e)).toList();
 
       DateTime? lastScannedAt;
+      var excludedDownloadedCount = 0;
       try {
         final prefs = await SharedPreferences.getInstance();
         final lastScannedAtStr = prefs.getString(_lastScannedAtKey);
         if (lastScannedAtStr != null && lastScannedAtStr.isNotEmpty) {
           lastScannedAt = DateTime.tryParse(lastScannedAtStr);
         }
+        excludedDownloadedCount =
+            prefs.getInt(_excludedDownloadedCountKey) ?? 0;
       } catch (e) {
         _log.w('Failed to load lastScannedAt: $e');
       }
 
-      state = state.copyWith(items: items, lastScannedAt: lastScannedAt);
+      state = state.copyWith(
+        items: items,
+        lastScannedAt: lastScannedAt,
+        excludedDownloadedCount: excludedDownloadedCount,
+      );
       _log.i(
-        'Loaded ${items.length} items from library database, lastScannedAt: $lastScannedAt',
+        'Loaded ${items.length} items from library database, lastScannedAt: '
+        '$lastScannedAt, excludedDownloadedCount: $excludedDownloadedCount',
       );
     } catch (e, stack) {
       _log.e('Failed to load library from database: $e', e, stack);
@@ -174,8 +188,8 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     );
 
     try {
-      final cacheDir = await getApplicationCacheDirectory();
-      final coverCacheDir = '${cacheDir.path}/library_covers';
+      final appSupportDir = await getApplicationSupportDirectory();
+      final coverCacheDir = '${appSupportDir.path}/library_covers';
       await PlatformBridge.setLibraryCoverCacheDir(coverCacheDir);
       _log.i('Cover cache directory set to: $coverCacheDir');
     } catch (e) {
@@ -226,6 +240,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_lastScannedAtKey, now.toIso8601String());
+          await prefs.setInt(_excludedDownloadedCountKey, skippedDownloads);
           _log.d('Saved lastScannedAt: $now');
         } catch (e) {
           _log.w('Failed to save lastScannedAt: $e');
@@ -237,9 +252,13 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           scanProgress: 100,
           lastScannedAt: now,
           scanWasCancelled: false,
+          excludedDownloadedCount: skippedDownloads,
         );
 
-        _log.i('Full scan complete: ${items.length} tracks found');
+        _log.i(
+          'Full scan complete: ${items.length} tracks found, '
+          '$skippedDownloads already in downloads',
+        );
       } else {
         // Incremental scan path - only scans new/modified files
         final existingFiles = await _db.getFileModTimes();
@@ -344,6 +363,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_lastScannedAtKey, now.toIso8601String());
+          await prefs.setInt(_excludedDownloadedCountKey, skippedDownloads);
           _log.d('Saved lastScannedAt: $now');
         } catch (e) {
           _log.w('Failed to save lastScannedAt: $e');
@@ -355,11 +375,13 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           scanProgress: 100,
           lastScannedAt: now,
           scanWasCancelled: false,
+          excludedDownloadedCount: skippedDownloads,
         );
 
         _log.i(
           'Incremental scan complete: ${items.length} total tracks '
-          '(${scannedList.length} new/updated, $skippedCount unchanged, ${deletedPaths.length} removed)',
+          '(${scannedList.length} new/updated, $skippedCount unchanged, '
+          '${deletedPaths.length} removed, $skippedDownloads already in downloads)',
         );
       }
     } catch (e, stack) {
@@ -427,6 +449,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_lastScannedAtKey);
+      await prefs.remove(_excludedDownloadedCountKey);
     } catch (e) {
       _log.w('Failed to clear lastScannedAt: $e');
     }

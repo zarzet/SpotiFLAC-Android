@@ -248,7 +248,9 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               context: context,
               builder: (context) => AlertDialog(
                 title: Text(context.l10n.setupUseDefaultFolder),
-                content: Text('${context.l10n.setupNoFolderSelected}\n\n$defaultDir'),
+                content: Text(
+                  '${context.l10n.setupNoFolderSelected}\n\n$defaultDir',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
@@ -576,37 +578,60 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   }
 
   Widget _buildWelcomeStep(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(
-            'assets/images/logo-transparant.png',
-            width: 104,
-            height: 104,
-            color: colorScheme.primary,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(height: 32),
-          Text(
-            context.l10n.appName,
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+        final textScale = MediaQuery.textScalerOf(
+          context,
+        ).scale(1.0).clamp(1.0, 1.4);
+        final logoSize = (shortestSide * 0.24).clamp(80.0, 104.0);
+        final titleGap = (shortestSide * 0.06).clamp(16.0, 32.0);
+        final subtitleGap = (shortestSide * 0.04).clamp(8.0, 16.0);
+        final minContentHeight = constraints.maxHeight > 48
+            ? constraints.maxHeight - 48
+            : 0.0;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minContentHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/logo-transparant.png',
+                  width: logoSize,
+                  height: logoSize,
+                  color: colorScheme.primary,
+                  fit: BoxFit.contain,
+                ),
+                SizedBox(height: titleGap),
+                Text(
+                  context.l10n.appName,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                    fontSize:
+                        (Theme.of(context).textTheme.displaySmall?.fontSize ??
+                            36) *
+                        (1 + ((textScale - 1) * 0.18)),
+                  ),
+                ),
+                SizedBox(height: subtitleGap),
+                Text(
+                  context.l10n.setupDownloadInFlac,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.setupDownloadInFlac,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -833,41 +858,58 @@ class _StepLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+        final iconPadding = (shortestSide * 0.06).clamp(16.0, 24.0);
+        final iconSize = (shortestSide * 0.12).clamp(32.0, 48.0);
+        final titleGap = (shortestSide * 0.06).clamp(16.0, 32.0);
+        final descriptionGap = (shortestSide * 0.04).clamp(8.0, 16.0);
+        final actionGap = (shortestSide * 0.09).clamp(20.0, 48.0);
+        final minContentHeight = constraints.maxHeight > 48
+            ? constraints.maxHeight - 48
+            : 0.0;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minContentHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(iconPadding),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: iconSize, color: colorScheme.primary),
+                ),
+                SizedBox(height: titleGap),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: descriptionGap),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: actionGap),
+                child,
+              ],
             ),
-            child: Icon(icon, size: 48, color: colorScheme.primary),
           ),
-          const SizedBox(height: 32),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 48),
-          child,
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -881,21 +923,25 @@ class _SuccessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.check_circle, color: colorScheme.onPrimaryContainer),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onPrimaryContainer,
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onPrimaryContainer,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

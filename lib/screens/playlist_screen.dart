@@ -145,11 +145,17 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final coverSize = screenWidth * 0.5; // 50% of screen width
+    final mediaSize = MediaQuery.of(context).size;
+    final screenWidth = mediaSize.width;
+    final shortestSide = mediaSize.shortestSide;
+    final coverSize = (screenWidth * 0.5).clamp(140.0, 220.0);
+    final expandedHeight = (shortestSide * 0.82).clamp(280.0, 340.0);
+    final bottomGradientHeight = (shortestSide * 0.2).clamp(56.0, 80.0);
+    final coverTopPadding = (shortestSide * 0.14).clamp(40.0, 60.0);
+    final fallbackIconSize = (coverSize * 0.32).clamp(44.0, 64.0);
 
     return SliverAppBar(
-      expandedHeight: 320,
+      expandedHeight: expandedHeight,
       pinned: true,
       stretch: true,
       backgroundColor:
@@ -172,7 +178,8 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final collapseRatio =
-              (constraints.maxHeight - kToolbarHeight) / (320 - kToolbarHeight);
+              (constraints.maxHeight - kToolbarHeight) /
+              (expandedHeight - kToolbarHeight);
           final showContent = collapseRatio > 0.3;
 
           return FlexibleSpaceBar(
@@ -205,7 +212,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: 80,
+                  height: bottomGradientHeight,
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -225,7 +232,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                   opacity: showContent ? 1.0 : 0.0,
                   child: Center(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 60),
+                      padding: EdgeInsets.only(top: coverTopPadding),
                       child: Container(
                         width: coverSize,
                         height: coverSize,
@@ -252,7 +259,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                                   color: colorScheme.surfaceContainerHighest,
                                   child: Icon(
                                     Icons.playlist_play,
-                                    size: 64,
+                                    size: fallbackIconSize,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),

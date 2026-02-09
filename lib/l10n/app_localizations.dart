@@ -712,6 +712,12 @@ abstract class AppLocalizations {
   /// **'Spotify requires your own API credentials. Get them free from developer.spotify.com'**
   String get optionsSpotifyWarning;
 
+  /// Warning about Spotify API deprecation
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify search will be deprecated on March 3, 2026 due to Spotify API changes. Please switch to Deezer.'**
+  String get optionsSpotifyDeprecationWarning;
+
   /// Extensions page title
   ///
   /// In en, this message translates to:
@@ -3520,6 +3526,24 @@ abstract class AppLocalizations {
   /// **'Album Folder Structure'**
   String get downloadAlbumFolderStructure;
 
+  /// Setting - choose whether artist folders use Album Artist or Track Artist
+  ///
+  /// In en, this message translates to:
+  /// **'Use Album Artist for folders'**
+  String get downloadUseAlbumArtistForFolders;
+
+  /// Subtitle when Album Artist is used for folder naming
+  ///
+  /// In en, this message translates to:
+  /// **'Artist folders use Album Artist when available'**
+  String get downloadUseAlbumArtistForFoldersAlbumSubtitle;
+
+  /// Subtitle when Track Artist is used for folder naming
+  ///
+  /// In en, this message translates to:
+  /// **'Artist folders use Track Artist only'**
+  String get downloadUseAlbumArtistForFoldersTrackSubtitle;
+
   /// Setting - output file format
   ///
   /// In en, this message translates to:
@@ -3934,6 +3958,18 @@ abstract class AppLocalizations {
   /// **'Playlist'**
   String get recentTypePlaylist;
 
+  /// Empty state text for recent access list
+  ///
+  /// In en, this message translates to:
+  /// **'No recent items yet'**
+  String get recentEmpty;
+
+  /// Button label to unhide hidden downloads in recent access
+  ///
+  /// In en, this message translates to:
+  /// **'Show All Downloads'**
+  String get recentShowAllDownloads;
+
   /// Snackbar message when tapping playlist in recent access
   ///
   /// In en, this message translates to:
@@ -4101,6 +4137,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan music & detect duplicates'**
   String get settingsLocalLibrarySubtitle;
+
+  /// Settings menu item - cache management
+  ///
+  /// In en, this message translates to:
+  /// **'Storage & Cache'**
+  String get settingsCache;
+
+  /// Subtitle for cache management menu
+  ///
+  /// In en, this message translates to:
+  /// **'View size and clear cached data'**
+  String get settingsCacheSubtitle;
 
   /// Library settings page title
   ///
@@ -4785,6 +4833,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No orphaned entries found'**
   String get cleanupOrphanedDownloadsNone;
+
+  /// Cache management page title
+  ///
+  /// In en, this message translates to:
+  /// **'Storage & Cache'**
+  String get cacheTitle;
+
+  /// Heading for cache summary card
+  ///
+  /// In en, this message translates to:
+  /// **'Cache overview'**
+  String get cacheSummaryTitle;
+
+  /// Helper text for cache summary card
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing cache will not remove downloaded music files.'**
+  String get cacheSummarySubtitle;
+
+  /// Total cache size shown in summary
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated cache usage: {size}'**
+  String cacheEstimatedTotal(String size);
+
+  /// Section header for cache entries
+  ///
+  /// In en, this message translates to:
+  /// **'Cached Data'**
+  String get cacheSectionStorage;
+
+  /// Section header for cleanup actions
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get cacheSectionMaintenance;
+
+  /// Cache item title for app cache directory
+  ///
+  /// In en, this message translates to:
+  /// **'App cache directory'**
+  String get cacheAppDirectory;
+
+  /// Description of what app cache directory contains
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP responses, WebView data, and other temporary app data.'**
+  String get cacheAppDirectoryDesc;
+
+  /// Cache item title for temporary files directory
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary directory'**
+  String get cacheTempDirectory;
+
+  /// Description of what temporary directory contains
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary files from downloads and audio conversion.'**
+  String get cacheTempDirectoryDesc;
+
+  /// Cache item title for persistent cover images
+  ///
+  /// In en, this message translates to:
+  /// **'Cover image cache'**
+  String get cacheCoverImage;
+
+  /// Description of what cover image cache contains
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded album and track cover art. Will re-download when viewed.'**
+  String get cacheCoverImageDesc;
+
+  /// Cache item title for local library cover art images
+  ///
+  /// In en, this message translates to:
+  /// **'Library cover cache'**
+  String get cacheLibraryCover;
+
+  /// Description of what library cover cache contains
+  ///
+  /// In en, this message translates to:
+  /// **'Cover art extracted from local music files. Will re-extract on next scan.'**
+  String get cacheLibraryCoverDesc;
+
+  /// Cache item title for explore home feed cache
+  ///
+  /// In en, this message translates to:
+  /// **'Explore feed cache'**
+  String get cacheExploreFeed;
+
+  /// Description of what explore feed cache contains
+  ///
+  /// In en, this message translates to:
+  /// **'Explore tab content (new releases, trending). Will refresh on next visit.'**
+  String get cacheExploreFeedDesc;
+
+  /// Cache item title for track ID lookup cache
+  ///
+  /// In en, this message translates to:
+  /// **'Track lookup cache'**
+  String get cacheTrackLookup;
+
+  /// Description of what track lookup cache contains
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify/Deezer track ID lookups. Clearing may slow next few searches.'**
+  String get cacheTrackLookupDesc;
+
+  /// Description of what cleanup unused data does
+  ///
+  /// In en, this message translates to:
+  /// **'Remove orphaned download history and library entries for missing files.'**
+  String get cacheCleanupUnusedDesc;
+
+  /// Label when cache category has no data
+  ///
+  /// In en, this message translates to:
+  /// **'No cached data'**
+  String get cacheNoData;
+
+  /// Cache size and file count
+  ///
+  /// In en, this message translates to:
+  /// **'{size} in {count} files'**
+  String cacheSizeWithFiles(String size, int count);
+
+  /// Cache size only
+  ///
+  /// In en, this message translates to:
+  /// **'{size}'**
+  String cacheSizeOnly(String size);
+
+  /// Track cache entry count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries'**
+  String cacheEntries(int count);
+
+  /// Snackbar after clearing selected cache
+  ///
+  /// In en, this message translates to:
+  /// **'Cleared: {target}'**
+  String cacheClearSuccess(String target);
+
+  /// Dialog title before clearing one cache category
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cache?'**
+  String get cacheClearConfirmTitle;
+
+  /// Dialog message before clearing selected cache
+  ///
+  /// In en, this message translates to:
+  /// **'This will clear cached data for {target}. Downloaded music files will not be deleted.'**
+  String cacheClearConfirmMessage(String target);
+
+  /// Dialog title before clearing all caches
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all cache?'**
+  String get cacheClearAllConfirmTitle;
+
+  /// Dialog message before clearing all caches
+  ///
+  /// In en, this message translates to:
+  /// **'This will clear all cache categories on this page. Downloaded music files will not be deleted.'**
+  String get cacheClearAllConfirmMessage;
+
+  /// Button label to clear all caches
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all cache'**
+  String get cacheClearAll;
+
+  /// Action title for cleaning unused entries
+  ///
+  /// In en, this message translates to:
+  /// **'Cleanup unused data'**
+  String get cacheCleanupUnused;
+
+  /// Subtitle for cleanup unused data action
+  ///
+  /// In en, this message translates to:
+  /// **'Remove orphaned download history and missing library entries'**
+  String get cacheCleanupUnusedSubtitle;
+
+  /// Snackbar after unused data cleanup
+  ///
+  /// In en, this message translates to:
+  /// **'Cleanup completed: {downloadCount} orphaned downloads, {libraryCount} missing library entries'**
+  String cacheCleanupResult(int downloadCount, int libraryCount);
+
+  /// Button label to refresh cache statistics
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh stats'**
+  String get cacheRefreshStats;
 }
 
 class _AppLocalizationsDelegate

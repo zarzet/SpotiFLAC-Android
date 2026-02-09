@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/models/download_item.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
@@ -307,6 +308,20 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   String? _filterQuality; // null = all, 'hires', 'cd', 'lossy'
   String? _filterFormat; // null = all, 'flac', 'mp3', 'm4a', 'opus', 'ogg'
   String _sortMode = 'latest'; // 'latest', 'oldest', 'a-z', 'z-a'
+
+  double _effectiveTextScale() {
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    if (textScale < 1.0) return 1.0;
+    if (textScale > 1.4) return 1.4;
+    return textScale;
+  }
+
+  double _queueCoverSize() {
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final scale = (shortestSide / 390).clamp(0.82, 1.0);
+    final textScale = _effectiveTextScale();
+    return (56 * scale * (1 + ((textScale - 1) * 0.12))).clamp(46.0, 56.0);
+  }
 
   @override
   void initState() {
@@ -1550,7 +1565,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       settingsProvider.select((s) => s.historyFilterMode),
     );
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     final historyStats =
         _historyStatsCache ??
@@ -1632,7 +1647,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                 ),
 
                 // Search bar - always at top
-                if (allHistoryItems.isNotEmpty || hasQueueItems)
+                if (allHistoryItems.isNotEmpty || hasQueueItems || localLibraryItems.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -2963,22 +2978,25 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   }
 
   Widget _buildCoverArt(DownloadItem item, ColorScheme colorScheme) {
+    final coverSize = _queueCoverSize();
+    final memCacheSize = (coverSize * 2).round();
+
     return item.track.coverUrl != null
         ? ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: CachedNetworkImage(
               imageUrl: item.track.coverUrl!,
-              width: 56,
-              height: 56,
+              width: coverSize,
+              height: coverSize,
               fit: BoxFit.cover,
-              memCacheWidth: 112,
-              memCacheHeight: 112,
+              memCacheWidth: memCacheSize,
+              memCacheHeight: memCacheSize,
               cacheManager: CoverCacheManager.instance,
             ),
           )
         : Container(
-            width: 56,
-            height: 56,
+            width: coverSize,
+            height: coverSize,
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),

@@ -1027,14 +1027,16 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String folderOrganization, {
     bool separateSingles = false,
     String albumFolderStructure = 'artist_album',
+    bool useAlbumArtistForFolders = true,
   }) async {
     String baseDir = state.outputDir;
-    final albumArtist =
-        _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+    final folderArtist = useAlbumArtistForFolders
+        ? _normalizeOptionalString(track.albumArtist) ?? track.artistName
+        : track.artistName;
 
     if (separateSingles) {
       final isSingle = track.isSingle;
-      final artistName = _sanitizeFolderName(albumArtist);
+      final artistName = _sanitizeFolderName(folderArtist);
 
       if (albumFolderStructure == 'artist_album_singles') {
         if (isSingle) {
@@ -1092,7 +1094,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String subPath = '';
     switch (folderOrganization) {
       case 'artist':
-        final artistName = _sanitizeFolderName(albumArtist);
+        final artistName = _sanitizeFolderName(folderArtist);
         subPath = artistName;
         break;
       case 'album':
@@ -1100,7 +1102,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         subPath = albumName;
         break;
       case 'artist_album':
-        final artistName = _sanitizeFolderName(albumArtist);
+        final artistName = _sanitizeFolderName(folderArtist);
         final albumName = _sanitizeFolderName(track.albumName);
         subPath = '$artistName${Platform.pathSeparator}$albumName';
         break;
@@ -1144,13 +1146,15 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String folderOrganization, {
     bool separateSingles = false,
     String albumFolderStructure = 'artist_album',
+    bool useAlbumArtistForFolders = true,
   }) async {
-    final albumArtist =
-        _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+    final folderArtist = useAlbumArtistForFolders
+        ? _normalizeOptionalString(track.albumArtist) ?? track.artistName
+        : track.artistName;
 
     if (separateSingles) {
       final isSingle = track.isSingle;
-      final artistName = _sanitizeFolderName(albumArtist);
+      final artistName = _sanitizeFolderName(folderArtist);
 
       if (albumFolderStructure == 'artist_album_singles') {
         if (isSingle) {
@@ -1186,11 +1190,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
     switch (folderOrganization) {
       case 'artist':
-        return _sanitizeFolderName(albumArtist);
+        return _sanitizeFolderName(folderArtist);
       case 'album':
         return _sanitizeFolderName(track.albumName);
       case 'artist_album':
-        final artistName = _sanitizeFolderName(albumArtist);
+        final artistName = _sanitizeFolderName(folderArtist);
         final albumName = _sanitizeFolderName(track.albumName);
         return '$artistName/$albumName';
       default:
@@ -1214,8 +1218,11 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       case '.opus':
         return 'audio/ogg';
       case '.flac':
-      default:
         return 'audio/flac';
+      case '.lrc':
+        return 'application/octet-stream';
+      default:
+        return 'application/octet-stream';
     }
   }
 
@@ -2163,7 +2170,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         treeUri: treeUri,
         relativeDir: relativeDir,
         fileName: lrcName,
-        mimeType: 'text/plain',
+        mimeType: _mimeTypeForExt('.lrc'),
         srcPath: tempPath,
       );
       if (uri != null) {
@@ -2530,6 +2537,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               settings.folderOrganization,
               separateSingles: settings.separateSingles,
               albumFolderStructure: settings.albumFolderStructure,
+              useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
             )
           : '';
       String? appOutputDir;
@@ -2540,6 +2548,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               settings.folderOrganization,
               separateSingles: settings.separateSingles,
               albumFolderStructure: settings.albumFolderStructure,
+              useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
             );
       var effectiveOutputDir = initialOutputDir;
       var effectiveSafMode = isSafMode;
@@ -2736,6 +2745,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           settings.folderOrganization,
           separateSingles: settings.separateSingles,
           albumFolderStructure: settings.albumFolderStructure,
+          useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
         );
         final fallbackResult = await runDownload(
           useSaf: false,

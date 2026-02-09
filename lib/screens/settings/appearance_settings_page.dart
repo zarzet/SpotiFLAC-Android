@@ -4,6 +4,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/l10n/supported_locales.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/theme_provider.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class AppearanceSettingsPage extends ConsumerWidget {
@@ -14,7 +15,7 @@ class AppearanceSettingsPage extends ConsumerWidget {
     final themeSettings = ref.watch(themeProvider);
     final settings = ref.watch(settingsProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return PopScope(
       canPop: true,
@@ -22,21 +23,21 @@ class AppearanceSettingsPage extends ConsumerWidget {
         body: CustomScrollView(
           slivers: [
             SliverAppBar(
-            expandedHeight: 120 + topPadding,
-            collapsedHeight: kToolbarHeight,
-            floating: false,
-            pinned: true,
-            backgroundColor: colorScheme.surface,
-            surfaceTintColor: Colors.transparent,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
+              expandedHeight: 120 + topPadding,
+              collapsedHeight: kToolbarHeight,
+              floating: false,
+              pinned: true,
+              backgroundColor: colorScheme.surface,
+              surfaceTintColor: Colors.transparent,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+              flexibleSpace: _AppBarTitle(
+                title: context.l10n.appearanceTitle,
+                topPadding: topPadding,
+              ),
             ),
-            flexibleSpace: _AppBarTitle(
-              title: context.l10n.appearanceTitle,
-              topPadding: topPadding,
-            ),
-          ),
 
             SliverToBoxAdapter(
               child: Padding(
@@ -77,8 +78,8 @@ class AppearanceSettingsPage extends ConsumerWidget {
                     onColorSelected: (color) =>
                         ref.read(themeProvider.notifier).setSeedColor(color),
                   ),
+                ),
               ),
-            ),
 
             SliverToBoxAdapter(
               child: SettingsSectionHeader(title: context.l10n.sectionTheme),
@@ -113,9 +114,8 @@ class AppearanceSettingsPage extends ConsumerWidget {
                 children: [
                   _LanguageSelector(
                     currentLocale: settings.locale,
-                    onChanged: (locale) => ref
-                        .read(settingsProvider.notifier)
-                        .setLocale(locale),
+                    onChanged: (locale) =>
+                        ref.read(settingsProvider.notifier).setLocale(locale),
                   ),
                 ],
               ),
@@ -156,151 +156,167 @@ class _ThemePreviewCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return RepaintBoundary(
-      child: Container(
-        height: 200,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: colorScheme
-              .surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(28),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              top: -50,
-              right: -50,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -30,
-              left: -30,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.tertiaryContainer.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth;
+          final previewHeight = (cardWidth * 0.56).clamp(170.0, 220.0);
+          final innerWidth = (cardWidth - 48).clamp(220.0, 320.0);
+          final innerHeight = (previewHeight * 0.70).clamp(120.0, 160.0);
+          final innerPadding = (innerHeight * 0.11).clamp(12.0, 18.0);
+          final artworkSize = (innerHeight - (innerPadding * 2)).clamp(
+            80.0,
+            120.0,
+          );
 
-            Center(
-              child: Container(
-                width: 260,
-                height: 140,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 12,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 108,
-                      height: 108,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        Icons.music_note,
-                        color: colorScheme.onPrimary,
-                        size: 48,
+          return Container(
+            constraints: BoxConstraints(minHeight: previewHeight),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -(previewHeight * 0.25),
+                  right: -(previewHeight * 0.25),
+                  child: Container(
+                    width: previewHeight,
+                    height: previewHeight,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.primaryContainer.withValues(
+                        alpha: 0.5,
                       ),
                     ),
-                    const SizedBox(width: 16),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: colorScheme.onSurface,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -(previewHeight * 0.15),
+                  left: -(previewHeight * 0.15),
+                  child: Container(
+                    width: previewHeight * 0.75,
+                    height: previewHeight * 0.75,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.tertiaryContainer.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    width: innerWidth,
+                    height: innerHeight,
+                    padding: EdgeInsets.all(innerPadding),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: artworkSize,
+                          height: artworkSize,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: 80,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                          child: Icon(
+                            Icons.music_note,
+                            color: colorScheme.onPrimary,
+                            size: artworkSize * 0.44,
                           ),
-                          const SizedBox(height: 24),
-                          Row(
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.skip_previous,
-                                size: 24,
-                                color: colorScheme.onSurfaceVariant,
+                              Container(
+                                width: double.infinity,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.onSurface,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.play_circle_fill,
-                                size: 32,
-                                color: colorScheme.primary,
+                              const SizedBox(height: 8),
+                              Container(
+                                width: 80,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.skip_next,
-                                size: 24,
-                                color: colorScheme.onSurfaceVariant,
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.skip_previous,
+                                    size: 24,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Icon(
+                                    Icons.play_circle_fill,
+                                    size: 32,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Icon(
+                                    Icons.skip_next,
+                                    size: 24,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            Positioned(
-              bottom: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isDark ? context.l10n.appearanceThemeDark : context.l10n.appearanceThemeLight,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      isDark
+                          ? context.l10n.appearanceThemeDark
+                          : context.l10n.appearanceThemeLight,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -498,7 +514,7 @@ class _ThemeModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     final unselectedColor = isDark
         ? Color.alphaBlend(
             Colors.white.withValues(alpha: 0.05),
@@ -694,7 +710,7 @@ class _LanguageSelector extends StatelessWidget {
     required this.onChanged,
   });
 
-static const _allLanguages = [
+  static const _allLanguages = [
     ('system', 'System Default', Icons.phone_android),
     ('en', 'English', Icons.language),
     ('id', 'Bahasa Indonesia', Icons.language),
@@ -735,16 +751,10 @@ static const _allLanguages = [
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(
-        Icons.language,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      leading: Icon(Icons.language, color: colorScheme.onSurfaceVariant),
       title: Text(context.l10n.appearanceLanguage),
       subtitle: Text(_getLanguageName(currentLocale)),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
       onTap: () => _showLanguagePicker(context),
     );
   }
@@ -765,9 +775,9 @@ static const _allLanguages = [
               padding: const EdgeInsets.all(16),
               child: Text(
                 context.l10n.appearanceLanguage,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const Divider(height: 1),
@@ -781,22 +791,22 @@ static const _allLanguages = [
                   return ListTile(
                     leading: Icon(
                       lang.$3,
-                      color: isSelected 
-                          ? colorScheme.primary 
+                      color: isSelected
+                          ? colorScheme.primary
                           : colorScheme.onSurfaceVariant,
                     ),
                     title: Text(
                       lang.$2,
                       style: TextStyle(
-                        color: isSelected 
-                            ? colorScheme.primary 
+                        color: isSelected
+                            ? colorScheme.primary
                             : colorScheme.onSurface,
-                        fontWeight: isSelected 
-                            ? FontWeight.w600 
+                        fontWeight: isSelected
+                            ? FontWeight.w600
                             : FontWeight.normal,
                       ),
                     ),
-                    trailing: isSelected 
+                    trailing: isSelected
                         ? Icon(Icons.check, color: colorScheme.primary)
                         : null,
                     onTap: () {

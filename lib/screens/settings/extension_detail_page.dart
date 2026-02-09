@@ -6,6 +6,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
 import 'package:spotiflac_android/providers/store_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class ExtensionDetailPage extends ConsumerStatefulWidget {
@@ -55,7 +56,7 @@ class _ExtensionDetailPageState extends ConsumerState<ExtensionDetailPage> {
     );
 
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
     final hasError = extension.status == 'error';
 
     return PopScope(

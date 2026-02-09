@@ -19,6 +19,7 @@ import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/artist_screen.dart';
 import 'package:spotiflac_android/services/csv_import_service.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/screens/playlist_screen.dart';
 import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
@@ -73,6 +74,50 @@ class _HomeTabState extends ConsumerState<HomeTab>
   List<RecentAccessItem>? _recentAccessItemsCache;
   Set<String>? _recentAccessHiddenIdsCache;
   _RecentAccessView? _recentAccessViewCache;
+
+  double _responsiveScale({
+    required BuildContext context,
+    double min = 0.82,
+    double max = 1.08,
+    double baseShortestSide = 390,
+  }) {
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final scale = shortestSide / baseShortestSide;
+    if (scale < min) return min;
+    if (scale > max) return max;
+    return scale;
+  }
+
+  double _effectiveTextScale(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    if (textScale < 1.0) return 1.0;
+    if (textScale > 1.4) return 1.4;
+    return textScale;
+  }
+
+  double _recentDownloadCoverSize(BuildContext context) {
+    final scale = _responsiveScale(context: context, min: 0.82, max: 1.05);
+    final textScale = _effectiveTextScale(context);
+    return 100 * scale * (1 + (textScale - 1) * 0.15);
+  }
+
+  double _recentDownloadsRowHeight(BuildContext context) {
+    final coverSize = _recentDownloadCoverSize(context);
+    final textScale = _effectiveTextScale(context);
+    return coverSize + 28 + ((textScale - 1) * 8);
+  }
+
+  double _exploreCardSize(BuildContext context) {
+    final scale = _responsiveScale(context: context, min: 0.82, max: 1.08);
+    final textScale = _effectiveTextScale(context);
+    return 120 * scale * (1 + (textScale - 1) * 0.12);
+  }
+
+  double _exploreSectionHeight(BuildContext context) {
+    final cardSize = _exploreCardSize(context);
+    final textScale = _effectiveTextScale(context);
+    return cardSize + 55 + ((textScale - 1) * 12);
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -153,6 +198,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _onSearchFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
     if (_searchFocusNode.hasFocus) {
       ref.read(trackProvider.notifier).setShowingRecentAccess(true);
     }
@@ -324,6 +372,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     if (trackState.albumId != null &&
         trackState.albumName != null &&
         trackState.tracks.isNotEmpty) {
+      final extensionId = trackState.searchExtensionId;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -332,6 +381,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             albumName: trackState.albumName!,
             coverUrl: trackState.coverUrl,
             tracks: trackState.tracks,
+            extensionId: extensionId,
           ),
         ),
       );
@@ -348,7 +398,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             id: trackState.playlistName!,
             name: trackState.playlistName!,
             imageUrl: trackState.coverUrl,
-            providerId: 'spotify',
+            providerId: trackState.searchExtensionId ?? 'spotify',
           );
 
       Navigator.push(
@@ -370,6 +420,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     if (trackState.artistId != null &&
         trackState.artistName != null &&
         trackState.artistAlbums != null) {
+      final extensionId = trackState.searchExtensionId;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -378,6 +429,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             artistName: trackState.artistName!,
             coverUrl: trackState.coverUrl,
             albums: trackState.artistAlbums!,
+            extensionId: extensionId,
           ),
         ),
       );
@@ -586,7 +638,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
           trackName: l10n.csvImportTracks(tracksToQueue.length),
           artistName: l10n.dialogImportPlaylistTitle,
           onSelect: (quality, service) {
-            ref.read(downloadQueueProvider.notifier).addMultipleToQueue(
+            ref
+                .read(downloadQueueProvider.notifier)
+                .addMultipleToQueue(
                   tracksToQueue,
                   service,
                   qualityOverride: quality,
@@ -662,13 +716,17 @@ class _HomeTabState extends ConsumerState<HomeTab>
         (searchArtists != null && searchArtists.isNotEmpty) ||
         (searchAlbums != null && searchAlbums.isNotEmpty) ||
         (searchPlaylists != null && searchPlaylists.isNotEmpty);
+    final searchText = _urlController.text.trim();
+    final hasSearchInput = searchText.isNotEmpty;
+    final isSearchFocused = _searchFocusNode.hasFocus;
+    final hasShortSearchInput =
+        hasSearchInput && searchText.length < _minLiveSearchChars;
     final isShowingRecentAccess = ref.watch(
       trackProvider.select((s) => s.isShowingRecentAccess),
     );
-    final hasResults = isShowingRecentAccess || hasActualResults || isLoading;
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
-    final topPadding = mediaQuery.padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
     final historyItems = ref.watch(
       downloadHistoryProvider.select((s) => s.items),
     );
@@ -679,13 +737,13 @@ class _HomeTabState extends ConsumerState<HomeTab>
       recentAccessProvider.select((s) => s.hiddenDownloadIds),
     );
 
-    final hasRecentItems =
-        recentAccessItems.isNotEmpty || historyItems.isNotEmpty;
+    final recentModeRequested = isShowingRecentAccess || isSearchFocused;
     final showRecentAccess =
-        isShowingRecentAccess &&
-        hasRecentItems &&
-        !hasActualResults &&
+        recentModeRequested &&
+        (!hasSearchInput || hasShortSearchInput || !hasActualResults) &&
         !isLoading;
+    final hasResults =
+        hasSearchInput || hasActualResults || isLoading || showRecentAccess;
     final recentAccessView = showRecentAccess
         ? _getRecentAccessView(
             recentAccessItems,
@@ -752,7 +810,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
       ];
     }
 
-    if (hasActualResults && isShowingRecentAccess) {
+    if (hasActualResults &&
+        isShowingRecentAccess &&
+        hasSearchInput &&
+        !isSearchFocused) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ref.read(trackProvider.notifier).setShowingRecentAccess(false);
@@ -871,7 +932,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ),
 
               // Search filter bar (only shown when has search results)
-              if (searchFilters.isNotEmpty && hasActualResults)
+              if (searchFilters.isNotEmpty && hasActualResults && !showRecentAccess)
                 SliverToBoxAdapter(
                   child: _buildSearchFilterBar(
                     searchFilters,
@@ -949,7 +1010,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 isLoading: isLoading,
                 error: error,
                 colorScheme: colorScheme,
-                hasResults: hasResults,
+                hasResults: hasActualResults || isLoading,
                 searchExtensionId: searchExtensionId,
                 showLocalLibraryIndicator: showLocalLibraryIndicator,
                 thumbnailSizesByExtensionId: thumbnailSizesByExtensionId,
@@ -966,6 +1027,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     ColorScheme colorScheme,
   ) {
     final itemCount = items.length < 10 ? items.length : 10;
+    final coverSize = _recentDownloadCoverSize(context);
+    final rowHeight = _recentDownloadsRowHeight(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -980,7 +1043,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
           ),
         ),
         SizedBox(
-          height: 130,
+          height: rowHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: itemCount,
@@ -991,7 +1054,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 child: GestureDetector(
                   onTap: () => _navigateToMetadataScreen(item),
                   child: Container(
-                    width: 100,
+                    width: coverSize,
                     margin: const EdgeInsets.only(right: 12),
                     child: Column(
                       children: [
@@ -1000,16 +1063,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
                           child: item.coverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: item.coverUrl!,
-                                  width: 100,
-                                  height: 100,
+                                  width: coverSize,
+                                  height: coverSize,
                                   fit: BoxFit.cover,
-                                  memCacheWidth: 200,
-                                  memCacheHeight: 200,
+                                  memCacheWidth: (coverSize * 2).round(),
+                                  memCacheHeight: (coverSize * 2).round(),
                                   cacheManager: CoverCacheManager.instance,
                                 )
                               : Container(
-                                  width: 100,
-                                  height: 100,
+                                  width: coverSize,
+                                  height: coverSize,
                                   color: colorScheme.surfaceContainerHighest,
                                   child: Icon(
                                     Icons.music_note,
@@ -1177,6 +1240,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   Widget _buildExploreSection(ExploreSection section, ColorScheme colorScheme) {
+    final sectionHeight = _exploreSectionHeight(context);
     if (section.isYTMusicQuickPicks) {
       return _buildYTMusicQuickPicksSection(section, colorScheme);
     }
@@ -1194,7 +1258,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
           ),
         ),
         SizedBox(
-          height: 175,
+          height: sectionHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1229,11 +1293,13 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   Widget _buildExploreItem(ExploreItem item, ColorScheme colorScheme) {
     final isArtist = item.type == 'artist';
+    final cardSize = _exploreCardSize(context);
+    final iconSize = cardSize * 0.3;
 
     return GestureDetector(
       onTap: () => _navigateToExploreItem(item),
       child: SizedBox(
-        width: 120,
+        width: cardSize,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Column(
@@ -1242,35 +1308,37 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 : CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(isArtist ? 60 : 8),
+                borderRadius: BorderRadius.circular(
+                  isArtist ? cardSize / 2 : 8,
+                ),
                 child: item.coverUrl != null && item.coverUrl!.isNotEmpty
                     ? CachedNetworkImage(
                         imageUrl: item.coverUrl!,
-                        width: 120,
-                        height: 120,
+                        width: cardSize,
+                        height: cardSize,
                         fit: BoxFit.cover,
-                        memCacheWidth: 240,
-                        memCacheHeight: 240,
+                        memCacheWidth: (cardSize * 2).round(),
+                        memCacheHeight: (cardSize * 2).round(),
                         cacheManager: CoverCacheManager.instance,
                         errorWidget: (context, url, error) => Container(
-                          width: 120,
-                          height: 120,
+                          width: cardSize,
+                          height: cardSize,
                           color: colorScheme.surfaceContainerHighest,
                           child: Icon(
                             _getIconForType(item.type),
                             color: colorScheme.onSurfaceVariant,
-                            size: 36,
+                            size: iconSize,
                           ),
                         ),
                       )
                     : Container(
-                        width: 120,
-                        height: 120,
+                        width: cardSize,
+                        height: cardSize,
                         color: colorScheme.surfaceContainerHighest,
                         child: Icon(
                           _getIconForType(item.type),
                           color: colorScheme.onSurfaceVariant,
-                          size: 36,
+                          size: iconSize,
                         ),
                       ),
               ),
@@ -1571,14 +1639,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ],
           ),
           const SizedBox(height: 8),
-          if (uniqueItems.isEmpty && hasHiddenDownloads)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
+          if (uniqueItems.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: SizedBox(
+                width: double.infinity,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.visibility_off,
+                      hasHiddenDownloads ? Icons.visibility_off : Icons.history,
                       size: 48,
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.5,
@@ -1586,21 +1656,24 @@ class _HomeTabState extends ConsumerState<HomeTab>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No recent items',
+                      context.l10n.recentEmpty,
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        ref
-                            .read(recentAccessProvider.notifier)
-                            .clearHiddenDownloads();
-                      },
-                      icon: const Icon(Icons.visibility, size: 18),
-                      label: const Text('Show All Downloads'),
-                    ),
+                    if (hasHiddenDownloads) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ref
+                              .read(recentAccessProvider.notifier)
+                              .clearHiddenDownloads();
+                        },
+                        icon: const Icon(Icons.visibility, size: 18),
+                        label: Text(context.l10n.recentShowAllDownloads),
+                      ),
+                    ],
                   ],
                 ),
               ),

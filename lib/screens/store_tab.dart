@@ -5,6 +5,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/store_provider.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 import 'package:spotiflac_android/screens/store/extension_details_screen.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 
 class StoreTab extends ConsumerStatefulWidget {
   const StoreTab({super.key});
@@ -44,7 +45,7 @@ class _StoreTabState extends ConsumerState<StoreTab> {
   Widget build(BuildContext context) {
     final state = ref.watch(storeProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return Scaffold(
       body: RefreshIndicator(

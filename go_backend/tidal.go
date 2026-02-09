@@ -1196,158 +1196,11 @@ func artistsMatch(spotifyArtist, tidalArtist string) bool {
 	spotifyLatin := isLatinScript(spotifyArtist)
 	tidalLatin := isLatinScript(tidalArtist)
 	if spotifyLatin != tidalLatin {
-		if crossScriptEquivalent(spotifyArtist, tidalArtist) {
-			GoLog("[Tidal] Artist names in different scripts but transliteration matched: '%s' vs '%s'\n", spotifyArtist, tidalArtist)
-			return true
-		}
-	}
-
-	return false
-}
-
-func normalizeScriptAware(value string) string {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	normalized = CleanToASCII(JapaneseToRomaji(normalized))
-	normalized = strings.Join(strings.Fields(normalized), " ")
-	return strings.TrimSpace(normalized)
-}
-
-func crossScriptEquivalent(expected, found string) bool {
-	normExpected := normalizeScriptAware(expected)
-	normFound := normalizeScriptAware(found)
-
-	if normExpected == "" || normFound == "" {
-		return false
-	}
-
-	if normExpected == normFound {
+		GoLog("[Tidal] Artist names in different scripts, assuming match: '%s' vs '%s'\n", spotifyArtist, tidalArtist)
 		return true
 	}
 
-	compactExpected := strings.ReplaceAll(normExpected, " ", "")
-	compactFound := strings.ReplaceAll(normFound, " ", "")
-	if len(compactExpected) >= 6 && len(compactFound) >= 6 {
-		if compactExpected == compactFound ||
-			strings.Contains(compactExpected, compactFound) ||
-			strings.Contains(compactFound, compactExpected) {
-			return true
-		}
-
-		shorterLen := len(compactExpected)
-		if len(compactFound) < shorterLen {
-			shorterLen = len(compactFound)
-		}
-
-		maxDistance := 1
-		if shorterLen >= 10 {
-			maxDistance = 2
-		}
-		if shorterLen >= 16 {
-			maxDistance = 3
-		}
-
-		if editDistanceWithin(compactExpected, compactFound, maxDistance) {
-			if commonPrefixLen(compactExpected, compactFound) >= 4 ||
-				commonSuffixLen(compactExpected, compactFound) >= 4 {
-				return true
-			}
-		}
-	}
-
 	return false
-}
-
-func commonPrefixLen(a, b string) int {
-	max := len(a)
-	if len(b) < max {
-		max = len(b)
-	}
-	count := 0
-	for i := 0; i < max; i++ {
-		if a[i] != b[i] {
-			break
-		}
-		count++
-	}
-	return count
-}
-
-func commonSuffixLen(a, b string) int {
-	i := len(a) - 1
-	j := len(b) - 1
-	count := 0
-	for i >= 0 && j >= 0 {
-		if a[i] != b[j] {
-			break
-		}
-		count++
-		i--
-		j--
-	}
-	return count
-}
-
-func editDistanceWithin(a, b string, maxDistance int) bool {
-	if maxDistance < 0 {
-		return false
-	}
-
-	if a == b {
-		return true
-	}
-
-	lenA := len(a)
-	lenB := len(b)
-	diff := lenA - lenB
-	if diff < 0 {
-		diff = -diff
-	}
-	if diff > maxDistance {
-		return false
-	}
-
-	prev := make([]int, lenB+1)
-	for j := 0; j <= lenB; j++ {
-		prev[j] = j
-	}
-
-	for i := 1; i <= lenA; i++ {
-		curr := make([]int, lenB+1)
-		curr[0] = i
-		minInRow := curr[0]
-
-		for j := 1; j <= lenB; j++ {
-			cost := 0
-			if a[i-1] != b[j-1] {
-				cost = 1
-			}
-
-			insertCost := curr[j-1] + 1
-			deleteCost := prev[j] + 1
-			replaceCost := prev[j-1] + cost
-
-			best := insertCost
-			if deleteCost < best {
-				best = deleteCost
-			}
-			if replaceCost < best {
-				best = replaceCost
-			}
-
-			curr[j] = best
-			if best < minInRow {
-				minInRow = best
-			}
-		}
-
-		if minInRow > maxDistance {
-			return false
-		}
-
-		prev = curr
-	}
-
-	return prev[lenB] <= maxDistance
 }
 
 func splitArtists(artists string) []string {
@@ -1439,10 +1292,8 @@ func titlesMatch(expectedTitle, foundTitle string) bool {
 	expectedLatin := isLatinScript(expectedTitle)
 	foundLatin := isLatinScript(foundTitle)
 	if expectedLatin != foundLatin {
-		if crossScriptEquivalent(expectedTitle, foundTitle) {
-			GoLog("[Tidal] Titles in different scripts but transliteration matched: '%s' vs '%s'\n", expectedTitle, foundTitle)
-			return true
-		}
+		GoLog("[Tidal] Titles in different scripts, assuming match: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return true
 	}
 
 	return false

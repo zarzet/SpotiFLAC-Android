@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spotiflac_android/constants/app_info.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/donate_icons.dart';
 
 class DonatePage extends StatelessWidget {
@@ -9,7 +10,7 @@ class DonatePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return Scaffold(
       body: CustomScrollView(
@@ -199,6 +200,8 @@ class _RecentDonorsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            _DonorTile(name: 'J', colorScheme: colorScheme),
+            _DonorTile(name: 'Julian', colorScheme: colorScheme),
             _DonorTile(name: 'Daniel', colorScheme: colorScheme),
             _DonorTile(
               name: '283Fabio',

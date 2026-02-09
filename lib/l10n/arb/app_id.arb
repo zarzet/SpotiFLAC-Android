@@ -151,6 +151,14 @@
   "@settingsExtensions": {
     "description": "Settings section - extension management"
   },
+  "settingsCache": "Penyimpanan & Cache",
+  "@settingsCache": {
+    "description": "Settings menu item - cache management"
+  },
+  "settingsCacheSubtitle": "Lihat ukuran dan bersihkan data cache",
+  "@settingsCacheSubtitle": {
+    "description": "Subtitle for cache management menu"
+  },
   "settingsAbout": "Tentang",
   "@settingsAbout": {
     "description": "Settings section - app info"
@@ -425,6 +433,10 @@
   "optionsSpotifyWarning": "Spotify memerlukan kredensial API Anda sendiri. Dapatkan gratis dari developer.spotify.com",
   "@optionsSpotifyWarning": {
     "description": "Info about Spotify API requirement"
+  },
+  "optionsSpotifyDeprecationWarning": "Pencarian Spotify akan dihentikan pada 3 Maret 2026 karena perubahan API Spotify. Silakan beralih ke Deezer.",
+  "@optionsSpotifyDeprecationWarning": {
+    "description": "Warning about Spotify API deprecation"
   },
   "extensionsTitle": "Ekstensi",
   "@extensionsTitle": {
@@ -2465,6 +2477,18 @@
   "@downloadAlbumFolderStructure": {
     "description": "Setting - album folder organization"
   },
+  "downloadUseAlbumArtistForFolders": "Gunakan Album Artist untuk folder",
+  "@downloadUseAlbumArtistForFolders": {
+    "description": "Setting - choose whether artist folders use Album Artist or Track Artist"
+  },
+  "downloadUseAlbumArtistForFoldersAlbumSubtitle": "Folder artis memakai Album Artist jika tersedia",
+  "@downloadUseAlbumArtistForFoldersAlbumSubtitle": {
+    "description": "Subtitle when Album Artist is used for folder naming"
+  },
+  "downloadUseAlbumArtistForFoldersTrackSubtitle": "Folder artis hanya memakai Track Artist",
+  "@downloadUseAlbumArtistForFoldersTrackSubtitle": {
+    "description": "Subtitle when Track Artist is used for folder naming"
+  },
   "downloadSaveFormat": "Simpan Format",
   "@downloadSaveFormat": {
     "description": "Setting - output file format"
@@ -2726,6 +2750,14 @@
   "recentTypePlaylist": "Playlist",
   "@recentTypePlaylist": {
     "description": "Recent access item type - playlist"
+  },
+  "recentEmpty": "Belum ada item terbaru",
+  "@recentEmpty": {
+    "description": "Empty state text for recent access list"
+  },
+  "recentShowAllDownloads": "Tampilkan Semua Download",
+  "@recentShowAllDownloads": {
+    "description": "Button label to unhide hidden downloads in recent access"
   },
   "recentPlaylistInfo": "Playlist: {name}",
   "@recentPlaylistInfo": {
@@ -3018,5 +3050,109 @@
     }
   },
   "cleanupOrphanedDownloadsNone": "Tidak ada entri unduhan tidak valid",
-  "@cleanupOrphanedDownloadsNone": {"description": "Snackbar when no orphans found"}
+  "@cleanupOrphanedDownloadsNone": {"description": "Snackbar when no orphans found"},
+
+  "cacheTitle": "Penyimpanan & Cache",
+  "@cacheTitle": {"description": "Cache management page title"},
+  "cacheSummaryTitle": "Ringkasan cache",
+  "@cacheSummaryTitle": {"description": "Heading for cache summary card"},
+  "cacheSummarySubtitle": "Membersihkan cache tidak akan menghapus file musik yang sudah diunduh.",
+  "@cacheSummarySubtitle": {"description": "Helper text for cache summary card"},
+  "cacheEstimatedTotal": "Estimasi penggunaan cache: {size}",
+  "@cacheEstimatedTotal": {
+    "description": "Total cache size shown in summary",
+    "placeholders": {
+      "size": {"type": "String"}
+    }
+  },
+  "cacheSectionStorage": "Data Cache",
+  "@cacheSectionStorage": {"description": "Section header for cache entries"},
+  "cacheSectionMaintenance": "Perawatan",
+  "@cacheSectionMaintenance": {"description": "Section header for cleanup actions"},
+  "cacheAppDirectory": "Direktori cache aplikasi",
+  "@cacheAppDirectory": {"description": "Cache item title for app cache directory"},
+  "cacheAppDirectoryDesc": "Respons HTTP, data WebView, dan data sementara aplikasi.",
+  "@cacheAppDirectoryDesc": {"description": "Description of what app cache directory contains"},
+  "cacheTempDirectory": "Direktori sementara",
+  "@cacheTempDirectory": {"description": "Cache item title for temporary files directory"},
+  "cacheTempDirectoryDesc": "File sementara dari proses download dan konversi audio.",
+  "@cacheTempDirectoryDesc": {"description": "Description of what temporary directory contains"},
+  "cacheCoverImage": "Cache gambar cover",
+  "@cacheCoverImage": {"description": "Cache item title for persistent cover images"},
+  "cacheCoverImageDesc": "Gambar cover album dan lagu yang diunduh. Akan diunduh ulang saat dilihat.",
+  "@cacheCoverImageDesc": {"description": "Description of what cover image cache contains"},
+  "cacheLibraryCover": "Cache cover library",
+  "@cacheLibraryCover": {"description": "Cache item title for local library cover art images"},
+  "cacheLibraryCoverDesc": "Cover dari file musik lokal. Akan diekstrak ulang saat scan berikutnya.",
+  "@cacheLibraryCoverDesc": {"description": "Description of what library cover cache contains"},
+  "cacheExploreFeed": "Cache feed Explore",
+  "@cacheExploreFeed": {"description": "Cache item title for explore home feed cache"},
+  "cacheExploreFeedDesc": "Konten tab Explore (rilis baru, trending). Akan dimuat ulang saat dikunjungi.",
+  "@cacheExploreFeedDesc": {"description": "Description of what explore feed cache contains"},
+  "cacheTrackLookup": "Cache pencocokan lagu",
+  "@cacheTrackLookup": {"description": "Cache item title for track ID lookup cache"},
+  "cacheTrackLookupDesc": "Cache pencarian ID lagu Spotify/Deezer. Menghapus mungkin memperlambat beberapa pencarian.",
+  "@cacheTrackLookupDesc": {"description": "Description of what track lookup cache contains"},
+  "cacheCleanupUnusedDesc": "Hapus entri riwayat download dan library yang filenya sudah tidak ada.",
+  "@cacheCleanupUnusedDesc": {"description": "Description of what cleanup unused data does"},
+  "cacheNoData": "Tidak ada data cache",
+  "@cacheNoData": {"description": "Label when cache category has no data"},
+  "cacheSizeWithFiles": "{size} dalam {count} file",
+  "@cacheSizeWithFiles": {
+    "description": "Cache size and file count",
+    "placeholders": {
+      "size": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "cacheSizeOnly": "{size}",
+  "@cacheSizeOnly": {
+    "description": "Cache size only",
+    "placeholders": {
+      "size": {"type": "String"}
+    }
+  },
+  "cacheEntries": "{count} entri",
+  "@cacheEntries": {
+    "description": "Track cache entry count",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "cacheClearSuccess": "Berhasil dibersihkan: {target}",
+  "@cacheClearSuccess": {
+    "description": "Snackbar after clearing selected cache",
+    "placeholders": {
+      "target": {"type": "String"}
+    }
+  },
+  "cacheClearConfirmTitle": "Bersihkan cache?",
+  "@cacheClearConfirmTitle": {"description": "Dialog title before clearing one cache category"},
+  "cacheClearConfirmMessage": "Ini akan membersihkan data cache untuk {target}. File musik yang sudah diunduh tidak akan dihapus.",
+  "@cacheClearConfirmMessage": {
+    "description": "Dialog message before clearing selected cache",
+    "placeholders": {
+      "target": {"type": "String"}
+    }
+  },
+  "cacheClearAllConfirmTitle": "Bersihkan semua cache?",
+  "@cacheClearAllConfirmTitle": {"description": "Dialog title before clearing all caches"},
+  "cacheClearAllConfirmMessage": "Ini akan membersihkan semua kategori cache di halaman ini. File musik yang sudah diunduh tidak akan dihapus.",
+  "@cacheClearAllConfirmMessage": {"description": "Dialog message before clearing all caches"},
+  "cacheClearAll": "Bersihkan semua cache",
+  "@cacheClearAll": {"description": "Button label to clear all caches"},
+  "cacheCleanupUnused": "Bersihkan data tidak terpakai",
+  "@cacheCleanupUnused": {"description": "Action title for cleaning unused entries"},
+  "cacheCleanupUnusedSubtitle": "Hapus riwayat unduhan yatim dan entri library yang file-nya hilang",
+  "@cacheCleanupUnusedSubtitle": {"description": "Subtitle for cleanup unused data action"},
+  "cacheCleanupResult": "Pembersihan selesai: {downloadCount} unduhan yatim, {libraryCount} entri library hilang",
+  "@cacheCleanupResult": {
+    "description": "Snackbar after unused data cleanup",
+    "placeholders": {
+      "downloadCount": {"type": "int"},
+      "libraryCount": {"type": "int"}
+    }
+  },
+  "cacheRefreshStats": "Segarkan statistik",
+  "@cacheRefreshStats": {"description": "Button label to refresh cache statistics"}
 }

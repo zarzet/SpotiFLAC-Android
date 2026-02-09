@@ -9,6 +9,7 @@ import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/screens/settings/extension_detail_page.dart';
 import 'package:spotiflac_android/screens/settings/provider_priority_page.dart';
 import 'package:spotiflac_android/screens/settings/metadata_provider_priority_page.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class ExtensionsPage extends ConsumerStatefulWidget {
@@ -51,7 +52,7 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
   Widget build(BuildContext context) {
     final extState = ref.watch(extensionProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return PopScope(
       canPop: true, // Always allow back gesture

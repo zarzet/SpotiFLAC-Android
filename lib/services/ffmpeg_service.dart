@@ -11,6 +11,7 @@ final _log = AppLogger('FFmpeg');
 
 class FFmpegService {
   static const int _commandLogPreviewLength = 300;
+  static int _tempEmbedCounter = 0;
 
   static String _buildOutputPath(String inputPath, String extension) {
     final normalizedExt = extension.startsWith('.') ? extension : '.$extension';
@@ -45,6 +46,14 @@ class FFmpegService {
       return redacted;
     }
     return '${redacted.substring(0, _commandLogPreviewLength)}...';
+  }
+
+  static String _nextTempEmbedPath(String tempDirPath, String extension) {
+    final normalizedExt = extension.startsWith('.') ? extension : '.$extension';
+    _tempEmbedCounter = (_tempEmbedCounter + 1) & 0x7fffffff;
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final processId = pid;
+    return '$tempDirPath${Platform.pathSeparator}temp_embed_${timestamp}_${processId}_$_tempEmbedCounter$normalizedExt';
   }
 
   static Future<FFmpegResult> _execute(String command) async {
@@ -269,8 +278,7 @@ class FFmpegService {
     Map<String, String>? metadata,
   }) async {
     final tempDir = await getTemporaryDirectory();
-    final uniqueId = DateTime.now().millisecondsSinceEpoch;
-    final tempOutput = '${tempDir.path}/temp_embed_$uniqueId.flac';
+    final tempOutput = _nextTempEmbedPath(tempDir.path, '.flac');
 
     final StringBuffer cmdBuffer = StringBuffer();
     cmdBuffer.write('-i "$flacPath" ');
@@ -347,8 +355,7 @@ class FFmpegService {
     Map<String, String>? metadata,
   }) async {
     final tempDir = await getTemporaryDirectory();
-    final uniqueId = DateTime.now().millisecondsSinceEpoch;
-    final tempOutput = '${tempDir.path}/temp_embed_$uniqueId.mp3';
+    final tempOutput = _nextTempEmbedPath(tempDir.path, '.mp3');
 
     final StringBuffer cmdBuffer = StringBuffer();
     cmdBuffer.write('-i "$mp3Path" ');
@@ -429,8 +436,7 @@ class FFmpegService {
     Map<String, String>? metadata,
   }) async {
     final tempDir = await getTemporaryDirectory();
-    final uniqueId = DateTime.now().millisecondsSinceEpoch;
-    final tempOutput = '${tempDir.path}/temp_embed_$uniqueId.opus';
+    final tempOutput = _nextTempEmbedPath(tempDir.path, '.opus');
 
     final StringBuffer cmdBuffer = StringBuffer();
     cmdBuffer.write('-i "$opusPath" ');

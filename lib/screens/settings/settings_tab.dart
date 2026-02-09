@@ -8,8 +8,10 @@ import 'package:spotiflac_android/screens/settings/extensions_page.dart';
 import 'package:spotiflac_android/screens/settings/library_settings_page.dart';
 import 'package:spotiflac_android/screens/settings/options_settings_page.dart';
 import 'package:spotiflac_android/screens/settings/about_page.dart';
+import 'package:spotiflac_android/screens/settings/cache_management_page.dart';
 import 'package:spotiflac_android/screens/settings/donate_page.dart';
 import 'package:spotiflac_android/screens/settings/log_screen.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class SettingsTab extends ConsumerWidget {
@@ -18,7 +20,7 @@ class SettingsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return CustomScrollView(
       slivers: [
@@ -73,19 +75,29 @@ class SettingsTab extends ConsumerWidget {
                     icon: Icons.download_outlined,
                     title: l10n.settingsDownload,
                     subtitle: l10n.settingsDownloadSubtitle,
-                    onTap: () => _navigateTo(context, const DownloadSettingsPage()),
+                    onTap: () =>
+                        _navigateTo(context, const DownloadSettingsPage()),
                   ),
                   SettingsItem(
                     icon: Icons.library_music_outlined,
                     title: l10n.settingsLocalLibrary,
                     subtitle: l10n.settingsLocalLibrarySubtitle,
-                    onTap: () => _navigateTo(context, const LibrarySettingsPage()),
+                    onTap: () =>
+                        _navigateTo(context, const LibrarySettingsPage()),
+                  ),
+                  SettingsItem(
+                    icon: Icons.storage_outlined,
+                    title: l10n.settingsCache,
+                    subtitle: l10n.settingsCacheSubtitle,
+                    onTap: () =>
+                        _navigateTo(context, const CacheManagementPage()),
                   ),
                   SettingsItem(
                     icon: Icons.tune_outlined,
                     title: l10n.settingsOptions,
                     subtitle: l10n.settingsOptionsSubtitle,
-                    onTap: () => _navigateTo(context, const OptionsSettingsPage()),
+                    onTap: () =>
+                        _navigateTo(context, const OptionsSettingsPage()),
                   ),
                   SettingsItem(
                     icon: Icons.extension_outlined,
@@ -138,7 +150,7 @@ class SettingsTab extends ConsumerWidget {
 
   void _navigateTo(BuildContext context, Widget page) {
     FocusManager.instance.primaryFocus?.unfocus();
-    
+
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -146,9 +158,10 @@ class SettingsTab extends ConsumerWidget {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOut;
-          var tween = Tween(begin: begin, end: end).chain(
-            CurveTween(curve: curve),
-          );
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
           return SlideTransition(
             position: animation.drive(tween),
             child: child,

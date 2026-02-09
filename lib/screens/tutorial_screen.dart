@@ -16,6 +16,26 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
   int _currentPage = 0;
   static const int _totalPages = 6;
 
+  double _responsiveScale({
+    required BuildContext context,
+    double min = 0.82,
+    double max = 1.08,
+    double baseShortestSide = 390,
+  }) {
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final scale = shortestSide / baseShortestSide;
+    if (scale < min) return min;
+    if (scale > max) return max;
+    return scale;
+  }
+
+  double _effectiveTextScale(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    if (textScale < 1.0) return 1.0;
+    if (textScale > 1.4) return 1.4;
+    return textScale;
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -55,6 +75,15 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     final isLastPage = _currentPage == _totalPages - 1;
+    final scale = _responsiveScale(context: context, min: 0.86, max: 1.05);
+    final textScale = _effectiveTextScale(context);
+    final topBarPaddingH = 24 * scale;
+    final topBarPaddingV = 16 * scale;
+    final pageIndicatorHeight = 8 * scale;
+    final pageIndicatorWidth = 8 * scale;
+    final activeIndicatorWidth = 32 * scale;
+    final bottomGap = (32 * scale) + ((textScale - 1) * 8);
+    final actionButtonHeight = (56 * scale) + ((textScale - 1) * 6);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -63,7 +92,10 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
           children: [
             // Top Navigation Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: topBarPaddingH,
+                vertical: topBarPaddingV,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -199,9 +231,11 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutBack,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        height: 8,
-                        width: isActive ? 32 : 8,
+                        margin: EdgeInsets.symmetric(horizontal: 4 * scale),
+                        height: pageIndicatorHeight,
+                        width: isActive
+                            ? activeIndicatorWidth
+                            : pageIndicatorWidth,
                         decoration: BoxDecoration(
                           color: isActive
                               ? colorScheme.primary
@@ -211,11 +245,11 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
                       );
                     }),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: bottomGap),
                   // Action Button
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: actionButtonHeight,
                     child: FilledButton(
                       onPressed: _nextPage,
                       style: FilledButton.styleFrom(
@@ -520,104 +554,114 @@ class _InteractiveDownloadExampleState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.album_rounded,
-              size: 36,
-              color: colorScheme.onPrimaryContainer,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        final coverSize = (cardWidth * 0.18).clamp(56.0, 80.0);
+        final buttonPadding = (coverSize * 0.18).clamp(10.0, 14.0);
+        final buttonIconSize = (coverSize * 0.4).clamp(22.0, 30.0);
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 140,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurface,
-                    borderRadius: BorderRadius.circular(7),
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: coverSize,
+                height: coverSize,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 10),
-                if (_isDownloading)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: _progress,
-                      minHeight: 12,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      color: colorScheme.primary,
-                    ),
-                  )
-                else
-                  Container(
-                    width: 90,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurfaceVariant,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          GestureDetector(
-            onTap: _startDownload,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _isCompleted ? Colors.green : colorScheme.primary,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: (_isCompleted ? Colors.green : colorScheme.primary)
-                        .withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                child: Icon(
+                  Icons.album_rounded,
+                  size: coverSize * 0.5,
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
-              child: _isDownloading
-                  ? SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: colorScheme.onPrimary,
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: (cardWidth * 0.35).clamp(100.0, 160.0),
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurface,
+                        borderRadius: BorderRadius.circular(7),
                       ),
-                    )
-                  : Icon(
-                      _isCompleted
-                          ? Icons.check_rounded
-                          : Icons.download_rounded,
-                      color: colorScheme.onPrimary,
-                      size: 28,
                     ),
-            ),
+                    const SizedBox(height: 10),
+                    if (_isDownloading)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: _progress,
+                          minHeight: 12,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    else
+                      Container(
+                        width: (cardWidth * 0.22).clamp(70.0, 100.0),
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurfaceVariant,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: _startDownload,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: EdgeInsets.all(buttonPadding),
+                  decoration: BoxDecoration(
+                    color: _isCompleted ? Colors.green : colorScheme.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            (_isCompleted ? Colors.green : colorScheme.primary)
+                                .withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: _isDownloading
+                      ? SizedBox(
+                          width: buttonIconSize,
+                          height: buttonIconSize,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: colorScheme.onPrimary,
+                          ),
+                        )
+                      : Icon(
+                          _isCompleted
+                              ? Icons.check_rounded
+                              : Icons.download_rounded,
+                          color: colorScheme.onPrimary,
+                          size: buttonIconSize,
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -644,6 +688,18 @@ class _TutorialPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1.0).clamp(1.0, 1.4);
+    final scale = (shortestSide / 390).clamp(0.86, 1.05);
+    final topGap = (24 * scale).clamp(16.0, 24.0);
+    final iconPadding = (24 * scale).clamp(18.0, 24.0);
+    final iconSize = (56 * scale).clamp(44.0, 56.0);
+    final iconTextGap = (48 * scale).clamp(28.0, 48.0);
+    final descriptionGap = (20 * scale).clamp(12.0, 20.0);
+    final contentGap = (56 * scale) + ((textScale - 1) * 10);
+    final bottomGap = (32 * scale).clamp(20.0, 32.0);
 
     // Parallax effect logic (simplified for StatelessWidget)
     // In a real advanced implementation we'd pass the Controller's listenable
@@ -656,23 +712,23 @@ class _TutorialPage extends StatelessWidget {
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          const SizedBox(height: 24),
+          SizedBox(height: topGap),
           AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeOutBack,
             transform: Matrix4.translationValues(0, isActive ? 0 : -20, 0),
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(iconPadding),
             decoration: BoxDecoration(
               color: (iconColor ?? colorScheme.primary).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 56,
+              size: iconSize,
               color: iconColor ?? colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 48),
+          SizedBox(height: iconTextGap),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 500),
             opacity: isActive ? 1.0 : 0.0,
@@ -687,7 +743,7 @@ class _TutorialPage extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: descriptionGap),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 500),
             opacity: isActive ? 1.0 : 0.0,
@@ -697,14 +753,14 @@ class _TutorialPage extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.5,
-                fontSize: 16,
+                fontSize: 16 * (1 + ((textScale - 1) * 0.1)),
               ),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 56),
+          SizedBox(height: contentGap),
           content, // The content itself now handles its own internal animations
-          const SizedBox(height: 32),
+          SizedBox(height: bottomGap),
         ],
       ),
     );

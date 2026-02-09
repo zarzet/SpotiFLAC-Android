@@ -8,6 +8,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class LibrarySettingsPage extends ConsumerStatefulWidget {
@@ -30,7 +31,8 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
     // -> /storage/emulated/0/Music
     try {
       final uri = Uri.parse(path);
-      final treePath = uri.pathSegments.last; // e.g. "primary:Music" or "primary%3AMusic"
+      final treePath =
+          uri.pathSegments.last; // e.g. "primary:Music" or "primary%3AMusic"
       final decoded = Uri.decodeComponent(treePath);
       if (decoded.startsWith('primary:')) {
         return '/storage/emulated/0/${decoded.substring('primary:'.length)}';
@@ -156,10 +158,9 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
       return;
     }
 
-    await ref.read(localLibraryProvider.notifier).startScan(
-      libraryPath,
-      forceFullScan: forceFullScan,
-    );
+    await ref
+        .read(localLibraryProvider.notifier)
+        .startScan(libraryPath, forceFullScan: forceFullScan);
   }
 
   Future<void> _cancelScan() async {
@@ -216,7 +217,7 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
     final settings = ref.watch(settingsProvider);
     final libraryState = ref.watch(localLibraryProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return Scaffold(
       body: CustomScrollView(
@@ -260,6 +261,7 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
           SliverToBoxAdapter(
             child: _LibraryHeroCard(
               itemCount: libraryState.items.length,
+              excludedDownloadedCount: libraryState.excludedDownloadedCount,
               isScanning: libraryState.isScanning,
               scanProgress: libraryState.scanProgress,
               scanCurrentFile: libraryState.scanCurrentFile,
@@ -331,7 +333,9 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                      color: colorScheme.tertiaryContainer.withValues(
+                        alpha: 0.6,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -347,17 +351,20 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
                             children: [
                               Text(
                                 'Scan cancelled',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onTertiaryContainer,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onTertiaryContainer,
+                                    ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'You can retry the scan when ready.',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onTertiaryContainer.withValues(alpha: 0.8),
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onTertiaryContainer
+                                          .withValues(alpha: 0.8),
+                                    ),
                               ),
                             ],
                           ),
@@ -493,6 +500,7 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
 
 class _LibraryHeroCard extends StatelessWidget {
   final int itemCount;
+  final int excludedDownloadedCount;
   final bool isScanning;
   final double scanProgress;
   final String? scanCurrentFile;
@@ -502,6 +510,7 @@ class _LibraryHeroCard extends StatelessWidget {
 
   const _LibraryHeroCard({
     required this.itemCount,
+    required this.excludedDownloadedCount,
     required this.isScanning,
     required this.scanProgress,
     this.scanCurrentFile,
@@ -527,10 +536,13 @@ class _LibraryHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayCount = isScanning
+        ? scannedFiles
+        : itemCount + excludedDownloadedCount;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      height: 220,
+      constraints: const BoxConstraints(minHeight: 220),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(28),
@@ -626,12 +638,12 @@ class _LibraryHeroCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const Spacer(),
+                const SizedBox(height: 16),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    isScanning ? scannedFiles.toString() : itemCount.toString(),
+                    displayCount.toString(),
                     style: TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.bold,
@@ -644,17 +656,35 @@ class _LibraryHeroCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isScanning
-                      ? context.l10n.libraryTracksCount(scannedFiles).replaceAll(scannedFiles.toString(), '').trim()
+                      ? context.l10n
+                            .libraryTracksCount(scannedFiles)
+                            .replaceAll(scannedFiles.toString(), '')
+                            .trim()
                       : context.l10n
-                          .libraryTracksCount(itemCount)
-                          .replaceAll(itemCount.toString(), '')
-                          .trim(),
+                            .libraryTracksCount(displayCount)
+                            .replaceAll(displayCount.toString(), '')
+                            .trim(),
                   style: TextStyle(
                     fontSize: 16,
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (!isScanning && excludedDownloadedCount > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '$excludedDownloadedCount from Downloads history '
+                    '(excluded from list)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.8,
+                      ),
+                    ),
+                  ),
+                ],
                 if (isScanning && scanCurrentFile != null) ...[
                   const SizedBox(height: 16),
                   LinearProgressIndicator(
@@ -670,7 +700,9 @@ class _LibraryHeroCard extends StatelessWidget {
                       Icon(
                         Icons.history,
                         size: 14,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -679,7 +711,9 @@ class _LibraryHeroCard extends StatelessWidget {
                         ),
                         style: TextStyle(
                           fontSize: 12,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ],

@@ -9,6 +9,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class DownloadSettingsPage extends ConsumerStatefulWidget {
@@ -93,7 +94,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     final isBuiltInService = _builtInServices.contains(settings.defaultService);
     final isTidalService = settings.defaultService == 'tidal';
@@ -346,7 +347,22 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                         ref,
                         settings.folderOrganization,
                       ),
-                      showDivider: false,
+                    ),
+                  SettingsSwitchItem(
+                    icon: Icons.person_search_outlined,
+                    title: context.l10n.downloadUseAlbumArtistForFolders,
+                    subtitle: settings.useAlbumArtistForFolders
+                        ? context
+                              .l10n
+                              .downloadUseAlbumArtistForFoldersAlbumSubtitle
+                        : context
+                              .l10n
+                              .downloadUseAlbumArtistForFoldersTrackSubtitle,
+                    value: settings.useAlbumArtistForFolders,
+                    onChanged: (value) => ref
+                        .read(settingsProvider.notifier)
+                        .setUseAlbumArtistForFolders(value),
+                    showDivider: false,
                     ),
                 ],
               ),

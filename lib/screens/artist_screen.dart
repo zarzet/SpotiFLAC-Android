@@ -113,6 +113,37 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   List<ArtistAlbum> _singlesBucket = const [];
   List<ArtistAlbum> _compilationsBucket = const [];
 
+  double _responsiveScale({
+    double min = 0.82,
+    double max = 1.08,
+    double baseShortestSide = 390,
+  }) {
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final scale = shortestSide / baseShortestSide;
+    if (scale < min) return min;
+    if (scale > max) return max;
+    return scale;
+  }
+
+  double _effectiveTextScale() {
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    if (textScale < 1.0) return 1.0;
+    if (textScale > 1.4) return 1.4;
+    return textScale;
+  }
+
+  double _artistAlbumTileSize() {
+    final scale = _responsiveScale(min: 0.82, max: 1.05);
+    final textScale = _effectiveTextScale();
+    return 140 * scale * (1 + (textScale - 1) * 0.12);
+  }
+
+  double _artistAlbumSectionHeight() {
+    final tileSize = _artistAlbumTileSize();
+    final textScale = _effectiveTextScale();
+    return tileSize + 64 + ((textScale - 1) * 14);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1412,6 +1443,9 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     List<ArtistAlbum> albums,
     ColorScheme colorScheme,
   ) {
+    final sectionHeight = _artistAlbumSectionHeight();
+    final tileSize = _artistAlbumTileSize();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1425,7 +1459,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
           ),
         ),
         SizedBox(
-          height: 220,
+          height: sectionHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1434,7 +1468,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               final album = albums[index];
               return KeyedSubtree(
                 key: ValueKey(album.id),
-                child: _buildAlbumCard(album, colorScheme),
+                child: _buildAlbumCard(album, colorScheme, tileSize: tileSize, sectionHeight: sectionHeight),
               );
             },
           ),
@@ -1443,7 +1477,12 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     );
   }
 
-  Widget _buildAlbumCard(ArtistAlbum album, ColorScheme colorScheme) {
+  Widget _buildAlbumCard(
+    ArtistAlbum album,
+    ColorScheme colorScheme, {
+    required double tileSize,
+    required double sectionHeight,
+  }) {
     final isSelected = _selectedAlbumIds.contains(album.id);
 
     return GestureDetector(
@@ -1460,7 +1499,8 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         }
       },
       child: Container(
-        width: 140,
+        width: tileSize,
+        height: sectionHeight,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1472,19 +1512,19 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                   child: album.coverUrl != null
                       ? CachedNetworkImage(
                           imageUrl: album.coverUrl!,
-                          width: 140,
-                          height: 140,
+                          width: tileSize,
+                          height: tileSize,
                           fit: BoxFit.cover,
-                          memCacheWidth: 280,
+                          memCacheWidth: (tileSize * 2).round(),
                           cacheManager: CoverCacheManager.instance,
                           placeholder: (context, url) => Container(
-                            width: 140,
-                            height: 140,
+                            width: tileSize,
+                            height: tileSize,
                             color: colorScheme.surfaceContainerHighest,
                           ),
                           errorWidget: (context, url, error) => Container(
-                            width: 140,
-                            height: 140,
+                            width: tileSize,
+                            height: tileSize,
                             color: colorScheme.surfaceContainerHighest,
                             child: Icon(
                               Icons.album,
@@ -1494,8 +1534,8 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                           ),
                         )
                       : Container(
-                          width: 140,
-                          height: 140,
+                          width: tileSize,
+                          height: tileSize,
                           color: colorScheme.surfaceContainerHighest,
                           child: Icon(
                             Icons.album,
@@ -1553,26 +1593,36 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              album.name,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              album.totalTracks > 0
-                  ? '${album.releaseDate.length >= 4 ? album.releaseDate.substring(0, 4) : album.releaseDate} ${context.l10n.tracksCount(album.totalTracks)}'
-                  : album.releaseDate.length >= 4
-                  ? album.releaseDate.substring(0, 4)
-                  : album.releaseDate,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      album.name,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    album.totalTracks > 0
+                        ? '${album.releaseDate.length >= 4 ? album.releaseDate.substring(0, 4) : album.releaseDate} ${context.l10n.tracksCount(album.totalTracks)}'
+                        : album.releaseDate.length >= 4
+                        ? album.releaseDate.substring(0, 4)
+                        : album.releaseDate,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

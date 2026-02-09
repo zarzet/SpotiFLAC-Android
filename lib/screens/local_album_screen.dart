@@ -89,7 +89,9 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     _hasMultipleDiscsCache = _discGroupsCache.length > 1;
   }
 
-  Map<int, List<LocalLibraryItem>> _groupTracksByDisc(List<LocalLibraryItem> tracks) {
+  Map<int, List<LocalLibraryItem>> _groupTracksByDisc(
+    List<LocalLibraryItem> tracks,
+  ) {
     final discMap = <int, List<LocalLibraryItem>>{};
     for (final track in tracks) {
       final discNumber = track.discNumber ?? 1;
@@ -158,7 +160,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     if (confirmed == true && mounted) {
       final libraryNotifier = ref.read(localLibraryProvider.notifier);
       final idsToDelete = _selectedIds.toList();
-      
+
       int deletedCount = 0;
       for (final id in idsToDelete) {
         final item = currentTracks.where((e) => e.id == id).firstOrNull;
@@ -170,14 +172,16 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
           deletedCount++;
         }
       }
-      
+
       _exitSelectionMode();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.snackbarDeletedTracks(deletedCount))),
+          SnackBar(
+            content: Text(context.l10n.snackbarDeletedTracks(deletedCount)),
+          ),
         );
-        
+
         // Go back if all tracks were deleted
         if (deletedCount == currentTracks.length) {
           Navigator.pop(context);
@@ -192,7 +196,9 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.snackbarCannotOpenFile(e.toString()))),
+          SnackBar(
+            content: Text(context.l10n.snackbarCannotOpenFile(e.toString())),
+          ),
         );
       }
     }
@@ -203,19 +209,15 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final tracks = _sortedTracksCache;
-    
+
     // Show empty state if no tracks found
     if (tracks.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.albumName),
-        ),
-        body: const Center(
-          child: Text('No tracks found for this album'),
-        ),
+        appBar: AppBar(title: Text(widget.albumName)),
+        body: const Center(child: Text('No tracks found for this album')),
       );
     }
-    
+
     final validIds = tracks.map((t) => t.id).toSet();
     _selectedIds.removeWhere((id) => !validIds.contains(id));
     if (_selectedIds.isEmpty && _isSelectionMode) {
@@ -241,17 +243,24 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                 _buildInfoCard(context, colorScheme, tracks),
                 _buildTrackListHeader(context, colorScheme, tracks),
                 _buildTrackList(context, colorScheme, tracks),
-                SliverToBoxAdapter(child: SizedBox(height: _isSelectionMode ? 120 : 32)),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: _isSelectionMode ? 120 : 32),
+                ),
               ],
             ),
-            
+
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               left: 0,
               right: 0,
               bottom: _isSelectionMode ? 0 : -(200 + bottomPadding),
-              child: _buildSelectionBottomBar(context, colorScheme, tracks, bottomPadding),
+              child: _buildSelectionBottomBar(
+                context,
+                colorScheme,
+                tracks,
+                bottomPadding,
+              ),
             ),
           ],
         ),
@@ -260,11 +269,17 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final coverSize = screenWidth * 0.5;
-    
+    final mediaSize = MediaQuery.of(context).size;
+    final screenWidth = mediaSize.width;
+    final shortestSide = mediaSize.shortestSide;
+    final coverSize = (screenWidth * 0.5).clamp(140.0, 220.0);
+    final expandedHeight = (shortestSide * 0.82).clamp(280.0, 340.0);
+    final bottomGradientHeight = (shortestSide * 0.2).clamp(56.0, 80.0);
+    final coverTopPadding = (shortestSide * 0.14).clamp(40.0, 60.0);
+    final fallbackIconSize = (coverSize * 0.32).clamp(44.0, 64.0);
+
     return SliverAppBar(
-      expandedHeight: 320,
+      expandedHeight: expandedHeight,
       pinned: true,
       stretch: true,
       backgroundColor: colorScheme.surface,
@@ -285,9 +300,11 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
       ),
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
-          final collapseRatio = (constraints.maxHeight - kToolbarHeight) / (320 - kToolbarHeight);
+          final collapseRatio =
+              (constraints.maxHeight - kToolbarHeight) /
+              (expandedHeight - kToolbarHeight);
           final showContent = collapseRatio > 0.3;
-          
+
           return FlexibleSpaceBar(
             collapseMode: CollapseMode.none,
             background: Stack(
@@ -298,24 +315,33 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                   Image.file(
                     File(widget.coverPath!),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(color: colorScheme.surface),
+                    errorBuilder: (_, _, _) =>
+                        Container(color: colorScheme.surface),
                   )
                 else
                   Container(color: colorScheme.surface),
                 ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                    child: Container(color: colorScheme.surface.withValues(alpha: 0.4)),
+                    child: Container(
+                      color: colorScheme.surface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
                 Positioned(
-                  left: 0, right: 0, bottom: 0, height: 80,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: bottomGradientHeight,
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [colorScheme.surface.withValues(alpha: 0.0), colorScheme.surface],
+                        colors: [
+                          colorScheme.surface.withValues(alpha: 0.0),
+                          colorScheme.surface,
+                        ],
                       ),
                     ),
                   ),
@@ -326,7 +352,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                   opacity: showContent ? 1.0 : 0.0,
                   child: Center(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 60),
+                      padding: EdgeInsets.only(top: coverTopPadding),
                       child: Container(
                         width: coverSize,
                         height: coverSize,
@@ -349,13 +375,22 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                                   cacheWidth: (coverSize * 2).toInt(),
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(
-                                        color: colorScheme.surfaceContainerHighest,
-                                        child: Icon(Icons.album, size: 64, color: colorScheme.onSurfaceVariant),
+                                        color:
+                                            colorScheme.surfaceContainerHighest,
+                                        child: Icon(
+                                          Icons.album,
+                                          size: fallbackIconSize,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
                                 )
                               : Container(
                                   color: colorScheme.surfaceContainerHighest,
-                                  child: Icon(Icons.album, size: 64, color: colorScheme.onSurfaceVariant),
+                                  child: Icon(
+                                    Icons.album,
+                                    size: fallbackIconSize,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                         ),
                       ),
@@ -364,14 +399,20 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                 ),
               ],
             ),
-            stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+            stretchModes: const [
+              StretchMode.zoomBackground,
+              StretchMode.blurBackground,
+            ],
           );
         },
       ),
       leading: IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: colorScheme.surface.withValues(alpha: 0.8), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withValues(alpha: 0.8),
+            shape: BoxShape.circle,
+          ),
           child: Icon(Icons.arrow_back, color: colorScheme.onSurface),
         ),
         onPressed: () => Navigator.pop(context),
@@ -379,14 +420,20 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     );
   }
 
-  Widget _buildInfoCard(BuildContext context, ColorScheme colorScheme, List<LocalLibraryItem> tracks) {
+  Widget _buildInfoCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<LocalLibraryItem> tracks,
+  ) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Card(
           elevation: 0,
           color: colorScheme.surfaceContainerLow,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -394,40 +441,79 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
               children: [
                 Text(
                   widget.albumName,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.artistName,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     // "Local" badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: colorScheme.tertiaryContainer, borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.folder, size: 14, color: colorScheme.onTertiaryContainer),
+                          Icon(
+                            Icons.folder,
+                            size: 14,
+                            color: colorScheme.onTertiaryContainer,
+                          ),
                           const SizedBox(width: 4),
-                          Text('Local', style: TextStyle(color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.w600, fontSize: 12)),
+                          Text(
+                            'Local',
+                            style: TextStyle(
+                              color: colorScheme.onTertiaryContainer,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     // Track count
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.music_note, size: 14, color: colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.music_note,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
-                          Text('${tracks.length} tracks', style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 12)),
+                          Text(
+                            '${tracks.length} tracks',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -435,18 +521,21 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                     // Quality badge if all tracks have the same quality
                     if (_getCommonQuality(tracks) != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: _getCommonQuality(tracks)!.contains('24') 
-                              ? colorScheme.primaryContainer 
+                          color: _getCommonQuality(tracks)!.contains('24')
+                              ? colorScheme.primaryContainer
                               : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           _getCommonQuality(tracks)!,
                           style: TextStyle(
-                            color: _getCommonQuality(tracks)!.contains('24') 
-                                ? colorScheme.onPrimaryContainer 
+                            color: _getCommonQuality(tracks)!.contains('24')
+                                ? colorScheme.onPrimaryContainer
                                 : colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
@@ -467,17 +556,23 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     if (tracks.isEmpty) return null;
     final first = tracks.first;
     if (first.bitDepth == null || first.sampleRate == null) return null;
-    
-    final firstQuality = '${first.bitDepth}/${(first.sampleRate! / 1000).round()}kHz';
+
+    final firstQuality =
+        '${first.bitDepth}/${(first.sampleRate! / 1000).round()}kHz';
     for (final track in tracks) {
-      if (track.bitDepth != first.bitDepth || track.sampleRate != first.sampleRate) {
+      if (track.bitDepth != first.bitDepth ||
+          track.sampleRate != first.sampleRate) {
         return null;
       }
     }
     return firstQuality;
   }
 
-  Widget _buildTrackListHeader(BuildContext context, ColorScheme colorScheme, List<LocalLibraryItem> tracks) {
+  Widget _buildTrackListHeader(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<LocalLibraryItem> tracks,
+  ) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -485,14 +580,24 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
           children: [
             Icon(Icons.queue_music, size: 20, color: colorScheme.primary),
             const SizedBox(width: 8),
-            Text(context.l10n.downloadedAlbumTracksHeader, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+            Text(
+              context.l10n.downloadedAlbumTracksHeader,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
             const Spacer(),
             if (!_isSelectionMode)
               TextButton.icon(
-                onPressed: tracks.isNotEmpty ? () => _enterSelectionMode(tracks.first.id) : null,
+                onPressed: tracks.isNotEmpty
+                    ? () => _enterSelectionMode(tracks.first.id)
+                    : null,
                 icon: const Icon(Icons.checklist, size: 18),
                 label: Text(context.l10n.actionSelect),
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
           ],
         ),
@@ -500,15 +605,19 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     );
   }
 
-  Widget _buildTrackList(BuildContext context, ColorScheme colorScheme, List<LocalLibraryItem> tracks) {
+  Widget _buildTrackList(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<LocalLibraryItem> tracks,
+  ) {
     final discGroups = _discGroupsCache;
     final hasMultipleDiscs = _hasMultipleDiscsCache;
-    
+
     final slivers = <Widget>[];
-    
+
     for (final discNumber in _sortedDiscNumbersCache) {
       final discTracks = discGroups[discNumber]!;
-      
+
       if (hasMultipleDiscs) {
         slivers.add(
           SliverToBoxAdapter(
@@ -517,7 +626,10 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(16),
@@ -525,14 +637,19 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.album, size: 16, color: colorScheme.onSecondaryContainer),
+                        Icon(
+                          Icons.album,
+                          size: 16,
+                          color: colorScheme.onSecondaryContainer,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           context.l10n.downloadedAlbumDiscHeader(discNumber),
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: colorScheme.onSecondaryContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: colorScheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
@@ -550,35 +667,46 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
           ),
         );
       }
-      
+
       slivers.add(
         SliverList(
           delegate: SliverChildBuilderDelegate(
-            (context, index) => _buildTrackItem(context, colorScheme, discTracks[index]),
+            (context, index) =>
+                _buildTrackItem(context, colorScheme, discTracks[index]),
             childCount: discTracks.length,
           ),
         ),
       );
     }
-    
+
     return SliverMainAxisGroup(slivers: slivers);
   }
 
-  Widget _buildTrackItem(BuildContext context, ColorScheme colorScheme, LocalLibraryItem track) {
+  Widget _buildTrackItem(
+    BuildContext context,
+    ColorScheme colorScheme,
+    LocalLibraryItem track,
+  ) {
     final isSelected = _selectedIds.contains(track.id);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Card(
         elevation: 0,
-        color: isSelected ? colorScheme.primaryContainer.withValues(alpha: 0.3) : Colors.transparent,
+        color: isSelected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+            : Colors.transparent,
         margin: const EdgeInsets.symmetric(vertical: 2),
         child: ListTile(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          onTap: _isSelectionMode 
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          onTap: _isSelectionMode
               ? () => _toggleSelection(track.id)
               : () => _openFile(track.filePath),
-          onLongPress: _isSelectionMode ? null : () => _enterSelectionMode(track.id),
+          onLongPress: _isSelectionMode
+              ? null
+              : () => _enterSelectionMode(track.id),
           leading: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -587,12 +715,23 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: isSelected ? colorScheme.primary : Colors.transparent,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : Colors.transparent,
                     shape: BoxShape.circle,
-                    border: Border.all(color: isSelected ? colorScheme.primary : colorScheme.outline, width: 2),
+                    border: Border.all(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.outline,
+                      width: 2,
+                    ),
                   ),
-                  child: isSelected 
-                      ? Icon(Icons.check, color: colorScheme.onPrimary, size: 16)
+                  child: isSelected
+                      ? Icon(
+                          Icons.check,
+                          color: colorScheme.onPrimary,
+                          size: 16,
+                        )
                       : null,
                 ),
                 const SizedBox(width: 12),
@@ -614,7 +753,9 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
             track.trackName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
           ),
           subtitle: Row(
             children: [
@@ -627,27 +768,45 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                 ),
               ),
               if (track.format != null) ...[
-                Text(' • ', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                Text(
+                  ' • ',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
                 Text(
                   track.format!.toUpperCase(),
-                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ],
           ),
-          trailing: _isSelectionMode ? null : IconButton(
-            onPressed: () => _openFile(track.filePath),
-            icon: Icon(Icons.play_arrow, color: colorScheme.primary),
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
-            ),
-          ),
+          trailing: _isSelectionMode
+              ? null
+              : IconButton(
+                  onPressed: () => _openFile(track.filePath),
+                  icon: Icon(Icons.play_arrow, color: colorScheme.primary),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colorScheme.primaryContainer.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+                ),
         ),
       ),
     );
   }
 
-  Widget _buildSelectionBottomBar(BuildContext context, ColorScheme colorScheme, List<LocalLibraryItem> tracks, double bottomPadding) {
+  Widget _buildSelectionBottomBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<LocalLibraryItem> tracks,
+    double bottomPadding,
+  ) {
     final selectedCount = _selectedIds.length;
     final allSelected = selectedCount == tracks.length && tracks.isNotEmpty;
 
@@ -694,12 +853,18 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.l10n.downloadedAlbumSelectedCount(selectedCount),
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          context.l10n.downloadedAlbumSelectedCount(
+                            selectedCount,
+                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          allSelected ? context.l10n.downloadedAlbumAllSelected : context.l10n.downloadedAlbumTapToSelect,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                          allSelected
+                              ? context.l10n.downloadedAlbumAllSelected
+                              : context.l10n.downloadedAlbumTapToSelect,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -712,9 +877,18 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
                         _selectAll(tracks);
                       }
                     },
-                    icon: Icon(allSelected ? Icons.deselect : Icons.select_all, size: 20),
-                    label: Text(allSelected ? context.l10n.actionDeselect : context.l10n.actionSelectAll),
-                    style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+                    icon: Icon(
+                      allSelected ? Icons.deselect : Icons.select_all,
+                      size: 20,
+                    ),
+                    label: Text(
+                      allSelected
+                          ? context.l10n.actionDeselect
+                          : context.l10n.actionSelectAll,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -722,18 +896,26 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: selectedCount > 0 ? () => _deleteSelected(tracks) : null,
+                  onPressed: selectedCount > 0
+                      ? () => _deleteSelected(tracks)
+                      : null,
                   icon: const Icon(Icons.delete_outline),
                   label: Text(
-                    selectedCount > 0 
+                    selectedCount > 0
                         ? context.l10n.downloadedAlbumDeleteCount(selectedCount)
                         : context.l10n.downloadedAlbumSelectToDelete,
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: selectedCount > 0 ? colorScheme.error : colorScheme.surfaceContainerHighest,
-                    foregroundColor: selectedCount > 0 ? colorScheme.onError : colorScheme.onSurfaceVariant,
+                    backgroundColor: selectedCount > 0
+                        ? colorScheme.error
+                        : colorScheme.surfaceContainerHighest,
+                    foregroundColor: selectedCount > 0
+                        ? colorScheme.onError
+                        : colorScheme.onSurfaceVariant,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ),

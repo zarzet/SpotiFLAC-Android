@@ -390,7 +390,9 @@ class _MainShellState extends ConsumerState<MainShell> {
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          physics: const ClampingScrollPhysics(),
+          physics: (_currentIndex == 0 && trackIsShowingRecentAccess)
+              ? const _NoSwipeRightPhysics()
+              : const ClampingScrollPhysics(),
           children: tabs,
         ),
         bottomNavigationBar: NavigationBar(
@@ -410,6 +412,26 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       ),
     );
+  }
+}
+
+/// Custom physics that blocks swiping to the right (next page) while
+/// still allowing vertical scrolling inside the page content.
+class _NoSwipeRightPhysics extends ScrollPhysics {
+  const _NoSwipeRightPhysics({super.parent});
+
+  @override
+  _NoSwipeRightPhysics applyTo(ScrollPhysics? ancestor) {
+    return _NoSwipeRightPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    // In a horizontal PageView, a negative offset means the user is
+    // dragging left (i.e. trying to go to the next page / right).
+    // Block that direction only.
+    if (offset < 0) return 0.0;
+    return super.applyPhysicsToUserOffset(position, offset);
   }
 }
 

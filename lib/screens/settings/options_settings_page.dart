@@ -5,6 +5,7 @@ import 'package:spotiflac_android/models/settings.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
+import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class OptionsSettingsPage extends ConsumerWidget {
@@ -16,7 +17,7 @@ class OptionsSettingsPage extends ConsumerWidget {
     final extensionState = ref.watch(extensionProvider);
     final hasExtensions = extensionState.extensions.isNotEmpty;
     final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = normalizedHeaderTopPadding(context);
 
     return PopScope(
       canPop: true, // Always allow back gesture
@@ -952,6 +953,27 @@ class _MetadataSourceSelector extends ConsumerWidget {
                     context.l10n.optionsSwitchBack,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (currentSource == 'spotify' && !hasExtensionSearch) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: colorScheme.error,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.l10n.optionsSpotifyDeprecationWarning,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
                     ),
                   ),
                 ),

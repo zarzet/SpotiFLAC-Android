@@ -344,6 +344,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Spotify requires your own API credentials. Get them free from developer.spotify.com';
 
   @override
+  String get optionsSpotifyDeprecationWarning =>
+      'Spotify search will be deprecated on March 3, 2026 due to Spotify API changes. Please switch to Deezer.';
+
+  @override
   String get extensionsTitle => 'Extensions';
 
   @override
@@ -1927,6 +1931,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAlbumFolderStructure => 'Album Folder Structure';
 
   @override
+  String get downloadUseAlbumArtistForFolders => 'Use Album Artist for folders';
+
+  @override
+  String get downloadUseAlbumArtistForFoldersAlbumSubtitle =>
+      'Artist folders use Album Artist when available';
+
+  @override
+  String get downloadUseAlbumArtistForFoldersTrackSubtitle =>
+      'Artist folders use Track Artist only';
+
+  @override
   String get downloadSaveFormat => 'Save Format';
 
   @override
@@ -2162,6 +2177,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recentTypePlaylist => 'Playlist';
 
   @override
+  String get recentEmpty => 'No recent items yet';
+
+  @override
+  String get recentShowAllDownloads => 'Show All Downloads';
+
+  @override
   String recentPlaylistInfo(String name) {
     return 'Playlist: $name';
   }
@@ -2266,6 +2287,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsLocalLibrarySubtitle => 'Scan music & detect duplicates';
+
+  @override
+  String get settingsCache => 'Storage & Cache';
+
+  @override
+  String get settingsCacheSubtitle => 'View size and clear cached data';
 
   @override
   String get libraryTitle => 'Local Library';
@@ -2679,4 +2706,127 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cleanupOrphanedDownloadsNone => 'No orphaned entries found';
+
+  @override
+  String get cacheTitle => 'Storage & Cache';
+
+  @override
+  String get cacheSummaryTitle => 'Cache overview';
+
+  @override
+  String get cacheSummarySubtitle =>
+      'Clearing cache will not remove downloaded music files.';
+
+  @override
+  String cacheEstimatedTotal(String size) {
+    return 'Estimated cache usage: $size';
+  }
+
+  @override
+  String get cacheSectionStorage => 'Cached Data';
+
+  @override
+  String get cacheSectionMaintenance => 'Maintenance';
+
+  @override
+  String get cacheAppDirectory => 'App cache directory';
+
+  @override
+  String get cacheAppDirectoryDesc =>
+      'HTTP responses, WebView data, and other temporary app data.';
+
+  @override
+  String get cacheTempDirectory => 'Temporary directory';
+
+  @override
+  String get cacheTempDirectoryDesc =>
+      'Temporary files from downloads and audio conversion.';
+
+  @override
+  String get cacheCoverImage => 'Cover image cache';
+
+  @override
+  String get cacheCoverImageDesc =>
+      'Downloaded album and track cover art. Will re-download when viewed.';
+
+  @override
+  String get cacheLibraryCover => 'Library cover cache';
+
+  @override
+  String get cacheLibraryCoverDesc =>
+      'Cover art extracted from local music files. Will re-extract on next scan.';
+
+  @override
+  String get cacheExploreFeed => 'Explore feed cache';
+
+  @override
+  String get cacheExploreFeedDesc =>
+      'Explore tab content (new releases, trending). Will refresh on next visit.';
+
+  @override
+  String get cacheTrackLookup => 'Track lookup cache';
+
+  @override
+  String get cacheTrackLookupDesc =>
+      'Spotify/Deezer track ID lookups. Clearing may slow next few searches.';
+
+  @override
+  String get cacheCleanupUnusedDesc =>
+      'Remove orphaned download history and library entries for missing files.';
+
+  @override
+  String get cacheNoData => 'No cached data';
+
+  @override
+  String cacheSizeWithFiles(String size, int count) {
+    return '$size in $count files';
+  }
+
+  @override
+  String cacheSizeOnly(String size) {
+    return '$size';
+  }
+
+  @override
+  String cacheEntries(int count) {
+    return '$count entries';
+  }
+
+  @override
+  String cacheClearSuccess(String target) {
+    return 'Cleared: $target';
+  }
+
+  @override
+  String get cacheClearConfirmTitle => 'Clear cache?';
+
+  @override
+  String cacheClearConfirmMessage(String target) {
+    return 'This will clear cached data for $target. Downloaded music files will not be deleted.';
+  }
+
+  @override
+  String get cacheClearAllConfirmTitle => 'Clear all cache?';
+
+  @override
+  String get cacheClearAllConfirmMessage =>
+      'This will clear all cache categories on this page. Downloaded music files will not be deleted.';
+
+  @override
+  String get cacheClearAll => 'Clear all cache';
+
+  @override
+  String get cacheCleanupUnused => 'Cleanup unused data';
+
+  @override
+  String get cacheCleanupUnusedSubtitle =>
+      'Remove orphaned download history and missing library entries';
+
+  @override
+  String cacheCleanupResult(int downloadCount, int libraryCount) {
+    return 'Cleanup completed: $downloadCount orphaned downloads, $libraryCount missing library entries';
+  }
+
+  @override
+  String get cacheRefreshStats => 'Refresh stats';
 }

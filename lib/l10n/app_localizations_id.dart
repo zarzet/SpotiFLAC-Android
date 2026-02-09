@@ -348,6 +348,10 @@ class AppLocalizationsId extends AppLocalizations {
       'Spotify memerlukan kredensial API Anda sendiri. Dapatkan gratis dari developer.spotify.com';
 
   @override
+  String get optionsSpotifyDeprecationWarning =>
+      'Pencarian Spotify akan dihentikan pada 3 Maret 2026 karena perubahan API Spotify. Silakan beralih ke Deezer.';
+
+  @override
   String get extensionsTitle => 'Ekstensi';
 
   @override
@@ -1939,6 +1943,18 @@ class AppLocalizationsId extends AppLocalizations {
   String get downloadAlbumFolderStructure => 'Struktur Folder Album';
 
   @override
+  String get downloadUseAlbumArtistForFolders =>
+      'Gunakan Album Artist untuk folder';
+
+  @override
+  String get downloadUseAlbumArtistForFoldersAlbumSubtitle =>
+      'Folder artis memakai Album Artist jika tersedia';
+
+  @override
+  String get downloadUseAlbumArtistForFoldersTrackSubtitle =>
+      'Folder artis hanya memakai Track Artist';
+
+  @override
   String get downloadSaveFormat => 'Simpan Format';
 
   @override
@@ -2175,6 +2191,12 @@ class AppLocalizationsId extends AppLocalizations {
   String get recentTypePlaylist => 'Playlist';
 
   @override
+  String get recentEmpty => 'Belum ada item terbaru';
+
+  @override
+  String get recentShowAllDownloads => 'Tampilkan Semua Download';
+
+  @override
   String recentPlaylistInfo(String name) {
     return 'Playlist: $name';
   }
@@ -2279,6 +2301,12 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get settingsLocalLibrarySubtitle => 'Scan music & detect duplicates';
+
+  @override
+  String get settingsCache => 'Penyimpanan & Cache';
+
+  @override
+  String get settingsCacheSubtitle => 'Lihat ukuran dan bersihkan data cache';
 
   @override
   String get libraryTitle => 'Local Library';
@@ -2694,4 +2722,127 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get cleanupOrphanedDownloadsNone =>
       'Tidak ada entri unduhan tidak valid';
+
+  @override
+  String get cacheTitle => 'Penyimpanan & Cache';
+
+  @override
+  String get cacheSummaryTitle => 'Ringkasan cache';
+
+  @override
+  String get cacheSummarySubtitle =>
+      'Membersihkan cache tidak akan menghapus file musik yang sudah diunduh.';
+
+  @override
+  String cacheEstimatedTotal(String size) {
+    return 'Estimasi penggunaan cache: $size';
+  }
+
+  @override
+  String get cacheSectionStorage => 'Data Cache';
+
+  @override
+  String get cacheSectionMaintenance => 'Perawatan';
+
+  @override
+  String get cacheAppDirectory => 'Direktori cache aplikasi';
+
+  @override
+  String get cacheAppDirectoryDesc =>
+      'Respons HTTP, data WebView, dan data sementara aplikasi.';
+
+  @override
+  String get cacheTempDirectory => 'Direktori sementara';
+
+  @override
+  String get cacheTempDirectoryDesc =>
+      'File sementara dari proses download dan konversi audio.';
+
+  @override
+  String get cacheCoverImage => 'Cache gambar cover';
+
+  @override
+  String get cacheCoverImageDesc =>
+      'Gambar cover album dan lagu yang diunduh. Akan diunduh ulang saat dilihat.';
+
+  @override
+  String get cacheLibraryCover => 'Cache cover library';
+
+  @override
+  String get cacheLibraryCoverDesc =>
+      'Cover dari file musik lokal. Akan diekstrak ulang saat scan berikutnya.';
+
+  @override
+  String get cacheExploreFeed => 'Cache feed Explore';
+
+  @override
+  String get cacheExploreFeedDesc =>
+      'Konten tab Explore (rilis baru, trending). Akan dimuat ulang saat dikunjungi.';
+
+  @override
+  String get cacheTrackLookup => 'Cache pencocokan lagu';
+
+  @override
+  String get cacheTrackLookupDesc =>
+      'Cache pencarian ID lagu Spotify/Deezer. Menghapus mungkin memperlambat beberapa pencarian.';
+
+  @override
+  String get cacheCleanupUnusedDesc =>
+      'Hapus entri riwayat download dan library yang filenya sudah tidak ada.';
+
+  @override
+  String get cacheNoData => 'Tidak ada data cache';
+
+  @override
+  String cacheSizeWithFiles(String size, int count) {
+    return '$size dalam $count file';
+  }
+
+  @override
+  String cacheSizeOnly(String size) {
+    return '$size';
+  }
+
+  @override
+  String cacheEntries(int count) {
+    return '$count entri';
+  }
+
+  @override
+  String cacheClearSuccess(String target) {
+    return 'Berhasil dibersihkan: $target';
+  }
+
+  @override
+  String get cacheClearConfirmTitle => 'Bersihkan cache?';
+
+  @override
+  String cacheClearConfirmMessage(String target) {
+    return 'Ini akan membersihkan data cache untuk $target. File musik yang sudah diunduh tidak akan dihapus.';
+  }
+
+  @override
+  String get cacheClearAllConfirmTitle => 'Bersihkan semua cache?';
+
+  @override
+  String get cacheClearAllConfirmMessage =>
+      'Ini akan membersihkan semua kategori cache di halaman ini. File musik yang sudah diunduh tidak akan dihapus.';
+
+  @override
+  String get cacheClearAll => 'Bersihkan semua cache';
+
+  @override
+  String get cacheCleanupUnused => 'Bersihkan data tidak terpakai';
+
+  @override
+  String get cacheCleanupUnusedSubtitle =>
+      'Hapus riwayat unduhan yatim dan entri library yang file-nya hilang';
+
+  @override
+  String cacheCleanupResult(int downloadCount, int libraryCount) {
+    return 'Pembersihan selesai: $downloadCount unduhan yatim, $libraryCount entri library hilang';
+  }
+
+  @override
+  String get cacheRefreshStats => 'Segarkan statistik';
 }
