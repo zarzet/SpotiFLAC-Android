@@ -565,6 +565,13 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     double coverSize,
     bool showContent,
   ) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final backgroundCacheWidth = (screenSize.width * pixelRatio).round();
+    final backgroundCacheHeight = (screenSize.height * 0.65 * pixelRatio)
+        .round();
+    final coverCacheSize = (coverSize * pixelRatio).round();
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -573,12 +580,16 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           Image.file(
             File(_embeddedCoverPreviewPath!),
             fit: BoxFit.cover,
+            cacheWidth: backgroundCacheWidth,
+            cacheHeight: backgroundCacheHeight,
             errorBuilder: (_, _, _) => Container(color: colorScheme.surface),
           )
         else if (_coverUrl != null)
           CachedNetworkImage(
             imageUrl: _coverUrl!,
             fit: BoxFit.cover,
+            memCacheWidth: backgroundCacheWidth,
+            memCacheHeight: backgroundCacheHeight,
             cacheManager: CoverCacheManager.instance,
             placeholder: (_, _) => Container(color: colorScheme.surface),
             errorWidget: (_, _, _) => Container(color: colorScheme.surface),
@@ -587,6 +598,8 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           Image.file(
             File(_localCoverPath!),
             fit: BoxFit.cover,
+            cacheWidth: backgroundCacheWidth,
+            cacheHeight: backgroundCacheHeight,
             errorBuilder: (_, _, _) => Container(color: colorScheme.surface),
           )
         else
@@ -648,6 +661,8 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                         ? Image.file(
                             File(_embeddedCoverPreviewPath!),
                             fit: BoxFit.cover,
+                            cacheWidth: coverCacheSize,
+                            cacheHeight: coverCacheSize,
                             errorBuilder: (_, _, _) => Container(
                               color: colorScheme.surfaceContainerHighest,
                               child: Icon(
@@ -673,7 +688,12 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                             ),
                           )
                         : _localCoverPath != null && _localCoverPath!.isNotEmpty
-                        ? Image.file(File(_localCoverPath!), fit: BoxFit.cover)
+                        ? Image.file(
+                            File(_localCoverPath!),
+                            fit: BoxFit.cover,
+                            cacheWidth: coverCacheSize,
+                            cacheHeight: coverCacheSize,
+                          )
                         : Container(
                             color: colorScheme.surfaceContainerHighest,
                             child: Icon(

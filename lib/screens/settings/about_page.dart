@@ -384,6 +384,8 @@ class _ContributorItem extends StatelessWidget {
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,
+                    memCacheWidth: 120,
+                    memCacheHeight: 120,
                     cacheManager: CoverCacheManager.instance,
                     placeholder: (context, url) => Container(
                       width: 40,

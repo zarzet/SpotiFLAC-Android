@@ -119,10 +119,15 @@ class LogBuffer extends ChangeNotifier {
       final result = await PlatformBridge.getGoLogsSince(_lastGoLogIndex);
       final logs = result['logs'] as List<dynamic>? ?? [];
       final nextIndex = result['next_index'] as int? ?? _lastGoLogIndex;
+      final keepNonErrorLogs = _loggingEnabled;
 
       for (final log in logs) {
-        final timestamp = log['timestamp'] as String? ?? '';
         final level = log['level'] as String? ?? 'INFO';
+        if (!keepNonErrorLogs && level != 'ERROR' && level != 'FATAL') {
+          continue;
+        }
+
+        final timestamp = log['timestamp'] as String? ?? '';
         final tag = log['tag'] as String? ?? 'Go';
         final message = log['message'] as String? ?? '';
 
@@ -372,6 +377,10 @@ class AppLogger {
   }
 
   void _addToBuffer(String level, String message, {String? error}) {
+    if (!LogBuffer.loggingEnabled && level != 'ERROR' && level != 'FATAL') {
+      return;
+    }
+
     LogBuffer().add(
       LogEntry(
         timestamp: DateTime.now(),

@@ -181,6 +181,13 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
               (constraints.maxHeight - kToolbarHeight) /
               (expandedHeight - kToolbarHeight);
           final showContent = collapseRatio > 0.3;
+          final dpr = MediaQuery.devicePixelRatioOf(
+            context,
+          ).clamp(1.0, 3.0).toDouble();
+          final backgroundMemCacheWidth = (constraints.maxWidth * dpr)
+              .round()
+              .clamp(720, 1440)
+              .toInt();
 
           return FlexibleSpaceBar(
             collapseMode: CollapseMode.none,
@@ -192,6 +199,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                   CachedNetworkImage(
                     imageUrl: widget.coverUrl!,
                     fit: BoxFit.cover,
+                    memCacheWidth: backgroundMemCacheWidth,
                     cacheManager: CoverCacheManager.instance,
                     placeholder: (_, _) =>
                         Container(color: colorScheme.surface),

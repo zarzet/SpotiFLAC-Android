@@ -26,7 +26,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (widget.query.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final settings = ref.read(settingsProvider);
-        ref.read(trackProvider.notifier).search(widget.query, metadataSource: settings.metadataSource);
+        ref
+            .read(trackProvider.notifier)
+            .search(widget.query, metadataSource: settings.metadataSource);
       });
     }
   }
@@ -41,19 +43,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final query = _searchController.text.trim();
     if (query.isNotEmpty) {
       final settings = ref.read(settingsProvider);
-      ref.read(trackProvider.notifier).search(query, metadataSource: settings.metadataSource);
+      ref
+          .read(trackProvider.notifier)
+          .search(query, metadataSource: settings.metadataSource);
     }
   }
 
   void _downloadTrack(Track track) {
     final settings = ref.read(settingsProvider);
-    ref.read(downloadQueueProvider.notifier).addToQueue(
-      track,
-      settings.defaultService,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added "${track.name}" to queue')),
-    );
+    ref
+        .read(downloadQueueProvider.notifier)
+        .addToQueue(track, settings.defaultService);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Added "${track.name}" to queue')));
   }
 
   @override
@@ -78,10 +81,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           autofocus: widget.query.isEmpty,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: _search,
-          ),
+          IconButton(icon: const Icon(Icons.search), onPressed: _search),
         ],
       ),
       body: Column(
@@ -92,7 +92,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                trackState.error!, 
+                trackState.error!,
                 style: TextStyle(color: colorScheme.error),
               ),
             ),
@@ -115,11 +115,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search, 
-            size: 64, 
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(Icons.search, size: 64, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             'Search for tracks',
@@ -137,11 +133,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       leading: track.coverUrl != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(8),
-child: CachedNetworkImage(
+              child: CachedNetworkImage(
                 imageUrl: track.coverUrl!,
                 width: 48,
                 height: 48,
                 fit: BoxFit.cover,
+                memCacheWidth: 144,
+                memCacheHeight: 144,
                 cacheManager: CoverCacheManager.instance,
               ),
             )
@@ -152,15 +150,18 @@ child: CachedNetworkImage(
                 color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.music_note, color: colorScheme.onSurfaceVariant),
+              child: Icon(
+                Icons.music_note,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
       title: Text(track.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            track.artistName, 
-            maxLines: 1, 
+            track.artistName,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),

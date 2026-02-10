@@ -11,10 +11,19 @@ import 'package:spotiflac_android/services/cover_cache_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureImageCache();
 
   runApp(
     ProviderScope(child: const _EagerInitialization(child: SpotiFLACApp())),
   );
+}
+
+void _configureImageCache() {
+  final imageCache = PaintingBinding.instance.imageCache;
+  // Keep memory cache bounded so cover-heavy pages don't retain too many
+  // full-resolution images simultaneously.
+  imageCache.maximumSize = 240;
+  imageCache.maximumSizeBytes = 60 << 20; // 60 MiB
 }
 
 /// Widget to eagerly initialize providers that need to load data on startup

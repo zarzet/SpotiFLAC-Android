@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
+import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.dart';
 
 /// Screen to display downloaded tracks from a specific album
 class DownloadedAlbumScreen extends ConsumerStatefulWidget {
@@ -191,10 +193,21 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     }
   }
 
-  void _navigateToMetadataScreen(DownloadHistoryItem item) {
+  void _onEmbeddedCoverChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _navigateToMetadataScreen(DownloadHistoryItem item) async {
+    final navigator = Navigator.of(context);
     _precacheCover(item.coverUrl);
-    Navigator.push(
-      context,
+    final beforeModTime =
+        await DownloadedEmbeddedCoverResolver.readFileModTimeMillis(
+          item.filePath,
+        );
+    if (!mounted) return;
+
+    final result = await navigator.push(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 250),
@@ -204,6 +217,12 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
             FadeTransition(opacity: animation, child: child),
       ),
     );
+    await DownloadedEmbeddedCoverResolver.scheduleRefreshForPath(
+      item.filePath,
+      beforeModTime: beforeModTime,
+      force: result == true,
+      onChanged: _onEmbeddedCoverChanged,
+    );
   }
 
   void _precacheCover(String? url) {
@@ -211,8 +230,19 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return;
     }
+    final dpr = MediaQuery.devicePixelRatioOf(
+      context,
+    ).clamp(1.0, 3.0).toDouble();
+    final targetSize = (360 * dpr).round().clamp(512, 1024).toInt();
     precacheImage(
-      CachedNetworkImageProvider(url, cacheManager: CoverCacheManager.instance),
+      ResizeImage(
+        CachedNetworkImageProvider(
+          url,
+          cacheManager: CoverCacheManager.instance,
+        ),
+        width: targetSize,
+        height: targetSize,
+      ),
       context,
     );
   }
@@ -256,7 +286,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
             CustomScrollView(
               controller: _scrollController,
               slivers: [
-                _buildAppBar(context, colorScheme),
+                _buildAppBar(context, colorScheme, tracks),
                 _buildInfoCard(context, colorScheme, tracks),
                 _buildTrackListHeader(context, colorScheme, tracks),
                 _buildTrackList(context, colorScheme, tracks),
@@ -285,7 +315,19 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+  String? _resolveAlbumEmbeddedCoverPath(List<DownloadHistoryItem> tracks) {
+    if (tracks.isEmpty) return null;
+    return DownloadedEmbeddedCoverResolver.resolve(
+      tracks.first.filePath,
+      onChanged: _onEmbeddedCoverChanged,
+    );
+  }
+
+  Widget _buildAppBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<DownloadHistoryItem> tracks,
+  ) {
     final mediaSize = MediaQuery.of(context).size;
     final screenWidth = mediaSize.width;
     final shortestSide = mediaSize.shortestSide;
@@ -294,6 +336,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     final bottomGradientHeight = (shortestSide * 0.2).clamp(56.0, 80.0);
     final coverTopPadding = (shortestSide * 0.14).clamp(40.0, 60.0);
     final fallbackIconSize = (coverSize * 0.32).clamp(44.0, 64.0);
+    final embeddedCoverPath = _resolveAlbumEmbeddedCoverPath(tracks);
 
     return SliverAppBar(
       expandedHeight: expandedHeight,
@@ -322,6 +365,13 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
               (constraints.maxHeight - kToolbarHeight) /
               (expandedHeight - kToolbarHeight);
           final showContent = collapseRatio > 0.3;
+          final dpr = MediaQuery.devicePixelRatioOf(
+            context,
+          ).clamp(1.0, 3.0).toDouble();
+          final backgroundMemCacheWidth = (constraints.maxWidth * dpr)
+              .round()
+              .clamp(720, 1440)
+              .toInt();
 
           return FlexibleSpaceBar(
             collapseMode: CollapseMode.none,
@@ -329,10 +379,19 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
               fit: StackFit.expand,
               children: [
                 // Blurred cover background
-                if (widget.coverUrl != null)
+                if (embeddedCoverPath != null)
+                  Image.file(
+                    File(embeddedCoverPath),
+                    fit: BoxFit.cover,
+                    cacheWidth: backgroundMemCacheWidth,
+                    errorBuilder: (_, _, _) =>
+                        Container(color: colorScheme.surface),
+                  )
+                else if (widget.coverUrl != null)
                   CachedNetworkImage(
                     imageUrl: widget.coverUrl!,
                     fit: BoxFit.cover,
+                    memCacheWidth: backgroundMemCacheWidth,
                     cacheManager: CoverCacheManager.instance,
                     placeholder: (_, _) =>
                         Container(color: colorScheme.surface),
@@ -389,7 +448,22 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
-                          child: widget.coverUrl != null
+                          child: embeddedCoverPath != null
+                              ? Image.file(
+                                  File(embeddedCoverPath),
+                                  fit: BoxFit.cover,
+                                  cacheWidth: (coverSize * 2).toInt(),
+                                  cacheHeight: (coverSize * 2).toInt(),
+                                  errorBuilder: (_, _, _) => Container(
+                                    color: colorScheme.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.album,
+                                      size: fallbackIconSize,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              : widget.coverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: widget.coverUrl!,
                                   fit: BoxFit.cover,

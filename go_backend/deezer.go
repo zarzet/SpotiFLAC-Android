@@ -28,15 +28,23 @@ const (
 	deezerAPITimeoutMobile = 25 * time.Second
 	deezerMaxRetries       = 2
 	deezerRetryDelay       = 500 * time.Millisecond
+
+	deezerMaxSearchCacheEntries = 300
+	deezerMaxAlbumCacheEntries  = 200
+	deezerMaxArtistCacheEntries = 200
+	deezerMaxISRCCacheEntries   = 4000
+	deezerCacheCleanupInterval  = 5 * time.Minute
 )
 
 type DeezerClient struct {
-	httpClient  *http.Client
-	searchCache map[string]*cacheEntry
-	albumCache  map[string]*cacheEntry
-	artistCache map[string]*cacheEntry
-	isrcCache   map[string]string
-	cacheMu     sync.RWMutex
+	httpClient           *http.Client
+	searchCache          map[string]*cacheEntry
+	albumCache           map[string]*cacheEntry
+	artistCache          map[string]*cacheEntry
+	isrcCache            map[string]string
+	cacheMu              sync.RWMutex
+	lastCacheCleanup     time.Time
+	cacheCleanupInterval time.Duration
 }
 
 var (
@@ -47,14 +55,109 @@ var (
 func GetDeezerClient() *DeezerClient {
 	deezerClientOnce.Do(func() {
 		deezerClient = &DeezerClient{
-			httpClient:  NewMetadataHTTPClient(deezerAPITimeoutMobile),
-			searchCache: make(map[string]*cacheEntry),
-			albumCache:  make(map[string]*cacheEntry),
-			artistCache: make(map[string]*cacheEntry),
-			isrcCache:   make(map[string]string),
+			httpClient:           NewMetadataHTTPClient(deezerAPITimeoutMobile),
+			searchCache:          make(map[string]*cacheEntry),
+			albumCache:           make(map[string]*cacheEntry),
+			artistCache:          make(map[string]*cacheEntry),
+			isrcCache:            make(map[string]string),
+			cacheCleanupInterval: deezerCacheCleanupInterval,
 		}
 	})
 	return deezerClient
+}
+
+func (c *DeezerClient) pruneExpiredCacheEntriesLocked(
+	cache map[string]*cacheEntry,
+	now time.Time,
+) {
+	for key, entry := range cache {
+		if entry == nil || now.After(entry.expiresAt) {
+			delete(cache, key)
+		}
+	}
+}
+
+func (c *DeezerClient) trimCacheEntriesLocked(
+	cache map[string]*cacheEntry,
+	maxEntries int,
+) {
+	if maxEntries <= 0 || len(cache) <= maxEntries {
+		return
+	}
+
+	for len(cache) > maxEntries {
+		var oldestKey string
+		var oldestExpiry time.Time
+		first := true
+		for key, entry := range cache {
+			expiry := time.Time{}
+			if entry != nil {
+				expiry = entry.expiresAt
+			}
+			if first || expiry.Before(oldestExpiry) {
+				first = false
+				oldestKey = key
+				oldestExpiry = expiry
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(cache, oldestKey)
+	}
+}
+
+func (c *DeezerClient) trimStringCacheEntriesLocked(
+	cache map[string]string,
+	maxEntries int,
+) {
+	if maxEntries <= 0 || len(cache) <= maxEntries {
+		return
+	}
+
+	toRemove := len(cache) - maxEntries
+	for key := range cache {
+		delete(cache, key)
+		toRemove--
+		if toRemove <= 0 {
+			return
+		}
+	}
+}
+
+func (c *DeezerClient) maybeCleanupCachesLocked(now time.Time) {
+	periodicCleanupDue := c.cacheCleanupInterval > 0 &&
+		(c.lastCacheCleanup.IsZero() ||
+			now.Sub(c.lastCacheCleanup) >= c.cacheCleanupInterval)
+
+	if periodicCleanupDue {
+		c.pruneExpiredCacheEntriesLocked(c.searchCache, now)
+		c.pruneExpiredCacheEntriesLocked(c.albumCache, now)
+		c.pruneExpiredCacheEntriesLocked(c.artistCache, now)
+		c.lastCacheCleanup = now
+	}
+
+	if len(c.searchCache) > deezerMaxSearchCacheEntries {
+		if !periodicCleanupDue {
+			c.pruneExpiredCacheEntriesLocked(c.searchCache, now)
+		}
+		c.trimCacheEntriesLocked(c.searchCache, deezerMaxSearchCacheEntries)
+	}
+	if len(c.albumCache) > deezerMaxAlbumCacheEntries {
+		if !periodicCleanupDue {
+			c.pruneExpiredCacheEntriesLocked(c.albumCache, now)
+		}
+		c.trimCacheEntriesLocked(c.albumCache, deezerMaxAlbumCacheEntries)
+	}
+	if len(c.artistCache) > deezerMaxArtistCacheEntries {
+		if !periodicCleanupDue {
+			c.pruneExpiredCacheEntriesLocked(c.artistCache, now)
+		}
+		c.trimCacheEntriesLocked(c.artistCache, deezerMaxArtistCacheEntries)
+	}
+	if len(c.isrcCache) > deezerMaxISRCCacheEntries {
+		c.trimStringCacheEntriesLocked(c.isrcCache, deezerMaxISRCCacheEntries)
+	}
 }
 
 type deezerTrack struct {
@@ -414,10 +517,12 @@ func (c *DeezerClient) SearchAll(ctx context.Context, query string, trackLimit, 
 	GoLog("[Deezer] SearchAll complete: %d tracks, %d artists, %d albums, %d playlists\n", len(result.Tracks), len(result.Artists), len(result.Albums), len(result.Playlists))
 
 	c.cacheMu.Lock()
+	now := time.Now()
 	c.searchCache[cacheKey] = &cacheEntry{
 		data:      result,
-		expiresAt: time.Now().Add(deezerCacheTTL),
+		expiresAt: now.Add(deezerCacheTTL),
 	}
+	c.maybeCleanupCachesLocked(now)
 	c.cacheMu.Unlock()
 
 	return result, nil
@@ -555,10 +660,12 @@ func (c *DeezerClient) GetAlbum(ctx context.Context, albumID string) (*AlbumResp
 	}
 
 	c.cacheMu.Lock()
+	now := time.Now()
 	c.albumCache[albumID] = &cacheEntry{
 		data:      result,
-		expiresAt: time.Now().Add(deezerCacheTTL),
+		expiresAt: now.Add(deezerCacheTTL),
 	}
+	c.maybeCleanupCachesLocked(now)
 	c.cacheMu.Unlock()
 
 	return result, nil
@@ -638,10 +745,12 @@ func (c *DeezerClient) GetArtist(ctx context.Context, artistID string) (*ArtistR
 	}
 
 	c.cacheMu.Lock()
+	now := time.Now()
 	c.artistCache[artistID] = &cacheEntry{
 		data:      result,
-		expiresAt: time.Now().Add(deezerCacheTTL),
+		expiresAt: now.Add(deezerCacheTTL),
 	}
+	c.maybeCleanupCachesLocked(now)
 	c.cacheMu.Unlock()
 
 	return result, nil
@@ -807,6 +916,7 @@ func (c *DeezerClient) fetchISRCsParallel(ctx context.Context, tracks []deezerTr
 		for trackIDStr, isrc := range directISRCs {
 			c.isrcCache[trackIDStr] = isrc
 		}
+		c.maybeCleanupCachesLocked(time.Now())
 		c.cacheMu.Unlock()
 	}
 
@@ -841,6 +951,7 @@ func (c *DeezerClient) fetchISRCsParallel(ctx context.Context, tracks []deezerTr
 
 			c.cacheMu.Lock()
 			c.isrcCache[trackIDStr] = fullTrack.ISRC
+			c.maybeCleanupCachesLocked(time.Now())
 			c.cacheMu.Unlock()
 		}(track)
 	}
@@ -864,6 +975,7 @@ func (c *DeezerClient) GetTrackISRC(ctx context.Context, trackID string) (string
 
 	c.cacheMu.Lock()
 	c.isrcCache[trackID] = fullTrack.ISRC
+	c.maybeCleanupCachesLocked(time.Now())
 	c.cacheMu.Unlock()
 
 	return fullTrack.ISRC, nil
@@ -946,10 +1058,12 @@ func (c *DeezerClient) GetAlbumExtendedMetadata(ctx context.Context, albumID str
 	}
 
 	c.cacheMu.Lock()
+	now := time.Now()
 	c.searchCache[cacheKey] = &cacheEntry{
 		data:      result,
-		expiresAt: time.Now().Add(deezerCacheTTL),
+		expiresAt: now.Add(deezerCacheTTL),
 	}
+	c.maybeCleanupCachesLocked(now)
 	c.cacheMu.Unlock()
 
 	GoLog("[Deezer] Album metadata fetched - Genre: %s, Label: %s\n", result.Genre, result.Label)

@@ -39,16 +39,23 @@ class LocalLibraryState {
     this.scanWasCancelled = false,
     this.lastScannedAt,
     this.excludedDownloadedCount = 0,
-  }) : _isrcSet = items
-           .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
-           .map((item) => item.isrc!)
-           .toSet(),
-       _trackKeySet = items.map((item) => item.matchKey).toSet(),
-       _byIsrc = Map.fromEntries(
-         items
-             .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
-             .map((item) => MapEntry(item.isrc!, item)),
-       );
+    Set<String>? isrcSet,
+    Set<String>? trackKeySet,
+    Map<String, LocalLibraryItem>? byIsrc,
+  }) : _isrcSet =
+           isrcSet ??
+           items
+               .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
+               .map((item) => item.isrc!)
+               .toSet(),
+       _trackKeySet = trackKeySet ?? items.map((item) => item.matchKey).toSet(),
+       _byIsrc =
+           byIsrc ??
+           Map.fromEntries(
+             items
+                 .where((item) => item.isrc != null && item.isrc!.isNotEmpty)
+                 .map((item) => MapEntry(item.isrc!, item)),
+           );
 
   bool hasIsrc(String isrc) => _isrcSet.contains(isrc);
 
@@ -86,8 +93,11 @@ class LocalLibraryState {
     DateTime? lastScannedAt,
     int? excludedDownloadedCount,
   }) {
+    final nextItems = items ?? this.items;
+    final keepDerivedIndex = identical(nextItems, this.items);
+
     return LocalLibraryState(
-      items: items ?? this.items,
+      items: nextItems,
       isScanning: isScanning ?? this.isScanning,
       scanProgress: scanProgress ?? this.scanProgress,
       scanCurrentFile: scanCurrentFile ?? this.scanCurrentFile,
@@ -98,6 +108,9 @@ class LocalLibraryState {
       lastScannedAt: lastScannedAt ?? this.lastScannedAt,
       excludedDownloadedCount:
           excludedDownloadedCount ?? this.excludedDownloadedCount,
+      isrcSet: keepDerivedIndex ? _isrcSet : null,
+      trackKeySet: keepDerivedIndex ? _trackKeySet : null,
+      byIsrc: keepDerivedIndex ? _byIsrc : null,
     );
   }
 }
@@ -397,14 +410,33 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     _progressTimer = Timer.periodic(_progressPollingInterval, (_) async {
       try {
         final progress = await PlatformBridge.getLibraryScanProgress();
-
-        state = state.copyWith(
-          scanProgress: (progress['progress_pct'] as num?)?.toDouble() ?? 0,
-          scanCurrentFile: progress['current_file'] as String?,
-          scanTotalFiles: progress['total_files'] as int? ?? 0,
-          scannedFiles: progress['scanned_files'] as int? ?? 0,
-          scanErrorCount: progress['error_count'] as int? ?? 0,
+        final nextProgress =
+            (progress['progress_pct'] as num?)?.toDouble() ?? 0;
+        final normalizedProgress = ((nextProgress * 10).round() / 10).clamp(
+          0.0,
+          100.0,
         );
+        final currentFile = progress['current_file'] as String?;
+        final totalFiles = progress['total_files'] as int? ?? 0;
+        final scannedFiles = progress['scanned_files'] as int? ?? 0;
+        final errorCount = progress['error_count'] as int? ?? 0;
+
+        final shouldUpdateState =
+            state.scanProgress != normalizedProgress ||
+            state.scanCurrentFile != currentFile ||
+            state.scanTotalFiles != totalFiles ||
+            state.scannedFiles != scannedFiles ||
+            state.scanErrorCount != errorCount;
+
+        if (shouldUpdateState) {
+          state = state.copyWith(
+            scanProgress: normalizedProgress,
+            scanCurrentFile: currentFile,
+            scanTotalFiles: totalFiles,
+            scannedFiles: scannedFiles,
+            scanErrorCount: errorCount,
+          );
+        }
 
         if (progress['is_complete'] == true) {
           _stopProgressPolling();

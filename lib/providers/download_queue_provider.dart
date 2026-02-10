@@ -673,6 +673,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   static const _queueStorageKey = 'download_queue';
   static const _progressPollingInterval = Duration(milliseconds: 800);
   static const _queueSchedulingInterval = Duration(milliseconds: 250);
+  static const _bytesUiStep = 104857; // ~0.1 MiB, matches one-decimal MB UI.
   final NotificationService _notificationService = NotificationService();
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   int _totalQueuedAtStart = 0;
@@ -686,6 +687,55 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   int _lastServicePercent = -1;
   int _lastServiceQueueCount = -1;
   DateTime _lastServiceUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _lastFinalizingTrackName;
+  String? _lastFinalizingArtistName;
+  String? _lastNotifTrackName;
+  String? _lastNotifArtistName;
+  int _lastNotifPercent = -1;
+  int _lastNotifQueueCount = -1;
+
+  double _normalizeProgressForUi(double value) {
+    final clamped = value.clamp(0.0, 1.0).toDouble();
+    if (clamped <= 0) return 0;
+    if (clamped >= 1) return 1;
+    final rounded = double.parse(clamped.toStringAsFixed(2));
+    return rounded == 0 ? 0.01 : rounded;
+  }
+
+  double _normalizeSpeedForUi(double value) {
+    if (value <= 0) return 0;
+    return double.parse(value.toStringAsFixed(1));
+  }
+
+  int _normalizeBytesForUi(int value) {
+    if (value <= 0) return 0;
+    return (value ~/ _bytesUiStep) * _bytesUiStep;
+  }
+
+  bool _shouldUpdateProgressNotification({
+    required String trackName,
+    required String artistName,
+    required int progress,
+    required int total,
+    required int queueCount,
+  }) {
+    final safeTotal = total > 0 ? total : 1;
+    final percent = ((progress * 100) / safeTotal).round().clamp(0, 100);
+    final changed =
+        trackName != _lastNotifTrackName ||
+        artistName != _lastNotifArtistName ||
+        percent != _lastNotifPercent ||
+        queueCount != _lastNotifQueueCount;
+    if (!changed) {
+      return false;
+    }
+
+    _lastNotifTrackName = trackName;
+    _lastNotifArtistName = artistName;
+    _lastNotifPercent = percent;
+    _lastNotifQueueCount = queueCount;
+    return true;
+  }
 
   @override
   DownloadQueueState build() {
@@ -854,12 +904,15 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
             } else {
               percentage = progressFromBackend;
             }
+            final normalizedProgress = _normalizeProgressForUi(percentage);
+            final normalizedSpeed = _normalizeSpeedForUi(speedMBps);
+            final normalizedBytes = _normalizeBytesForUi(bytesReceived);
 
             progressUpdates[itemId] = _ProgressUpdate(
               status: DownloadStatus.downloading,
-              progress: percentage,
-              speedMBps: speedMBps,
-              bytesReceived: bytesReceived,
+              progress: normalizedProgress,
+              speedMBps: normalizedSpeed,
+              bytesReceived: normalizedBytes,
             );
 
             final mbReceived = bytesReceived / (1024 * 1024);
@@ -914,12 +967,20 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         }
 
         if (hasFinalizingItem && finalizingTrackName != null) {
-          _notificationService.showDownloadFinalizing(
-            trackName: finalizingTrackName,
-            artistName: finalizingArtistName ?? '',
-          );
+          final safeArtistName = finalizingArtistName ?? '';
+          if (finalizingTrackName != _lastFinalizingTrackName ||
+              safeArtistName != _lastFinalizingArtistName) {
+            _notificationService.showDownloadFinalizing(
+              trackName: finalizingTrackName,
+              artistName: safeArtistName,
+            );
+            _lastFinalizingTrackName = finalizingTrackName;
+            _lastFinalizingArtistName = safeArtistName;
+          }
           return;
         }
+        _lastFinalizingTrackName = null;
+        _lastFinalizingArtistName = null;
 
         if (items.isNotEmpty) {
           final firstEntry = items.entries.first;
@@ -945,19 +1006,28 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               notifTotal = 100;
             }
 
-            _notificationService.showDownloadProgress(
+            final safeNotifTotal = notifTotal > 0 ? notifTotal : 1;
+            if (_shouldUpdateProgressNotification(
               trackName: trackName,
               artistName: artistName,
               progress: notifProgress,
-              total: notifTotal > 0 ? notifTotal : 1,
-            );
+              total: safeNotifTotal,
+              queueCount: queuedCount,
+            )) {
+              _notificationService.showDownloadProgress(
+                trackName: trackName,
+                artistName: artistName,
+                progress: notifProgress,
+                total: safeNotifTotal,
+              );
+            }
 
             if (Platform.isAndroid) {
               _maybeUpdateAndroidDownloadService(
                 trackName: firstDownloading.track.name,
                 artistName: firstDownloading.track.artistName,
                 progress: notifProgress,
-                total: notifTotal > 0 ? notifTotal : 1,
+                total: safeNotifTotal,
                 queueCount: queuedCount,
               );
             }
@@ -1023,6 +1093,12 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     _lastServicePercent = -1;
     _lastServiceQueueCount = -1;
     _lastServiceUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastFinalizingTrackName = null;
+    _lastFinalizingArtistName = null;
+    _lastNotifTrackName = null;
+    _lastNotifArtistName = null;
+    _lastNotifPercent = -1;
+    _lastNotifQueueCount = -1;
   }
 
   Future<void> _initOutputDir() async {

@@ -210,6 +210,20 @@ class _UnifiedCacheEntry {
   });
 }
 
+class _QueueItemIdsSnapshot {
+  final List<String> ids;
+
+  const _QueueItemIdsSnapshot(this.ids);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _QueueItemIdsSnapshot && listEquals(ids, other.ids);
+
+  @override
+  int get hashCode => Object.hashAll(ids);
+}
+
 Map<String, List<String>> _filterHistoryInIsolate(Map<String, Object> payload) {
   final entries = (payload['entries'] as List).cast<List>();
   final albumCounts = (payload['albumCounts'] as Map).cast<String, int>();
@@ -722,10 +736,11 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     if (confirmed == true && mounted) {
       final historyNotifier = ref.read(downloadHistoryProvider.notifier);
       final localLibraryDb = LibraryDatabase.instance;
+      final itemsById = {for (final item in allItems) item.id: item};
 
       int deletedCount = 0;
       for (final id in _selectedIds) {
-        final item = allItems.where((e) => e.id == id).firstOrNull;
+        final item = itemsById[id];
         if (item != null) {
           try {
             final cleanPath = _cleanFilePath(item.filePath);
@@ -811,7 +826,8 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     }
 
     try {
-      return File(cleanPath).statSync().modified.millisecondsSinceEpoch;
+      final stat = await File(cleanPath).stat();
+      return stat.modified.millisecondsSinceEpoch;
     } catch (_) {
       return null;
     }
@@ -987,6 +1003,21 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     });
   }
 
+  String _fileExtLower(String filePath) {
+    final dotIndex = filePath.lastIndexOf('.');
+    if (dotIndex < 0 || dotIndex == filePath.length - 1) {
+      return '';
+    }
+    return filePath.substring(dotIndex + 1).toLowerCase();
+  }
+
+  String? _localQualityLabel(LocalLibraryItem item) {
+    if (item.bitDepth == null || item.sampleRate == null) {
+      return null;
+    }
+    return '${item.bitDepth}bit/${(item.sampleRate! / 1000).toStringAsFixed(1)}kHz';
+  }
+
   List<UnifiedLibraryItem> _applyAdvancedFilters(
     List<UnifiedLibraryItem> items,
   ) {
@@ -1024,7 +1055,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
             }
 
             if (_filterFormat != null) {
-              final ext = item.filePath.split('.').last.toLowerCase();
+              final ext = _fileExtLower(item.filePath);
               if (ext != _filterFormat) return false;
             }
 
@@ -1080,7 +1111,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   /// Check if a file path passes the current format filter
   bool _passesFormatFilter(String filePath) {
     if (_filterFormat == null) return true;
-    return filePath.split('.').last.toLowerCase() == _filterFormat;
+    return _fileExtLower(filePath) == _filterFormat;
   }
 
   /// Filter grouped download albums by search query + advanced filters
@@ -1105,15 +1136,15 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
       // Filter tracks within the album by advanced filters
       if (_filterQuality != null || _filterFormat != null) {
-        final filteredTracks = album.tracks
-            .where((track) {
-              if (!_passesQualityFilter(track.quality)) return false;
-              if (!_passesFormatFilter(track.filePath)) return false;
-              return true;
-            })
-            .toList(growable: false);
+        var hasMatchingTrack = false;
+        for (final track in album.tracks) {
+          if (!_passesQualityFilter(track.quality)) continue;
+          if (!_passesFormatFilter(track.filePath)) continue;
+          hasMatchingTrack = true;
+          break;
+        }
 
-        if (filteredTracks.isEmpty) continue;
+        if (!hasMatchingTrack) continue;
       }
 
       result.add(album);
@@ -1162,20 +1193,15 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
       // Filter tracks within the album by advanced filters
       if (_filterQuality != null || _filterFormat != null) {
-        final filteredTracks = album.tracks
-            .where((track) {
-              String? quality;
-              if (track.bitDepth != null && track.sampleRate != null) {
-                quality =
-                    '${track.bitDepth}bit/${(track.sampleRate! / 1000).toStringAsFixed(1)}kHz';
-              }
-              if (!_passesQualityFilter(quality)) return false;
-              if (!_passesFormatFilter(track.filePath)) return false;
-              return true;
-            })
-            .toList(growable: false);
+        var hasMatchingTrack = false;
+        for (final track in album.tracks) {
+          if (!_passesQualityFilter(_localQualityLabel(track))) continue;
+          if (!_passesFormatFilter(track.filePath)) continue;
+          hasMatchingTrack = true;
+          break;
+        }
 
-        if (filteredTracks.isEmpty) continue;
+        if (!hasMatchingTrack) continue;
       }
 
       result.add(album);
@@ -1205,7 +1231,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   Set<String> _getAvailableFormats(List<UnifiedLibraryItem> items) {
     final formats = <String>{};
     for (final item in items) {
-      final ext = item.filePath.split('.').last.toLowerCase();
+      final ext = _fileExtLower(item.filePath);
       if (['flac', 'mp3', 'm4a', 'opus', 'ogg', 'wav', 'aiff'].contains(ext)) {
         formats.add(ext);
       }
@@ -1457,8 +1483,19 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return;
     }
+    final dpr = MediaQuery.devicePixelRatioOf(
+      context,
+    ).clamp(1.0, 3.0).toDouble();
+    final targetSize = (360 * dpr).round().clamp(512, 1024).toInt();
     precacheImage(
-      CachedNetworkImageProvider(url, cacheManager: CoverCacheManager.instance),
+      ResizeImage(
+        CachedNetworkImageProvider(
+          url,
+          cacheManager: CoverCacheManager.instance,
+        ),
+        width: targetSize,
+        height: targetSize,
+      ),
       context,
     );
   }
@@ -2272,20 +2309,26 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   Widget _buildQueueItemsSliver(BuildContext context, ColorScheme colorScheme) {
     return Consumer(
       builder: (context, ref, child) {
-        final queueItems = ref.watch(
-          downloadQueueProvider.select((s) => s.items),
+        final queueIdsSnapshot = ref.watch(
+          downloadQueueProvider.select(
+            (s) => _QueueItemIdsSnapshot(
+              s.items.map((item) => item.id).toList(growable: false),
+            ),
+          ),
         );
-        if (queueItems.isEmpty) {
+        if (queueIdsSnapshot.ids.isEmpty) {
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
         return SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
-            final item = queueItems[index];
-            return KeyedSubtree(
-              key: ValueKey(item.id),
-              child: _buildQueueItem(context, item, colorScheme),
+            final itemId = queueIdsSnapshot.ids[index];
+            return _QueueItemSliverRow(
+              key: ValueKey(itemId),
+              itemId: itemId,
+              colorScheme: colorScheme,
+              itemBuilder: _buildQueueItem,
             );
-          }, childCount: queueItems.length),
+          }, childCount: queueIdsSnapshot.ids.length),
         );
       },
     );
@@ -3950,6 +3993,38 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         ],
       ),
     );
+  }
+}
+
+class _QueueItemSliverRow extends ConsumerWidget {
+  final String itemId;
+  final ColorScheme colorScheme;
+  final Widget Function(BuildContext, DownloadItem, ColorScheme) itemBuilder;
+
+  const _QueueItemSliverRow({
+    super.key,
+    required this.itemId,
+    required this.colorScheme,
+    required this.itemBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final item = ref.watch(
+      downloadQueueProvider.select((state) {
+        for (final current in state.items) {
+          if (current.id == itemId) {
+            return current;
+          }
+        }
+        return null;
+      }),
+    );
+    if (item == null) {
+      return const SizedBox.shrink();
+    }
+
+    return RepaintBoundary(child: itemBuilder(context, item, colorScheme));
   }
 }
 

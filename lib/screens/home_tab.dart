@@ -18,6 +18,7 @@ import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/artist_screen.dart';
 import 'package:spotiflac_android/services/csv_import_service.dart';
+import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
@@ -35,11 +36,13 @@ class HomeTab extends ConsumerStatefulWidget {
 class _RecentAccessView {
   final List<RecentAccessItem> uniqueItems;
   final List<RecentAccessItem> downloadItems;
+  final Map<String, String> downloadFilePathByRecentKey;
   final bool hasHiddenDownloads;
 
   const _RecentAccessView({
     required this.uniqueItems,
     required this.downloadItems,
+    required this.downloadFilePathByRecentKey,
     required this.hasHiddenDownloads,
   });
 }
@@ -932,7 +935,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ),
 
               // Search filter bar (only shown when has search results)
-              if (searchFilters.isNotEmpty && hasActualResults && !showRecentAccess)
+              if (searchFilters.isNotEmpty &&
+                  hasActualResults &&
+                  !showRecentAccess)
                 SliverToBoxAdapter(
                   child: _buildSearchFilterBar(
                     searchFilters,
@@ -1022,6 +1027,11 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
+  void _onEmbeddedCoverChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Widget _buildRecentDownloads(
     List<DownloadHistoryItem> items,
     ColorScheme colorScheme,
@@ -1049,6 +1059,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
             itemCount: itemCount,
             itemBuilder: (context, index) {
               final item = items[index];
+              final embeddedCoverPath = DownloadedEmbeddedCoverResolver.resolve(
+                item.filePath,
+                onChanged: _onEmbeddedCoverChanged,
+              );
               return KeyedSubtree(
                 key: ValueKey(item.id),
                 child: GestureDetector(
@@ -1060,7 +1074,26 @@ class _HomeTabState extends ConsumerState<HomeTab>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: item.coverUrl != null
+                          child: embeddedCoverPath != null
+                              ? Image.file(
+                                  File(embeddedCoverPath),
+                                  width: coverSize,
+                                  height: coverSize,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: (coverSize * 2).round(),
+                                  cacheHeight: (coverSize * 2).round(),
+                                  errorBuilder: (_, _, _) => Container(
+                                    width: coverSize,
+                                    height: coverSize,
+                                    color: colorScheme.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.music_note,
+                                      color: colorScheme.onSurfaceVariant,
+                                      size: 32,
+                                    ),
+                                  ),
+                                )
+                              : item.coverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: item.coverUrl!,
                                   width: coverSize,
@@ -1125,6 +1158,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     }
 
     final downloadItems = <RecentAccessItem>[];
+    final downloadFilePathByRecentKey = <String, String>{};
     for (final entry in albumGroups.entries) {
       final tracks = entry.value;
       final mostRecent = tracks.reduce(
@@ -1136,29 +1170,31 @@ class _HomeTabState extends ConsumerState<HomeTab>
           : mostRecent.artistName;
 
       if (tracks.length == 1) {
-        downloadItems.add(
-          RecentAccessItem(
-            id: mostRecent.spotifyId ?? mostRecent.id,
-            name: mostRecent.trackName,
-            subtitle: mostRecent.artistName,
-            imageUrl: mostRecent.coverUrl,
-            type: RecentAccessType.track,
-            accessedAt: mostRecent.downloadedAt,
-            providerId: 'download',
-          ),
+        final recent = RecentAccessItem(
+          id: mostRecent.spotifyId ?? mostRecent.id,
+          name: mostRecent.trackName,
+          subtitle: mostRecent.artistName,
+          imageUrl: mostRecent.coverUrl,
+          type: RecentAccessType.track,
+          accessedAt: mostRecent.downloadedAt,
+          providerId: 'download',
         );
+        downloadItems.add(recent);
+        downloadFilePathByRecentKey['${recent.type.name}:${recent.id}'] =
+            mostRecent.filePath;
       } else {
-        downloadItems.add(
-          RecentAccessItem(
-            id: '${mostRecent.albumName}|$artistForKey',
-            name: mostRecent.albumName,
-            subtitle: artistForKey,
-            imageUrl: mostRecent.coverUrl,
-            type: RecentAccessType.album,
-            accessedAt: mostRecent.downloadedAt,
-            providerId: 'download',
-          ),
+        final recent = RecentAccessItem(
+          id: '${mostRecent.albumName}|$artistForKey',
+          name: mostRecent.albumName,
+          subtitle: artistForKey,
+          imageUrl: mostRecent.coverUrl,
+          type: RecentAccessType.album,
+          accessedAt: mostRecent.downloadedAt,
+          providerId: 'download',
         );
+        downloadItems.add(recent);
+        downloadFilePathByRecentKey['${recent.type.name}:${recent.id}'] =
+            mostRecent.filePath;
       }
     }
 
@@ -1192,6 +1228,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final view = _RecentAccessView(
       uniqueItems: uniqueItems,
       downloadItems: downloadItems,
+      downloadFilePathByRecentKey: downloadFilePathByRecentKey,
       hasHiddenDownloads: hiddenIds.isNotEmpty,
     );
 
@@ -1680,7 +1717,11 @@ class _HomeTabState extends ConsumerState<HomeTab>
             )
           else
             ...uniqueItems.map(
-              (item) => _buildRecentAccessItem(item, colorScheme),
+              (item) => _buildRecentAccessItem(
+                item,
+                colorScheme,
+                view.downloadFilePathByRecentKey,
+              ),
             ),
         ],
       ),
@@ -1690,10 +1731,17 @@ class _HomeTabState extends ConsumerState<HomeTab>
   Widget _buildRecentAccessItem(
     RecentAccessItem item,
     ColorScheme colorScheme,
+    Map<String, String> downloadFilePathByRecentKey,
   ) {
     IconData typeIcon;
     String typeLabel;
     final isDownloaded = item.providerId == 'download';
+    final embeddedCoverPath = isDownloaded
+        ? DownloadedEmbeddedCoverResolver.resolve(
+            downloadFilePathByRecentKey['${item.type.name}:${item.id}'],
+            onChanged: _onEmbeddedCoverChanged,
+          )
+        : null;
 
     switch (item.type) {
       case RecentAccessType.artist:
@@ -1723,7 +1771,25 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 borderRadius: BorderRadius.circular(
                   item.type == RecentAccessType.artist ? 28 : 4,
                 ),
-                child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                child: embeddedCoverPath != null
+                    ? Image.file(
+                        File(embeddedCoverPath),
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        cacheWidth: 112,
+                        cacheHeight: 112,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 56,
+                          height: 56,
+                          color: colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            typeIcon,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : item.imageUrl != null && item.imageUrl!.isNotEmpty
                     ? CachedNetworkImage(
                         imageUrl: item.imageUrl!,
                         width: 56,
@@ -1896,10 +1962,15 @@ class _HomeTabState extends ConsumerState<HomeTab>
     }
   }
 
-  void _navigateToMetadataScreen(DownloadHistoryItem item) {
+  Future<void> _navigateToMetadataScreen(DownloadHistoryItem item) async {
+    final navigator = Navigator.of(context);
     _precacheCover(item.coverUrl);
-    Navigator.push(
-      context,
+    final beforeModTime =
+        await DownloadedEmbeddedCoverResolver.readFileModTimeMillis(
+          item.filePath,
+        );
+    if (!mounted) return;
+    final result = await navigator.push(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 250),
@@ -1909,6 +1980,12 @@ class _HomeTabState extends ConsumerState<HomeTab>
             FadeTransition(opacity: animation, child: child),
       ),
     );
+    await DownloadedEmbeddedCoverResolver.scheduleRefreshForPath(
+      item.filePath,
+      beforeModTime: beforeModTime,
+      force: result == true,
+      onChanged: _onEmbeddedCoverChanged,
+    );
   }
 
   void _precacheCover(String? url) {
@@ -1916,8 +1993,19 @@ class _HomeTabState extends ConsumerState<HomeTab>
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return;
     }
+    final dpr = MediaQuery.devicePixelRatioOf(
+      context,
+    ).clamp(1.0, 3.0).toDouble();
+    final targetSize = (360 * dpr).round().clamp(512, 1024).toInt();
     precacheImage(
-      CachedNetworkImageProvider(url, cacheManager: CoverCacheManager.instance),
+      ResizeImage(
+        CachedNetworkImageProvider(
+          url,
+          cacheManager: CoverCacheManager.instance,
+        ),
+        width: targetSize,
+        height: targetSize,
+      ),
       context,
     );
   }
