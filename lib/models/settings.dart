@@ -21,6 +21,7 @@ class AppSettings {
   final String folderOrganization;
   final bool useAlbumArtistForFolders;
   final bool usePrimaryArtistOnly; // Strip featured artists from folder name
+  final bool filterContributingArtistsInAlbumArtist;
   final String historyViewMode;
   final String historyFilterMode;
   final bool askQualityBeforeDownload;
@@ -36,18 +37,24 @@ class AppSettings {
   final bool showExtensionStore;
   final String locale;
   final String lyricsMode;
-  final String tidalHighFormat; // Format for Tidal HIGH quality: 'mp3_320', 'opus_256', or 'opus_128'
-  final bool useAllFilesAccess; // Android 13+ only: enable MANAGE_EXTERNAL_STORAGE
-  final bool autoExportFailedDownloads; // Auto export failed downloads to TXT file
-  final String downloadNetworkMode; // 'any' = WiFi + Mobile, 'wifi_only' = WiFi only
-  
+  final String
+  tidalHighFormat; // Format for Tidal HIGH quality: 'mp3_320', 'opus_256', or 'opus_128'
+  final bool
+  useAllFilesAccess; // Android 13+ only: enable MANAGE_EXTERNAL_STORAGE
+  final bool
+  autoExportFailedDownloads; // Auto export failed downloads to TXT file
+  final String
+  downloadNetworkMode; // 'any' = WiFi + Mobile, 'wifi_only' = WiFi only
+
   // Local Library Settings
   final bool localLibraryEnabled; // Enable local library scanning
   final String localLibraryPath; // Path to scan for audio files
-  final bool localLibraryShowDuplicates; // Show indicator when searching for existing tracks
-  
+  final bool
+  localLibraryShowDuplicates; // Show indicator when searching for existing tracks
+
   // Tutorial/Onboarding
-  final bool hasCompletedTutorial; // Track if user has completed the app tutorial
+  final bool
+  hasCompletedTutorial; // Track if user has completed the app tutorial
 
   const AppSettings({
     this.defaultService = 'tidal',
@@ -67,6 +74,7 @@ class AppSettings {
     this.folderOrganization = 'none',
     this.useAlbumArtistForFolders = true,
     this.usePrimaryArtistOnly = false,
+    this.filterContributingArtistsInAlbumArtist = false,
     this.historyViewMode = 'grid',
     this.historyFilterMode = 'all',
     this.askQualityBeforeDownload = true,
@@ -112,6 +120,7 @@ class AppSettings {
     String? folderOrganization,
     bool? useAlbumArtistForFolders,
     bool? usePrimaryArtistOnly,
+    bool? filterContributingArtistsInAlbumArtist,
     String? historyViewMode,
     String? historyFilterMode,
     bool? askQualityBeforeDownload,
@@ -157,18 +166,25 @@ class AppSettings {
       folderOrganization: folderOrganization ?? this.folderOrganization,
       useAlbumArtistForFolders:
           useAlbumArtistForFolders ?? this.useAlbumArtistForFolders,
-      usePrimaryArtistOnly:
-          usePrimaryArtistOnly ?? this.usePrimaryArtistOnly,
+      usePrimaryArtistOnly: usePrimaryArtistOnly ?? this.usePrimaryArtistOnly,
+      filterContributingArtistsInAlbumArtist:
+          filterContributingArtistsInAlbumArtist ??
+          this.filterContributingArtistsInAlbumArtist,
       historyViewMode: historyViewMode ?? this.historyViewMode,
       historyFilterMode: historyFilterMode ?? this.historyFilterMode,
-      askQualityBeforeDownload: askQualityBeforeDownload ?? this.askQualityBeforeDownload,
+      askQualityBeforeDownload:
+          askQualityBeforeDownload ?? this.askQualityBeforeDownload,
       spotifyClientId: spotifyClientId ?? this.spotifyClientId,
       spotifyClientSecret: spotifyClientSecret ?? this.spotifyClientSecret,
-      useCustomSpotifyCredentials: useCustomSpotifyCredentials ?? this.useCustomSpotifyCredentials,
+      useCustomSpotifyCredentials:
+          useCustomSpotifyCredentials ?? this.useCustomSpotifyCredentials,
       metadataSource: metadataSource ?? this.metadataSource,
       enableLogging: enableLogging ?? this.enableLogging,
-      useExtensionProviders: useExtensionProviders ?? this.useExtensionProviders,
-      searchProvider: clearSearchProvider ? null : (searchProvider ?? this.searchProvider),
+      useExtensionProviders:
+          useExtensionProviders ?? this.useExtensionProviders,
+      searchProvider: clearSearchProvider
+          ? null
+          : (searchProvider ?? this.searchProvider),
       separateSingles: separateSingles ?? this.separateSingles,
       albumFolderStructure: albumFolderStructure ?? this.albumFolderStructure,
       showExtensionStore: showExtensionStore ?? this.showExtensionStore,
@@ -176,12 +192,14 @@ class AppSettings {
       lyricsMode: lyricsMode ?? this.lyricsMode,
       tidalHighFormat: tidalHighFormat ?? this.tidalHighFormat,
       useAllFilesAccess: useAllFilesAccess ?? this.useAllFilesAccess,
-      autoExportFailedDownloads: autoExportFailedDownloads ?? this.autoExportFailedDownloads,
+      autoExportFailedDownloads:
+          autoExportFailedDownloads ?? this.autoExportFailedDownloads,
       downloadNetworkMode: downloadNetworkMode ?? this.downloadNetworkMode,
       // Local Library
       localLibraryEnabled: localLibraryEnabled ?? this.localLibraryEnabled,
       localLibraryPath: localLibraryPath ?? this.localLibraryPath,
-      localLibraryShowDuplicates: localLibraryShowDuplicates ?? this.localLibraryShowDuplicates,
+      localLibraryShowDuplicates:
+          localLibraryShowDuplicates ?? this.localLibraryShowDuplicates,
       // Tutorial
       hasCompletedTutorial: hasCompletedTutorial ?? this.hasCompletedTutorial,
     );

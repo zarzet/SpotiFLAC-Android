@@ -236,6 +236,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setFilterContributingArtistsInAlbumArtist(bool enabled) {
+    state = state.copyWith(filterContributingArtistsInAlbumArtist: enabled);
+    _saveSettings();
+  }
+
   void setHistoryViewMode(String mode) {
     state = state.copyWith(historyViewMode: mode);
     _saveSettings();

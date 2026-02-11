@@ -24,6 +24,8 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
   folderOrganization: json['folderOrganization'] as String? ?? 'none',
   useAlbumArtistForFolders: json['useAlbumArtistForFolders'] as bool? ?? true,
   usePrimaryArtistOnly: json['usePrimaryArtistOnly'] as bool? ?? false,
+  filterContributingArtistsInAlbumArtist:
+      json['filterContributingArtistsInAlbumArtist'] as bool? ?? false,
   historyViewMode: json['historyViewMode'] as String? ?? 'grid',
   historyFilterMode: json['historyFilterMode'] as String? ?? 'all',
   askQualityBeforeDownload: json['askQualityBeforeDownload'] as bool? ?? true,
@@ -72,6 +74,8 @@ Map<String, dynamic> _$AppSettingsToJson(AppSettings instance) =>
       'folderOrganization': instance.folderOrganization,
       'useAlbumArtistForFolders': instance.useAlbumArtistForFolders,
       'usePrimaryArtistOnly': instance.usePrimaryArtistOnly,
+      'filterContributingArtistsInAlbumArtist':
+          instance.filterContributingArtistsInAlbumArtist,
       'historyViewMode': instance.historyViewMode,
       'historyFilterMode': instance.historyFilterMode,
       'askQualityBeforeDownload': instance.askQualityBeforeDownload,

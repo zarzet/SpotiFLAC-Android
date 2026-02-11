@@ -25,6 +25,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   static const _builtInServices = ['tidal', 'qobuz', 'amazon'];
   int _androidSdkVersion = 0;
   bool _hasAllFilesAccess = false;
+  bool _artistFolderFiltersExpanded = false;
 
   @override
   void initState() {
@@ -363,19 +364,53 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     onChanged: (value) => ref
                         .read(settingsProvider.notifier)
                         .setUseAlbumArtistForFolders(value),
-                    showDivider: false,
+                  ),
+                  SettingsItem(
+                    icon: Icons.filter_alt_outlined,
+                    title: 'Artist Name Filters',
+                    subtitle: _getArtistFolderFilterSubtitle(
+                      context,
+                      usePrimaryArtistOnly: settings.usePrimaryArtistOnly,
+                      filterAlbumArtistContributors:
+                          settings.filterContributingArtistsInAlbumArtist,
                     ),
-                  SettingsSwitchItem(
-                    icon: Icons.person_outline,
-                    title: context.l10n.downloadUsePrimaryArtistOnly,
-                    subtitle: settings.usePrimaryArtistOnly
-                        ? context.l10n.downloadUsePrimaryArtistOnlyEnabled
-                        : context.l10n.downloadUsePrimaryArtistOnlyDisabled,
-                    value: settings.usePrimaryArtistOnly,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setUsePrimaryArtistOnly(value),
-                    showDivider: false,
+                    trailing: Icon(
+                      _artistFolderFiltersExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _artistFolderFiltersExpanded =
+                            !_artistFolderFiltersExpanded;
+                      });
+                    },
+                    showDivider: !_artistFolderFiltersExpanded,
+                  ),
+                  if (_artistFolderFiltersExpanded)
+                    SettingsSwitchItem(
+                      icon: Icons.person_outline,
+                      title: context.l10n.downloadUsePrimaryArtistOnly,
+                      subtitle: settings.usePrimaryArtistOnly
+                          ? context.l10n.downloadUsePrimaryArtistOnlyEnabled
+                          : context.l10n.downloadUsePrimaryArtistOnlyDisabled,
+                      value: settings.usePrimaryArtistOnly,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setUsePrimaryArtistOnly(value),
+                    ),
+                  if (_artistFolderFiltersExpanded)
+                    SettingsSwitchItem(
+                      icon: Icons.group_remove_outlined,
+                      title: 'Filter contributing artists in Album Artist',
+                      subtitle: settings.filterContributingArtistsInAlbumArtist
+                          ? 'Album Artist metadata uses primary artist only'
+                          : 'Keep full Album Artist metadata value',
+                      value: settings.filterContributingArtistsInAlbumArtist,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setFilterContributingArtistsInAlbumArtist(value),
+                      showDivider: false,
                     ),
                 ],
               ),
@@ -937,7 +972,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           SnackBar(
-                            content: Text(validation.errorReason ?? context.l10n.setupIcloudNotSupported),
+                            content: Text(
+                              validation.errorReason ??
+                                  context.l10n.setupIcloudNotSupported,
+                            ),
                             backgroundColor: Theme.of(ctx).colorScheme.error,
                             duration: const Duration(seconds: 4),
                           ),
@@ -998,6 +1036,20 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       default:
         return 'None';
     }
+  }
+
+  String _getArtistFolderFilterSubtitle(
+    BuildContext context, {
+    required bool usePrimaryArtistOnly,
+    required bool filterAlbumArtistContributors,
+  }) {
+    final statuses = <String>[
+      usePrimaryArtistOnly ? 'Primary only: On' : 'Primary only: Off',
+      filterAlbumArtistContributors
+          ? 'Album Artist metadata: Primary only'
+          : 'Album Artist metadata: Full',
+    ];
+    return statuses.join(' | ');
   }
 
   String _getLyricsModeLabel(BuildContext context, String mode) {
@@ -1456,9 +1508,7 @@ class _ServiceChip extends StatelessWidget {
 
     return Expanded(
       child: Material(
-        color: isSelected
-            ? colorScheme.primaryContainer
-            : unselectedColor,
+        color: isSelected ? colorScheme.primaryContainer : unselectedColor,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,

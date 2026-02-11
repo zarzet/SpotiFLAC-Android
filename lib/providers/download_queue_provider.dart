@@ -1197,11 +1197,18 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String albumFolderStructure = 'artist_album',
     bool useAlbumArtistForFolders = true,
     bool usePrimaryArtistOnly = false,
+    bool filterContributingArtistsInAlbumArtist = false,
   }) async {
     String baseDir = state.outputDir;
+    final normalizedAlbumArtist = _normalizeOptionalString(track.albumArtist);
     var folderArtist = useAlbumArtistForFolders
-        ? _normalizeOptionalString(track.albumArtist) ?? track.artistName
+        ? normalizedAlbumArtist ?? track.artistName
         : track.artistName;
+    if (useAlbumArtistForFolders &&
+        filterContributingArtistsInAlbumArtist &&
+        normalizedAlbumArtist != null) {
+      folderArtist = _extractPrimaryArtist(folderArtist);
+    }
     if (usePrimaryArtistOnly) {
       folderArtist = _extractPrimaryArtist(folderArtist);
     }
@@ -1309,6 +1316,15 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     return artist;
   }
 
+  String _resolveAlbumArtistForMetadata(Track track, AppSettings settings) {
+    var albumArtist =
+        _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+    if (settings.filterContributingArtistsInAlbumArtist) {
+      albumArtist = _extractPrimaryArtist(albumArtist);
+    }
+    return albumArtist;
+  }
+
   bool _isSafMode(AppSettings settings) {
     return Platform.isAndroid &&
         settings.storageMode == 'saf' &&
@@ -1333,10 +1349,17 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String albumFolderStructure = 'artist_album',
     bool useAlbumArtistForFolders = true,
     bool usePrimaryArtistOnly = false,
+    bool filterContributingArtistsInAlbumArtist = false,
   }) async {
+    final normalizedAlbumArtist = _normalizeOptionalString(track.albumArtist);
     var folderArtist = useAlbumArtistForFolders
-        ? _normalizeOptionalString(track.albumArtist) ?? track.artistName
+        ? normalizedAlbumArtist ?? track.artistName
         : track.artistName;
+    if (useAlbumArtistForFolders &&
+        filterContributingArtistsInAlbumArtist &&
+        normalizedAlbumArtist != null) {
+      folderArtist = _extractPrimaryArtist(folderArtist);
+    }
     if (usePrimaryArtistOnly) {
       folderArtist = _extractPrimaryArtist(folderArtist);
     }
@@ -1752,6 +1775,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     try {
       final settings = ref.read(settingsProvider);
       final extensionState = ref.read(extensionProvider);
+      final resolvedAlbumArtist = _resolveAlbumArtistForMetadata(
+        track,
+        settings,
+      );
 
       if (!settings.useExtensionProviders) return;
 
@@ -1766,8 +1793,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         'title': track.name,
         'artist': track.artistName,
         'album': track.albumName,
-        'album_artist':
-            _normalizeOptionalString(track.albumArtist) ?? track.artistName,
+        'album_artist': resolvedAlbumArtist,
         'track_number': track.trackNumber ?? 1,
         'disc_number': track.discNumber ?? 1,
         'isrc': track.isrc ?? '',
@@ -1827,7 +1853,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   Track _buildTrackForMetadataEmbedding(
     Track baseTrack,
     Map<String, dynamic> backendResult,
-    String? normalizedAlbumArtist,
+    String resolvedAlbumArtist,
   ) {
     final backendTrackNum = _parsePositiveInt(backendResult['track_number']);
     final backendDiscNum = _parsePositiveInt(backendResult['disc_number']);
@@ -1850,7 +1876,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       name: baseTrack.name,
       artistName: baseTrack.artistName,
       albumName: backendAlbum ?? baseTrack.albumName,
-      albumArtist: normalizedAlbumArtist,
+      albumArtist: resolvedAlbumArtist,
       coverUrl: baseTrack.coverUrl,
       duration: baseTrack.duration,
       isrc: baseTrack.isrc,
@@ -1914,8 +1940,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         'ALBUM': track.albumName,
       };
 
-      final albumArtist =
-          _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+      final albumArtist = _resolveAlbumArtistForMetadata(track, settings);
       metadata['ALBUMARTIST'] = albumArtist;
 
       if (track.trackNumber != null) {
@@ -2057,8 +2082,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         'ALBUM': track.albumName,
       };
 
-      final albumArtist =
-          _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+      final albumArtist = _resolveAlbumArtistForMetadata(track, settings);
       metadata['ALBUMARTIST'] = albumArtist;
 
       if (track.trackNumber != null) {
@@ -2222,8 +2246,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         'ALBUM': track.albumName,
       };
 
-      final albumArtist =
-          _normalizeOptionalString(track.albumArtist) ?? track.artistName;
+      final albumArtist = _resolveAlbumArtistForMetadata(track, settings);
       metadata['ALBUMARTIST'] = albumArtist;
 
       if (track.trackNumber != null) {
@@ -2741,8 +2764,9 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
       _log.d('Track coverUrl after enrichment: ${trackToDownload.coverUrl}');
 
-      final normalizedAlbumArtist = _normalizeOptionalString(
-        trackToDownload.albumArtist,
+      final resolvedAlbumArtist = _resolveAlbumArtistForMetadata(
+        trackToDownload,
+        settings,
       );
 
       final quality = item.qualityOverride ?? state.audioQuality;
@@ -2755,6 +2779,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               albumFolderStructure: settings.albumFolderStructure,
               useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
               usePrimaryArtistOnly: settings.usePrimaryArtistOnly,
+              filterContributingArtistsInAlbumArtist:
+                  settings.filterContributingArtistsInAlbumArtist,
             )
           : '';
       String? appOutputDir;
@@ -2767,6 +2793,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               albumFolderStructure: settings.albumFolderStructure,
               useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
               usePrimaryArtistOnly: settings.usePrimaryArtistOnly,
+              filterContributingArtistsInAlbumArtist:
+                  settings.filterContributingArtistsInAlbumArtist,
             );
       var effectiveOutputDir = initialOutputDir;
       var effectiveSafMode = isSafMode;
@@ -2972,7 +3000,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           trackName: trackToDownload.name,
           artistName: trackToDownload.artistName,
           albumName: trackToDownload.albumName,
-          albumArtist: normalizedAlbumArtist ?? trackToDownload.artistName,
+          albumArtist: resolvedAlbumArtist,
           coverUrl: trackToDownload.coverUrl ?? '',
           outputDir: outputDir,
           filenameFormat: state.filenameFormat,
@@ -3021,6 +3049,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           albumFolderStructure: settings.albumFolderStructure,
           useAlbumArtistForFolders: settings.useAlbumArtistForFolders,
           usePrimaryArtistOnly: settings.usePrimaryArtistOnly,
+          filterContributingArtistsInAlbumArtist:
+              settings.filterContributingArtistsInAlbumArtist,
         );
         final fallbackResult = await runDownload(
           useSaf: false,
@@ -3358,7 +3388,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                       final finalTrack = _buildTrackForMetadataEmbedding(
                         trackToDownload,
                         result,
-                        normalizedAlbumArtist,
+                        resolvedAlbumArtist,
                       );
 
                       final backendGenre = result['genre'] as String?;
@@ -3522,7 +3552,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                         final finalTrack = _buildTrackForMetadataEmbedding(
                           trackToDownload,
                           result,
-                          normalizedAlbumArtist,
+                          resolvedAlbumArtist,
                         );
 
                         final backendGenre = result['genre'] as String?;
@@ -3582,7 +3612,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               final finalTrack = _buildTrackForMetadataEmbedding(
                 trackToDownload,
                 result,
-                normalizedAlbumArtist,
+                resolvedAlbumArtist,
               );
               final backendGenre = result['genre'] as String?;
               final backendLabel = result['label'] as String?;
@@ -3642,7 +3672,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
             final finalTrack = _buildTrackForMetadataEmbedding(
               trackToDownload,
               result,
-              normalizedAlbumArtist,
+              resolvedAlbumArtist,
             );
             final backendGenre = result['genre'] as String?;
             final backendLabel = result['label'] as String?;
@@ -3679,7 +3709,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
             final finalTrack = _buildTrackForMetadataEmbedding(
               trackToDownload,
               result,
-              normalizedAlbumArtist,
+              resolvedAlbumArtist,
             );
             final backendGenre = result['genre'] as String?;
             final backendLabel = result['label'] as String?;
@@ -3926,9 +3956,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           _log.d('Saving to history - coverUrl: ${trackToDownload.coverUrl}');
 
           final historyAlbumArtist =
-              (normalizedAlbumArtist != null &&
-                  normalizedAlbumArtist != trackToDownload.artistName)
-              ? normalizedAlbumArtist
+              resolvedAlbumArtist != trackToDownload.artistName
+              ? resolvedAlbumArtist
               : null;
 
           final isMp3 = filePath.endsWith('.mp3');
