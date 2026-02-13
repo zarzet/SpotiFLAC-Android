@@ -991,7 +991,7 @@
   "@setupNotificationProgressDescription": {
     "description": "Info about notification usage"
   },
-  "setupNotificationBackgroundDescription": "Werde benachrichtigt über Download-Fortschritt und -Fertigstellung. Dies hilft Ihnen, Downloads zu verfolgen, wenn die App im Hintergrund ist.",
+  "setupNotificationBackgroundDescription": "Erhalte Benachrichtigungen über den Fortschritt und die Fertigstellung deiner Downloads, selbst wenn die App im Hintergrund läuft.",
   "@setupNotificationBackgroundDescription": {
     "description": "Detailed notification explanation"
   },
@@ -1836,7 +1836,7 @@
       }
     }
   },
-  "logEntries": "Entries ({count})",
+  "logEntries": "{count} Einträge",
   "@logEntries": {
     "description": "Total log count",
     "placeholders": {
@@ -1845,7 +1845,7 @@
       }
     }
   },
-  "credentialsTitle": "Spotify Credentials",
+  "credentialsTitle": "Spotify-Anmeldedaten",
   "@credentialsTitle": {
     "description": "Credentials dialog title"
   },
@@ -1925,7 +1925,7 @@
   "@lyricsModeDescription": {
     "description": "Lyrics mode picker description"
   },
-  "lyricsModeEmbed": "In Datei einbinden",
+  "lyricsModeEmbed": "In Datei einbetten",
   "@lyricsModeEmbed": {
     "description": "Lyrics mode option - embed in audio file"
   },
@@ -1945,7 +1945,7 @@
   "@lyricsModeBoth": {
     "description": "Lyrics mode option - embed and external"
   },
-  "lyricsModeBothSubtitle": "Lyrics einbinden und als .lrc speichern",
+  "lyricsModeBothSubtitle": "Lyrics einbetten und als .lrc speichern",
   "@lyricsModeBothSubtitle": {
     "description": "Subtitle for both option"
   },
@@ -1969,43 +1969,43 @@
   "@appearanceLanguage": {
     "description": "Language setting title"
   },
-  "appearanceLanguageSubtitle": "Choose your preferred language",
+  "appearanceLanguageSubtitle": "Deine bevorzugte Sprache wählen",
   "@appearanceLanguageSubtitle": {
     "description": "Language setting subtitle"
   },
-  "settingsAppearanceSubtitle": "Theme, colors, display",
+  "settingsAppearanceSubtitle": "Design, Farben, Anzeige",
   "@settingsAppearanceSubtitle": {
     "description": "Appearance settings description"
   },
-  "settingsDownloadSubtitle": "Service, quality, filename format",
+  "settingsDownloadSubtitle": "Dienst, Qualität, Dateinamen-Format",
   "@settingsDownloadSubtitle": {
     "description": "Download settings description"
   },
-  "settingsOptionsSubtitle": "Fallback, lyrics, cover art, updates",
+  "settingsOptionsSubtitle": "Fallback, Lyrics, Covers, Updates",
   "@settingsOptionsSubtitle": {
     "description": "Options settings description"
   },
-  "settingsExtensionsSubtitle": "Manage download providers",
+  "settingsExtensionsSubtitle": "Download-Anbieter verwalten",
   "@settingsExtensionsSubtitle": {
     "description": "Extensions settings description"
   },
-  "settingsLogsSubtitle": "View app logs for debugging",
+  "settingsLogsSubtitle": "App-Logs zum Debuggen anzeigen",
   "@settingsLogsSubtitle": {
     "description": "Logs settings description"
   },
-  "loadingSharedLink": "Loading shared link...",
+  "loadingSharedLink": "Link wird geladen...",
   "@loadingSharedLink": {
     "description": "Status when opening shared URL"
   },
-  "pressBackAgainToExit": "Press back again to exit",
+  "pressBackAgainToExit": "Drücke wieder \"zurück\" um die App zu beenden",
   "@pressBackAgainToExit": {
     "description": "Exit confirmation message"
   },
-  "tracksHeader": "Tracks",
+  "tracksHeader": "Titel",
   "@tracksHeader": {
     "description": "Section header for track list"
   },
-  "downloadAllCount": "Download All ({count})",
+  "downloadAllCount": "Alle {count} Titel herunterladen",
   "@downloadAllCount": {
     "description": "Download all button with count",
     "placeholders": {
@@ -2014,7 +2014,7 @@
       }
     }
   },
-  "tracksCount": "{count, plural, =1{1 track} other{{count} tracks}}",
+  "tracksCount": "{count, plural, =1{1 Titel} other{{count} Titel}}",
   "@tracksCount": {
     "description": "Track count display",
     "placeholders": {
@@ -2023,23 +2023,23 @@
       }
     }
   },
-  "trackCopyFilePath": "Copy file path",
+  "trackCopyFilePath": "Dateipfad kopieren",
   "@trackCopyFilePath": {
     "description": "Action - copy file path"
   },
-  "trackRemoveFromDevice": "Remove from device",
+  "trackRemoveFromDevice": "Vom Gerät entfernen",
   "@trackRemoveFromDevice": {
     "description": "Action - delete downloaded file"
   },
-  "trackLoadLyrics": "Load Lyrics",
+  "trackLoadLyrics": "Lade Lyrics",
   "@trackLoadLyrics": {
     "description": "Action - fetch lyrics"
   },
-  "trackMetadata": "Metadata",
+  "trackMetadata": "Metadaten",
   "@trackMetadata": {
     "description": "Tab title - track metadata"
   },
-  "trackFileInfo": "File Info",
+  "trackFileInfo": "Datei-Info",
   "@trackFileInfo": {
     "description": "Tab title - file information"
   },
@@ -2047,27 +2047,27 @@
   "@trackLyrics": {
     "description": "Tab title - lyrics"
   },
-  "trackFileNotFound": "File not found",
+  "trackFileNotFound": "Datei nicht gefunden",
   "@trackFileNotFound": {
     "description": "Error - file doesn't exist"
   },
-  "trackOpenInDeezer": "Open in Deezer",
+  "trackOpenInDeezer": "In Deezer öffnen",
   "@trackOpenInDeezer": {
     "description": "Action - open track in Deezer app"
   },
-  "trackOpenInSpotify": "Open in Spotify",
+  "trackOpenInSpotify": "In Spotify öffnen",
   "@trackOpenInSpotify": {
     "description": "Action - open track in Spotify app"
   },
-  "trackTrackName": "Track name",
+  "trackTrackName": "Name des Titels",
   "@trackTrackName": {
     "description": "Metadata label - track title"
   },
-  "trackArtist": "Artist",
+  "trackArtist": "Künstler",
   "@trackArtist": {
     "description": "Metadata label - artist name"
   },
-  "trackAlbumArtist": "Album artist",
+  "trackAlbumArtist": "Album Künstler",
   "@trackAlbumArtist": {
     "description": "Metadata label - album artist"
   },
@@ -2075,23 +2075,23 @@
   "@trackAlbum": {
     "description": "Metadata label - album name"
   },
-  "trackTrackNumber": "Track number",
+  "trackTrackNumber": "Titelnummer",
   "@trackTrackNumber": {
     "description": "Metadata label - track number"
   },
-  "trackDiscNumber": "Disc number",
+  "trackDiscNumber": "CD-Nummer",
   "@trackDiscNumber": {
     "description": "Metadata label - disc number"
   },
-  "trackDuration": "Duration",
+  "trackDuration": "Länge",
   "@trackDuration": {
     "description": "Metadata label - track length"
   },
-  "trackAudioQuality": "Audio quality",
+  "trackAudioQuality": "Audioqualität",
   "@trackAudioQuality": {
     "description": "Metadata label - audio quality"
   },
-  "trackReleaseDate": "Release date",
+  "trackReleaseDate": "Erscheinungsdatum",
   "@trackReleaseDate": {
     "description": "Metadata label - release date"
   },
@@ -2103,31 +2103,31 @@
   "@trackLabel": {
     "description": "Metadata label - record label"
   },
-  "trackCopyright": "Copyright",
+  "trackCopyright": "Urheberrecht",
   "@trackCopyright": {
     "description": "Metadata label - copyright information"
   },
-  "trackDownloaded": "Downloaded",
+  "trackDownloaded": "Heruntergeladen",
   "@trackDownloaded": {
     "description": "Metadata label - download date"
   },
-  "trackCopyLyrics": "Copy lyrics",
+  "trackCopyLyrics": "Lyrics kopieren",
   "@trackCopyLyrics": {
     "description": "Action - copy lyrics to clipboard"
   },
-  "trackLyricsNotAvailable": "Lyrics not available for this track",
+  "trackLyricsNotAvailable": "Lyrics sind für diesen Titel nicht verfügbar",
   "@trackLyricsNotAvailable": {
     "description": "Message when lyrics not found"
   },
-  "trackLyricsTimeout": "Request timed out. Try again later.",
+  "trackLyricsTimeout": "Anfrage Timeout. Versuchen Sie es später erneut.",
   "@trackLyricsTimeout": {
     "description": "Message when lyrics request times out"
   },
-  "trackLyricsLoadFailed": "Failed to load lyrics",
+  "trackLyricsLoadFailed": "Fehler beim Laden der Lyrics",
   "@trackLyricsLoadFailed": {
     "description": "Message when lyrics loading fails"
   },
-  "trackEmbedLyrics": "Embed Lyrics",
+  "trackEmbedLyrics": "Lyrics einbetten",
   "@trackEmbedLyrics": {
     "description": "Action - embed lyrics into audio file"
   },
@@ -2160,7 +2160,7 @@
       }
     }
   },
-  "dateToday": "Today",
+  "dateToday": "Heute",
   "@dateToday": {
     "description": "Relative date - today"
   },
@@ -2211,7 +2211,7 @@
   "@tapToSeeError": {
     "description": "Tooltip for failed download"
   },
-  "storeFilterAll": "All",
+  "storeFilterAll": "Alle",
   "@storeFilterAll": {
     "description": "Store filter - all extensions"
   },
@@ -2259,7 +2259,7 @@
   "@extensionDefaultProviderSubtitle": {
     "description": "Subtitle for default provider"
   },
-  "extensionAuthor": "Author",
+  "extensionAuthor": "Entwickler",
   "@extensionAuthor": {
     "description": "Extension detail - author"
   },
@@ -2267,7 +2267,7 @@
   "@extensionId": {
     "description": "Extension detail - unique ID"
   },
-  "extensionError": "Error",
+  "extensionError": "Fehler",
   "@extensionError": {
     "description": "Extension detail - error message"
   },
@@ -2450,7 +2450,7 @@
   "@qualityHiResFlacMaxSubtitle": {
     "description": "Technical spec for hi-res max"
   },
-  "qualityLossy": "Lossy",
+  "qualityLossy": "Verlustbehaftet",
   "@qualityLossy": {
     "description": "Quality option - lossy format (MP3/Opus)"
   },
@@ -2490,11 +2490,11 @@
   "@lossyFormatOpusSubtitle": {
     "description": "Opus format description"
   },
-  "qualityNote": "Actual quality depends on track availability from the service",
+  "qualityNote": "Die eigentliche Qualität hängt von der Verfügbarkeit des Dienstes ab",
   "@qualityNote": {
     "description": "Note about quality availability"
   },
-  "youtubeQualityNote": "YouTube provides lossy audio only. Not part of lossless fallback.",
+  "youtubeQualityNote": "YouTube bietet nur verlustbehaftete Audioqualität. Deswegen ist es kein Teil des verlustfreien Fallbacks.",
   "@youtubeQualityNote": {
     "description": "Note for YouTube service explaining lossy-only quality"
   },
@@ -2562,7 +2562,7 @@
   "@downloadBestAvailable": {
     "description": "Quality option - highest available"
   },
-  "folderNone": "None",
+  "folderNone": "Keine Ausgewählt",
   "@folderNone": {
     "description": "Folder option - no organization"
   },
@@ -2570,7 +2570,7 @@
   "@folderNoneSubtitle": {
     "description": "Subtitle for no folder organization"
   },
-  "folderArtist": "Artist",
+  "folderArtist": "Künstler",
   "@folderArtist": {
     "description": "Folder option - by artist"
   },
@@ -2670,15 +2670,15 @@
   "@settingsDownloadNetwork": {
     "description": "Setting for network type preference"
   },
-  "settingsDownloadNetworkAny": "WiFi + Mobile Data",
+  "settingsDownloadNetworkAny": "WLAN + Mobile Daten",
   "@settingsDownloadNetworkAny": {
     "description": "Network option - use any connection"
   },
-  "settingsDownloadNetworkWifiOnly": "WiFi Only",
+  "settingsDownloadNetworkWifiOnly": "Nur WLAN",
   "@settingsDownloadNetworkWifiOnly": {
     "description": "Network option - only use WiFi"
   },
-  "settingsDownloadNetworkSubtitle": "Choose which network to use for downloads. When set to WiFi Only, downloads will pause on mobile data.",
+  "settingsDownloadNetworkSubtitle": "Wähle aus, welches Netzwerk für Downloads verwendet werden soll. Wenn nur WLAN aktiviert wird, werden Downloads auf mobilen Daten angehalten.",
   "@settingsDownloadNetworkSubtitle": {
     "description": "Subtitle explaining network preference"
   },
@@ -2698,7 +2698,7 @@
   "@queueDownloadFailed": {
     "description": "Error dialog title"
   },
-  "queueTrackLabel": "Track:",
+  "queueTrackLabel": "Titel:",
   "@queueTrackLabel": {
     "description": "Label in error dialog"
   },
@@ -2706,7 +2706,7 @@
   "@queueArtistLabel": {
     "description": "Label in error dialog"
   },
-  "queueErrorLabel": "Error:",
+  "queueErrorLabel": "Fehler:",
   "@queueErrorLabel": {
     "description": "Label in error dialog"
   },
@@ -2767,7 +2767,7 @@
       }
     }
   },
-  "downloadedAlbumTracksHeader": "Tracks",
+  "downloadedAlbumTracksHeader": "Titel",
   "@downloadedAlbumTracksHeader": {
     "description": "Section header for tracks"
   },
@@ -2824,7 +2824,7 @@
   "@utilityFunctions": {
     "description": "Extension capability - utility functions"
   },
-  "recentTypeArtist": "Artist",
+  "recentTypeArtist": "Künstler",
   "@recentTypeArtist": {
     "description": "Recent access item type - artist"
   },
@@ -2832,7 +2832,7 @@
   "@recentTypeAlbum": {
     "description": "Recent access item type - album"
   },
-  "recentTypeSong": "Song",
+  "recentTypeSong": "Titel",
   "@recentTypeSong": {
     "description": "Recent access item type - song/track"
   },
@@ -3002,7 +3002,7 @@
   "@allFilesAccessDisabledSubtitle": {
     "description": "Subtitle when all files access is disabled"
   },
-  "allFilesAccessDescription": "Enable this if you encounter write errors when saving to custom folders. Android 13+ restricts access to certain directories by default.",
+  "allFilesAccessDescription": "Aktiviere die Option, wenn beim Speichern in benutzerdefinierten Ordnern Schreibfehler auftreten. Weil Android 13+ standardmäßig den Zugriff auf bestimmte Verzeichnisse einschränkt.",
   "@allFilesAccessDescription": {
     "description": "Description explaining when to enable all files access"
   },
@@ -3010,7 +3010,7 @@
   "@allFilesAccessDeniedMessage": {
     "description": "Message when permission is permanently denied"
   },
-  "allFilesAccessDisabledMessage": "All Files Access disabled. The app will use limited storage access.",
+  "allFilesAccessDisabledMessage": "Zugriff auf alle Dateien ist deaktiviert. Die App verwendet nur begrenzten Zugriff auf den Speicher.",
   "@allFilesAccessDisabledMessage": {
     "description": "Snackbar message when user disables all files access"
   },
@@ -3132,7 +3132,7 @@
       }
     }
   },
-  "libraryLastScannedNever": "Never",
+  "libraryLastScannedNever": "Nie",
   "@libraryLastScannedNever": {
     "description": "Shown when library has never been scanned"
   },
@@ -3185,11 +3185,11 @@
   "@librarySourceDownloaded": {
     "description": "Badge for tracks downloaded via SpotiFLAC"
   },
-  "librarySourceLocal": "Local",
+  "librarySourceLocal": "Lokal",
   "@librarySourceLocal": {
     "description": "Badge for tracks from local library scan"
   },
-  "libraryFilterAll": "All",
+  "libraryFilterAll": "Alle",
   "@libraryFilterAll": {
     "description": "Filter chip - show all library items"
   },
@@ -3197,7 +3197,7 @@
   "@libraryFilterDownloaded": {
     "description": "Filter chip - show only downloaded items"
   },
-  "libraryFilterLocal": "Local",
+  "libraryFilterLocal": "Lokal",
   "@libraryFilterLocal": {
     "description": "Filter chip - show only local library items"
   },
@@ -3205,15 +3205,15 @@
   "@libraryFilterTitle": {
     "description": "Filter bottom sheet title"
   },
-  "libraryFilterReset": "Reset",
+  "libraryFilterReset": "Zurücksetzen",
   "@libraryFilterReset": {
     "description": "Reset all filters button"
   },
-  "libraryFilterApply": "Apply",
+  "libraryFilterApply": "Anwenden",
   "@libraryFilterApply": {
     "description": "Apply filters button"
   },
-  "libraryFilterSource": "Source",
+  "libraryFilterSource": "Quelle",
   "@libraryFilterSource": {
     "description": "Filter section - source type"
   },
@@ -3229,7 +3229,7 @@
   "@libraryFilterQualityCD": {
     "description": "Filter option - CD quality audio"
   },
-  "libraryFilterQualityLossy": "Lossy",
+  "libraryFilterQualityLossy": "Verlustbehaftet",
   "@libraryFilterQualityLossy": {
     "description": "Filter option - lossy compressed audio"
   },
@@ -3241,7 +3241,7 @@
   "@libraryFilterDate": {
     "description": "Filter section - date range"
   },
-  "libraryFilterDateToday": "Today",
+  "libraryFilterDateToday": "Heute",
   "@libraryFilterDateToday": {
     "description": "Filter option - today only"
   },
@@ -3257,15 +3257,15 @@
   "@libraryFilterDateYear": {
     "description": "Filter option - this year"
   },
-  "libraryFilterSort": "Sort",
+  "libraryFilterSort": "Sortieren",
   "@libraryFilterSort": {
     "description": "Filter section - sort order"
   },
-  "libraryFilterSortLatest": "Latest",
+  "libraryFilterSortLatest": "Neuste",
   "@libraryFilterSortLatest": {
     "description": "Sort option - newest first"
   },
-  "libraryFilterSortOldest": "Oldest",
+  "libraryFilterSortOldest": "Älteste",
   "@libraryFilterSortOldest": {
     "description": "Sort option - oldest first"
   },
@@ -3282,7 +3282,7 @@
   "@timeJustNow": {
     "description": "Relative time - less than a minute ago"
   },
-  "timeMinutesAgo": "{count, plural, =1{1 minute ago} other{{count} minutes ago}}",
+  "timeMinutesAgo": "{count, plural, one {}=1{vor 1 Minute} other{vor {count} Minuten}}",
   "@timeMinutesAgo": {
     "description": "Relative time - minutes ago",
     "placeholders": {
@@ -3312,11 +3312,11 @@
   "@storageSwitchToAppTitle": {
     "description": "Dialog title when switching to app storage"
   },
-  "storageSwitchToSafMessage": "Your existing downloads will remain in the current location and stay accessible.\n\nNew downloads will be saved to your selected SAF folder.",
+  "storageSwitchToSafMessage": "Deine vorhandenen Downloads bleiben im aktuellen Verzeichnis erhalten und bleiben zugänglich.\n\nNeue Downloads werden dann aber in den ausgewählten SAF-Ordner gespeichert.",
   "@storageSwitchToSafMessage": {
     "description": "Explanation when switching to SAF"
   },
-  "storageSwitchToAppMessage": "Your existing downloads will remain in the current SAF location and stay accessible.\n\nNew downloads will be saved to Music/SpotiFLAC folder.",
+  "storageSwitchToAppMessage": "Deine vorhandenen Downloads bleiben im aktuellen SAF-Verzeichnis erhalten und bleiben zugänglich.\n\nNeue Downloads werden dann aber in den Music/SpotiFLAC Ordner gespeichert.",
   "@storageSwitchToAppMessage": {
     "description": "Explanation when switching to app storage"
   },
@@ -3408,7 +3408,7 @@
   "@tutorialWelcomeDesc": {
     "description": "Tutorial welcome page description"
   },
-  "tutorialWelcomeTip1": "Download music from Spotify, Deezer, or paste any supported URL",
+  "tutorialWelcomeTip1": "Lade Musik von Spotify, Deezer herunter oder jeden unterstützten Link einfügen",
   "@tutorialWelcomeTip1": {
     "description": "Tutorial welcome tip 1"
   },
@@ -3424,7 +3424,7 @@
   "@tutorialSearchTitle": {
     "description": "Tutorial search page title"
   },
-  "tutorialSearchDesc": "There are two easy ways to find music you want to download.",
+  "tutorialSearchDesc": "Es gibt zwei einfache Möglichkeiten, Musik zu finden, die du herunterladen möchtest.",
   "@tutorialSearchDesc": {
     "description": "Tutorial search page description"
   },
@@ -3448,7 +3448,7 @@
   "@tutorialDownloadDesc": {
     "description": "Tutorial download page description"
   },
-  "tutorialDownloadTip1": "Tap the download button next to any track to start downloading",
+  "tutorialDownloadTip1": "Tippe auf den Download-Button neben einem Titel, um mit dem Download zu beginnen",
   "@tutorialDownloadTip1": {
     "description": "Tutorial download tip 1"
   },
@@ -3590,7 +3590,7 @@
   "@cacheAppDirectory": {
     "description": "Cache item title for app cache directory"
   },
-  "cacheAppDirectoryDesc": "HTTP responses, WebView data, and other temporary app data.",
+  "cacheAppDirectoryDesc": "HTTP-Antworten, WebView Daten und andere temporäre App-Daten.",
   "@cacheAppDirectoryDesc": {
     "description": "Description of what app cache directory contains"
   },
@@ -3606,7 +3606,7 @@
   "@cacheCoverImage": {
     "description": "Cache item title for persistent cover images"
   },
-  "cacheCoverImageDesc": "Downloaded album and track cover art. Will re-download when viewed.",
+  "cacheCoverImageDesc": "Album- und Titelcover heruntergeladen. Werden erneut heruntergeladen.",
   "@cacheCoverImageDesc": {
     "description": "Description of what cover image cache contains"
   },
@@ -3710,7 +3710,7 @@
   "@cacheCleanupUnused": {
     "description": "Action title for cleaning unused entries"
   },
-  "cacheCleanupUnusedSubtitle": "Remove orphaned download history and missing library entries",
+  "cacheCleanupUnusedSubtitle": "Verwaisten Downloadverlauf und fehlende Bibliothekseinträge löschen",
   "@cacheCleanupUnusedSubtitle": {
     "description": "Subtitle for cleanup unused data action"
   },
