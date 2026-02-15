@@ -13,7 +13,7 @@
   "@navHome": {
     "description": "Bottom navigation - Home tab"
   },
-  "navLibrary": "Archiv",
+  "navLibrary": "Bibliothek",
   "@navLibrary": {
     "description": "Bottom navigation - Library tab"
   },
@@ -1161,7 +1161,7 @@
       }
     }
   },
-  "dialogImportPlaylistTitle": "Wiedergabeliste importieren",
+  "dialogImportPlaylistTitle": "Playlist importieren",
   "@dialogImportPlaylistTitle": {
     "description": "Dialog title - import CSV playlist"
   },
@@ -1536,7 +1536,7 @@
   "@filenameShowAdvancedTags": {
     "description": "Toggle label for showing advanced filename tags"
   },
-  "filenameShowAdvancedTagsDescription": "Enable formatted tags for track padding and date patterns",
+  "filenameShowAdvancedTagsDescription": "Formatierte Tags für Track-Padding und Datumsmuster aktivieren",
   "@filenameShowAdvancedTagsDescription": {
     "description": "Description for advanced filename tag toggle"
   },
@@ -2172,7 +2172,7 @@
   "@dateToday": {
     "description": "Relative date - today"
   },
-  "dateYesterday": "Yesterday",
+  "dateYesterday": "Gestern",
   "@dateYesterday": {
     "description": "Relative date - yesterday"
   },
@@ -2203,7 +2203,7 @@
       }
     }
   },
-  "concurrentSequential": "Sequential",
+  "concurrentSequential": "Sequenziell",
   "@concurrentSequential": {
     "description": "Download mode - one at a time"
   },
@@ -2223,11 +2223,11 @@
   "@storeFilterAll": {
     "description": "Store filter - all extensions"
   },
-  "storeFilterMetadata": "Metadata",
+  "storeFilterMetadata": "Metadaten",
   "@storeFilterMetadata": {
     "description": "Store filter - metadata providers"
   },
-  "storeFilterDownload": "Download",
+  "storeFilterDownload": "Herunterladen",
   "@storeFilterDownload": {
     "description": "Store filter - download providers"
   },
@@ -2243,7 +2243,7 @@
   "@storeFilterIntegration": {
     "description": "Store filter - integrations"
   },
-  "storeClearFilters": "Clear filters",
+  "storeClearFilters": "Filter entfernen",
   "@storeClearFilters": {
     "description": "Button to clear all filters"
   },
@@ -2279,7 +2279,7 @@
   "@extensionError": {
     "description": "Extension detail - error message"
   },
-  "extensionCapabilities": "Capabilities",
+  "extensionCapabilities": "Eigenschaften",
   "@extensionCapabilities": {
     "description": "Section header - extension features"
   },
@@ -2307,11 +2307,11 @@
   "@extensionPostProcessingHooks": {
     "description": "Capability - post-processing"
   },
-  "extensionPermissions": "Permissions",
+  "extensionPermissions": "Berechtigungen",
   "@extensionPermissions": {
     "description": "Section header - required permissions"
   },
-  "extensionSettings": "Settings",
+  "extensionSettings": "Einstellungen",
   "@extensionSettings": {
     "description": "Section header - extension settings"
   },
@@ -2319,7 +2319,7 @@
   "@extensionRemoveButton": {
     "description": "Button to uninstall extension"
   },
-  "extensionUpdated": "Updated",
+  "extensionUpdated": "Aktualisiert",
   "@extensionUpdated": {
     "description": "Extension detail - last update"
   },
@@ -2374,7 +2374,7 @@
   "@extensionsNoExtensions": {
     "description": "Empty state - no extensions"
   },
-  "extensionsNoExtensionsSubtitle": "Install .spotiflac-ext files to add new providers",
+  "extensionsNoExtensionsSubtitle": "Installiere .spotiflac-ext Dateien um neue Anbieter hinzuzufügen",
   "@extensionsNoExtensionsSubtitle": {
     "description": "Empty state subtitle"
   },
@@ -2422,11 +2422,11 @@
   "@extensionsNoCustomSearch": {
     "description": "Empty state - no search providers"
   },
-  "extensionsSearchProviderDescription": "Choose which service to use for searching tracks",
+  "extensionsSearchProviderDescription": "Wähle den Dienst für die Suche von Titel",
   "@extensionsSearchProviderDescription": {
     "description": "Search provider setting description"
   },
-  "extensionsCustomSearch": "Custom search",
+  "extensionsCustomSearch": "Benutzerdefinierte Suche",
   "@extensionsCustomSearch": {
     "description": "Label for custom search provider"
   },
@@ -2434,7 +2434,7 @@
   "@extensionsErrorLoading": {
     "description": "Error message when extension fails to load"
   },
-  "qualityFlacLossless": "FLAC Lossless",
+  "qualityFlacLossless": "FLAC Verlustfrei",
   "@qualityFlacLossless": {
     "description": "Quality option - CD quality FLAC"
   },
@@ -2482,7 +2482,7 @@
   "@enableLossyOptionSubtitleOff": {
     "description": "Subtitle when lossy is disabled"
   },
-  "lossyFormat": "Lossy Format",
+  "lossyFormat": "Verlustbehaftetes Format",
   "@lossyFormat": {
     "description": "Setting - choose lossy format"
   },
@@ -2546,19 +2546,19 @@
   "@downloadUsePrimaryArtistOnlyDisabled": {
     "description": "Subtitle when primary artist only is disabled"
   },
-  "downloadSaveFormat": "Save Format",
+  "downloadSaveFormat": "Speicherformat",
   "@downloadSaveFormat": {
     "description": "Setting - output file format"
   },
-  "downloadSelectService": "Select Service",
+  "downloadSelectService": "Provider auswählen",
   "@downloadSelectService": {
     "description": "Dialog title - choose download service"
   },
-  "downloadSelectQuality": "Select Quality",
+  "downloadSelectQuality": "Qualität wählen",
   "@downloadSelectQuality": {
     "description": "Dialog title - choose audio quality"
   },
-  "downloadFrom": "Download From",
+  "downloadFrom": "Herunterladen von",
   "@downloadFrom": {
     "description": "Label - download source"
   },
@@ -2566,7 +2566,7 @@
   "@downloadDefaultQualityLabel": {
     "description": "Label - default quality setting"
   },
-  "downloadBestAvailable": "Best available",
+  "downloadBestAvailable": "Beste Qualität",
   "@downloadBestAvailable": {
     "description": "Quality option - highest available"
   },
@@ -2594,7 +2594,7 @@
   "@folderAlbumSubtitle": {
     "description": "Folder structure example"
   },
-  "folderArtistAlbum": "Artist/Album",
+  "folderArtistAlbum": "Künstler/Album",
   "@folderArtistAlbum": {
     "description": "Folder option - nested"
   },
@@ -2622,7 +2622,7 @@
   "@serviceSpotify": {
     "description": "Service name - DO NOT TRANSLATE"
   },
-  "appearanceAmoledDark": "AMOLED Dark",
+  "appearanceAmoledDark": "AMOLED Schwarz",
   "@appearanceAmoledDark": {
     "description": "Theme option - pure black"
   },
@@ -2634,15 +2634,15 @@
   "@appearanceChooseAccentColor": {
     "description": "Color picker dialog title"
   },
-  "appearanceChooseTheme": "Theme Mode",
+  "appearanceChooseTheme": "Designmodus",
   "@appearanceChooseTheme": {
     "description": "Theme picker dialog title"
   },
-  "queueTitle": "Download Queue",
+  "queueTitle": "Download-Warteliste",
   "@queueTitle": {
     "description": "Queue screen title"
   },
-  "queueClearAll": "Clear All",
+  "queueClearAll": "Alles löschen",
   "@queueClearAll": {
     "description": "Button - clear all queue items"
   },
@@ -2658,7 +2658,7 @@
   "@queueExportFailedSuccess": {
     "description": "Success message after exporting failed downloads"
   },
-  "queueExportFailedClear": "Clear Failed",
+  "queueExportFailedClear": "Löschung fehlgeschlagen",
   "@queueExportFailedClear": {
     "description": "Action to clear failed downloads after export"
   },
@@ -2670,7 +2670,7 @@
   "@settingsAutoExportFailed": {
     "description": "Setting toggle for auto-export"
   },
-  "settingsAutoExportFailedSubtitle": "Save failed downloads to TXT file automatically",
+  "settingsAutoExportFailedSubtitle": "Fehlgeschlagene Downloads automatisch in eine TXT-Datei speichern",
   "@settingsAutoExportFailedSubtitle": {
     "description": "Subtitle for auto-export setting"
   },
@@ -2710,7 +2710,7 @@
   "@queueTrackLabel": {
     "description": "Label in error dialog"
   },
-  "queueArtistLabel": "Artist:",
+  "queueArtistLabel": "Künstler:",
   "@queueArtistLabel": {
     "description": "Label in error dialog"
   },
@@ -2718,11 +2718,11 @@
   "@queueErrorLabel": {
     "description": "Label in error dialog"
   },
-  "queueUnknownError": "Unknown error",
+  "queueUnknownError": "Unbekannter Fehler",
   "@queueUnknownError": {
     "description": "Fallback error message"
   },
-  "albumFolderArtistAlbum": "Artist / Album",
+  "albumFolderArtistAlbum": "Künstler/Album",
   "@albumFolderArtistAlbum": {
     "description": "Album folder option"
   },
@@ -2738,7 +2738,7 @@
   "@albumFolderArtistYearAlbumSubtitle": {
     "description": "Folder structure example"
   },
-  "albumFolderAlbumOnly": "Album Only",
+  "albumFolderAlbumOnly": "Nur Alben",
   "@albumFolderAlbumOnly": {
     "description": "Album folder option"
   },
@@ -2805,7 +2805,7 @@
   "@downloadedAlbumTapToSelect": {
     "description": "Selection hint"
   },
-  "downloadedAlbumDeleteCount": "Delete {count} {count, plural, =1{track} other{tracks}}",
+  "downloadedAlbumDeleteCount": "Lösche {count} {count, plural, one {}=1{Titel}other{Titel}}",
   "@downloadedAlbumDeleteCount": {
     "description": "Delete button text with count",
     "placeholders": {
@@ -2880,7 +2880,7 @@
   "@discographyDownload": {
     "description": "Button - download artist discography"
   },
-  "discographyDownloadAll": "Download All",
+  "discographyDownloadAll": "Alle Herunterladen",
   "@discographyDownloadAll": {
     "description": "Option - download entire discography"
   },
@@ -2896,7 +2896,7 @@
       }
     }
   },
-  "discographyAlbumsOnly": "Albums Only",
+  "discographyAlbumsOnly": "Nur Alben",
   "@discographyAlbumsOnly": {
     "description": "Option - download only albums"
   },
@@ -2994,7 +2994,7 @@
   "@discographyFailedToFetch": {
     "description": "Error - some albums failed to load"
   },
-  "sectionStorageAccess": "Storage Access",
+  "sectionStorageAccess": "Speicherzugriff",
   "@sectionStorageAccess": {
     "description": "Section header for storage access settings"
   },
@@ -3022,7 +3022,7 @@
   "@allFilesAccessDisabledMessage": {
     "description": "Snackbar message when user disables all files access"
   },
-  "settingsLocalLibrary": "Local Library",
+  "settingsLocalLibrary": "Lokale Bibliothek",
   "@settingsLocalLibrary": {
     "description": "Settings menu item - local library"
   },
@@ -3038,7 +3038,7 @@
   "@settingsCacheSubtitle": {
     "description": "Subtitle for cache management menu"
   },
-  "libraryTitle": "Local Library",
+  "libraryTitle": "Lokale Bibliothek",
   "@libraryTitle": {
     "description": "Library settings page title"
   },
@@ -3046,7 +3046,7 @@
   "@libraryStatus": {
     "description": "Section header for library status"
   },
-  "libraryScanSettings": "Scan Settings",
+  "libraryScanSettings": "Scan Einstellungen",
   "@libraryScanSettings": {
     "description": "Section header for scan settings"
   },
@@ -3074,11 +3074,11 @@
   "@libraryShowDuplicateIndicatorSubtitle": {
     "description": "Subtitle for duplicate indicator toggle"
   },
-  "libraryActions": "Actions",
+  "libraryActions": "Aktionen",
   "@libraryActions": {
     "description": "Section header for library actions"
   },
-  "libraryScan": "Scan Library",
+  "libraryScan": "Bibliothek scannen",
   "@libraryScan": {
     "description": "Button to start library scan"
   },
@@ -3098,7 +3098,7 @@
   "@libraryCleanupMissingFilesSubtitle": {
     "description": "Subtitle for cleanup button"
   },
-  "libraryClear": "Clear Library",
+  "libraryClear": "Bibliothek löschen",
   "@libraryClear": {
     "description": "Button to clear all library entries"
   },
@@ -3106,7 +3106,7 @@
   "@libraryClearSubtitle": {
     "description": "Subtitle for clear button"
   },
-  "libraryClearConfirmTitle": "Clear Library",
+  "libraryClearConfirmTitle": "Bibliothek löschen",
   "@libraryClearConfirmTitle": {
     "description": "Dialog title for clear confirmation"
   },
@@ -3144,7 +3144,7 @@
   "@libraryLastScannedNever": {
     "description": "Shown when library has never been scanned"
   },
-  "libraryScanning": "Scanning...",
+  "libraryScanning": "Scannen...",
   "@libraryScanning": {
     "description": "Status during scan"
   },
@@ -3160,7 +3160,7 @@
       }
     }
   },
-  "libraryInLibrary": "In Library",
+  "libraryInLibrary": "In Bibliothek",
   "@libraryInLibrary": {
     "description": "Badge shown on tracks that exist in local library"
   },
@@ -3189,7 +3189,7 @@
   "@libraryFolderNotExist": {
     "description": "Error when folder doesn't exist"
   },
-  "librarySourceDownloaded": "Downloaded",
+  "librarySourceDownloaded": "Heruntergeladen",
   "@librarySourceDownloaded": {
     "description": "Badge for tracks downloaded via SpotiFLAC"
   },
@@ -3201,7 +3201,7 @@
   "@libraryFilterAll": {
     "description": "Filter chip - show all library items"
   },
-  "libraryFilterDownloaded": "Downloaded",
+  "libraryFilterDownloaded": "Heruntergeladen",
   "@libraryFilterDownloaded": {
     "description": "Filter chip - show only downloaded items"
   },
@@ -3209,7 +3209,7 @@
   "@libraryFilterLocal": {
     "description": "Filter chip - show only local library items"
   },
-  "libraryFilterTitle": "Filters",
+  "libraryFilterTitle": "Filter",
   "@libraryFilterTitle": {
     "description": "Filter bottom sheet title"
   },
@@ -3225,7 +3225,7 @@
   "@libraryFilterSource": {
     "description": "Filter section - source type"
   },
-  "libraryFilterQuality": "Quality",
+  "libraryFilterQuality": "Qualität",
   "@libraryFilterQuality": {
     "description": "Filter section - audio quality"
   },
@@ -3245,7 +3245,7 @@
   "@libraryFilterFormat": {
     "description": "Filter section - file format"
   },
-  "libraryFilterDate": "Date Added",
+  "libraryFilterDate": "Datum Hinzugefügt",
   "@libraryFilterDate": {
     "description": "Filter section - date range"
   },
@@ -3253,15 +3253,15 @@
   "@libraryFilterDateToday": {
     "description": "Filter option - today only"
   },
-  "libraryFilterDateWeek": "This Week",
+  "libraryFilterDateWeek": "Diese Woche",
   "@libraryFilterDateWeek": {
     "description": "Filter option - this week"
   },
-  "libraryFilterDateMonth": "This Month",
+  "libraryFilterDateMonth": "In diesem Monat",
   "@libraryFilterDateMonth": {
     "description": "Filter option - this month"
   },
-  "libraryFilterDateYear": "This Year",
+  "libraryFilterDateYear": "Dieses Jahr",
   "@libraryFilterDateYear": {
     "description": "Filter option - this year"
   },
@@ -3286,7 +3286,7 @@
       }
     }
   },
-  "timeJustNow": "Just now",
+  "timeJustNow": "Gerade eben",
   "@timeJustNow": {
     "description": "Relative time - less than a minute ago"
   },
@@ -3299,7 +3299,7 @@
       }
     }
   },
-  "timeHoursAgo": "{count, plural, =1{1 hour ago} other{{count} hours ago}}",
+  "timeHoursAgo": "{count, plural, one {}=1{vor 1 Stunde} other{vor {count} Stunden}}",
   "@timeHoursAgo": {
     "description": "Relative time - hours ago",
     "placeholders": {
@@ -3344,7 +3344,7 @@
       }
     }
   },
-  "storageSwitchNewDownloads": "New Downloads",
+  "storageSwitchNewDownloads": "Neue Downloads",
   "@storageSwitchNewDownloads": {
     "description": "Section header for new downloads info"
   },
@@ -3357,7 +3357,7 @@
       }
     }
   },
-  "storageSwitchContinue": "Continue",
+  "storageSwitchContinue": "Fortfahren",
   "@storageSwitchContinue": {
     "description": "Button to proceed with storage switch"
   },
@@ -3365,11 +3365,11 @@
   "@storageSwitchSelectFolder": {
     "description": "Button to select SAF folder"
   },
-  "storageAppStorage": "App Storage",
+  "storageAppStorage": "App-Speicher",
   "@storageAppStorage": {
     "description": "Label for app storage mode"
   },
-  "storageSafStorage": "SAF Storage",
+  "storageSafStorage": "App-Speicher",
   "@storageSafStorage": {
     "description": "Label for SAF storage mode"
   },
@@ -3420,15 +3420,15 @@
   "@tutorialWelcomeTip1": {
     "description": "Tutorial welcome tip 1"
   },
-  "tutorialWelcomeTip2": "Get FLAC quality audio from Tidal, Qobuz, or Amazon Music",
+  "tutorialWelcomeTip2": "Hole dir FLAC Audio von Tidal, Qobuz oder Amazon Musik",
   "@tutorialWelcomeTip2": {
     "description": "Tutorial welcome tip 2"
   },
-  "tutorialWelcomeTip3": "Automatic metadata, cover art, and lyrics embedding",
+  "tutorialWelcomeTip3": "Automatische Metadaten, Cover und Lyrics einbetten",
   "@tutorialWelcomeTip3": {
     "description": "Tutorial welcome tip 3"
   },
-  "tutorialSearchTitle": "Finding Music",
+  "tutorialSearchTitle": "Suche Musik",
   "@tutorialSearchTitle": {
     "description": "Tutorial search page title"
   },
@@ -3436,15 +3436,15 @@
   "@tutorialSearchDesc": {
     "description": "Tutorial search page description"
   },
-  "tutorialSearchTip1": "Paste a Spotify or Deezer URL directly in the search box",
+  "tutorialSearchTip1": "Füge eine Spotify-oder Deezer-URL direkt in das Suchfeld ein",
   "@tutorialSearchTip1": {
     "description": "Tutorial search tip 1"
   },
-  "tutorialSearchTip2": "Or type the song name, artist, or album to search",
+  "tutorialSearchTip2": "Oder gebe den Song-Namen, Interpret oder Album ein um nach ihm zu suchen",
   "@tutorialSearchTip2": {
     "description": "Tutorial search tip 2"
   },
-  "tutorialSearchTip3": "Supports tracks, albums, playlists, and artist pages",
+  "tutorialSearchTip3": "Unterstützt Tracks, Alben, Wiedergabelisten und Künstlerseiten",
   "@tutorialSearchTip3": {
     "description": "Tutorial search tip 3"
   },
@@ -3452,7 +3452,7 @@
   "@tutorialDownloadTitle": {
     "description": "Tutorial download page title"
   },
-  "tutorialDownloadDesc": "Downloading music is simple and fast. Here's how it works.",
+  "tutorialDownloadDesc": "Das Herunterladen von Musik ist einfach und schnell. So funktioniert es.",
   "@tutorialDownloadDesc": {
     "description": "Tutorial download page description"
   },
@@ -3460,43 +3460,43 @@
   "@tutorialDownloadTip1": {
     "description": "Tutorial download tip 1"
   },
-  "tutorialDownloadTip2": "Choose your preferred quality (FLAC, Hi-Res, or MP3)",
+  "tutorialDownloadTip2": "Wählen Sie Ihre bevorzugte Qualität (FLAC, Hi-Res oder MP3)",
   "@tutorialDownloadTip2": {
     "description": "Tutorial download tip 2"
   },
-  "tutorialDownloadTip3": "Download entire albums or playlists with one tap",
+  "tutorialDownloadTip3": "Lade ganze Alben oder Playlists mit einem Klick herunter",
   "@tutorialDownloadTip3": {
     "description": "Tutorial download tip 3"
   },
-  "tutorialLibraryTitle": "Your Library",
+  "tutorialLibraryTitle": "Deine Bibliothek",
   "@tutorialLibraryTitle": {
     "description": "Tutorial library page title"
   },
-  "tutorialLibraryDesc": "All your downloaded music is organized in the Library tab.",
+  "tutorialLibraryDesc": "Die gesamte heruntergeladene Musik ist in der Bibliothek organisiert.",
   "@tutorialLibraryDesc": {
     "description": "Tutorial library page description"
   },
-  "tutorialLibraryTip1": "View download progress and queue in the Library tab",
+  "tutorialLibraryTip1": "Downloadfortschritt und Warteschlange im Bibliotheks-Tab anzeigen",
   "@tutorialLibraryTip1": {
     "description": "Tutorial library tip 1"
   },
-  "tutorialLibraryTip2": "Tap any track to play it with your music player",
+  "tutorialLibraryTip2": "Tippe auf einen Titel, um ihn mit deinem Musikplayer abzuspielen",
   "@tutorialLibraryTip2": {
     "description": "Tutorial library tip 2"
   },
-  "tutorialLibraryTip3": "Switch between list and grid view for better browsing",
+  "tutorialLibraryTip3": "Wechsle zwischen Listen- und Gitteransicht für ein besseres Surfen",
   "@tutorialLibraryTip3": {
     "description": "Tutorial library tip 3"
   },
-  "tutorialExtensionsTitle": "Extensions",
+  "tutorialExtensionsTitle": "Erweiterungen",
   "@tutorialExtensionsTitle": {
     "description": "Tutorial extensions page title"
   },
-  "tutorialExtensionsDesc": "Extend the app's capabilities with community extensions.",
+  "tutorialExtensionsDesc": "Erweitere die Fähigkeiten der App mit Community-Erweiterungen.",
   "@tutorialExtensionsDesc": {
     "description": "Tutorial extensions page description"
   },
-  "tutorialExtensionsTip1": "Browse the Store tab to discover useful extensions",
+  "tutorialExtensionsTip1": "Im Store Tab findest du nützliche Erweiterungen",
   "@tutorialExtensionsTip1": {
     "description": "Tutorial extensions tip 1"
   },
@@ -3520,7 +3520,7 @@
   "@tutorialSettingsTip1": {
     "description": "Tutorial settings tip 1"
   },
-  "tutorialSettingsTip2": "Set default audio quality and format preferences",
+  "tutorialSettingsTip2": "Standard Audioqualität und Formateinstellungen festlegen",
   "@tutorialSettingsTip2": {
     "description": "Tutorial settings tip 2"
   },
@@ -3532,7 +3532,7 @@
   "@tutorialReadyMessage": {
     "description": "Tutorial completion message"
   },
-  "tutorialExample": "EXAMPLE",
+  "tutorialExample": "BEISPIEL",
   "@tutorialExample": {
     "description": "Example label in tutorial"
   },
@@ -3548,7 +3548,7 @@
   "@cleanupOrphanedDownloads": {
     "description": "Button to remove history entries for deleted files"
   },
-  "cleanupOrphanedDownloadsSubtitle": "Remove history entries for files that no longer exist",
+  "cleanupOrphanedDownloadsSubtitle": "Verlaufseinträge für Dateien löschen, die nicht mehr existieren",
   "@cleanupOrphanedDownloadsSubtitle": {
     "description": "Subtitle for orphaned cleanup button"
   },
@@ -3573,7 +3573,7 @@
   "@cacheSummaryTitle": {
     "description": "Heading for cache summary card"
   },
-  "cacheSummarySubtitle": "Clearing cache will not remove downloaded music files.",
+  "cacheSummarySubtitle": "Das Leeren des Caches entfernt nicht heruntergeladene Musikdateien.",
   "@cacheSummarySubtitle": {
     "description": "Helper text for cache summary card"
   },
@@ -3586,11 +3586,11 @@
       }
     }
   },
-  "cacheSectionStorage": "Cached Data",
+  "cacheSectionStorage": "Zwischengespeicherte Daten",
   "@cacheSectionStorage": {
     "description": "Section header for cache entries"
   },
-  "cacheSectionMaintenance": "Maintenance",
+  "cacheSectionMaintenance": "Wartung",
   "@cacheSectionMaintenance": {
     "description": "Section header for cleanup actions"
   },
@@ -3606,7 +3606,7 @@
   "@cacheTempDirectory": {
     "description": "Cache item title for temporary files directory"
   },
-  "cacheTempDirectoryDesc": "Temporary files from downloads and audio conversion.",
+  "cacheTempDirectoryDesc": "Temporäre Dateien von Downloads und Audio-Konvertierung.",
   "@cacheTempDirectoryDesc": {
     "description": "Description of what temporary directory contains"
   },
@@ -3689,7 +3689,7 @@
       }
     }
   },
-  "cacheClearConfirmTitle": "Clear cache?",
+  "cacheClearConfirmTitle": "Cache leeren?",
   "@cacheClearConfirmTitle": {
     "description": "Dialog title before clearing one cache category"
   },
@@ -3734,7 +3734,7 @@
       }
     }
   },
-  "cacheRefreshStats": "Refresh stats",
+  "cacheRefreshStats": "Statistik aktualisieren",
   "@cacheRefreshStats": {
     "description": "Button label to refresh cache statistics"
   },
@@ -3770,7 +3770,7 @@
   "@trackReEnrichOnlineSubtitle": {
     "description": "Subtitle for re-enrich metadata action for local items"
   },
-  "trackEditMetadata": "Edit Metadata",
+  "trackEditMetadata": "Metadaten bearbeiten",
   "@trackEditMetadata": {
     "description": "Menu action - edit embedded metadata"
   },
@@ -3829,11 +3829,11 @@
   "@trackConvertFormatSubtitle": {
     "description": "Subtitle for convert format menu item"
   },
-  "trackConvertTitle": "Convert Audio",
+  "trackConvertTitle": "Audio konvertieren",
   "@trackConvertTitle": {
     "description": "Title of convert bottom sheet"
   },
-  "trackConvertTargetFormat": "Target Format",
+  "trackConvertTargetFormat": "Zielformat",
   "@trackConvertTargetFormat": {
     "description": "Label for format selection"
   },
