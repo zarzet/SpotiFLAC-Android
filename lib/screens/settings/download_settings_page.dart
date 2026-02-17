@@ -306,80 +306,80 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     onChanged: (value) => ref
                         .read(settingsProvider.notifier)
                         .setEmbedLyrics(value),
+                    showDivider: settings.embedLyrics,
                   ),
-                  SettingsItem(
-                    icon: Icons.lyrics_outlined,
-                    title: context.l10n.lyricsMode,
-                    subtitle: settings.embedLyrics
-                        ? _getLyricsModeLabel(context, settings.lyricsMode)
-                        : context.l10n.extensionsDisabled,
-                    onTap: settings.embedLyrics
-                        ? () => _showLyricsModePicker(
-                            context,
-                            ref,
-                            settings.lyricsMode,
-                          )
-                        : null,
-                  ),
-                  SettingsItem(
-                    icon: Icons.source_outlined,
-                    title: 'Lyrics Providers',
-                    subtitle: _getLyricsProvidersSubtitle(
-                      settings.lyricsProviders,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LyricsProviderPriorityPage(),
+                  if (settings.embedLyrics) ...[
+                    SettingsItem(
+                      icon: Icons.lyrics_outlined,
+                      title: context.l10n.lyricsMode,
+                      subtitle:
+                          _getLyricsModeLabel(context, settings.lyricsMode),
+                      onTap: () => _showLyricsModePicker(
+                        context,
+                        ref,
+                        settings.lyricsMode,
                       ),
                     ),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.translate_outlined,
-                    title: 'Netease: Include Translation',
-                    subtitle: settings.lyricsIncludeTranslationNetease
-                        ? 'Append translated lyrics when available'
-                        : 'Use original lyrics only',
-                    value: settings.lyricsIncludeTranslationNetease,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsIncludeTranslationNetease(value),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.text_fields_outlined,
-                    title: 'Netease: Include Romanization',
-                    subtitle: settings.lyricsIncludeRomanizationNetease
-                        ? 'Append romanized lyrics when available'
-                        : 'Disabled',
-                    value: settings.lyricsIncludeRomanizationNetease,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsIncludeRomanizationNetease(value),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.record_voice_over_outlined,
-                    title: 'Apple/QQ Multi-Person Word-by-Word',
-                    subtitle: settings.lyricsMultiPersonWordByWord
-                        ? 'Enable v1/v2 speaker and [bg:] tags'
-                        : 'Simplified word-by-word formatting',
-                    value: settings.lyricsMultiPersonWordByWord,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsMultiPersonWordByWord(value),
-                  ),
-                  SettingsItem(
-                    icon: Icons.language_outlined,
-                    title: 'Musixmatch Language',
-                    subtitle: settings.musixmatchLanguage.isEmpty
-                        ? 'Auto (original)'
-                        : settings.musixmatchLanguage.toUpperCase(),
-                    onTap: () => _showMusixmatchLanguagePicker(
-                      context,
-                      ref,
-                      settings.musixmatchLanguage,
+                    SettingsItem(
+                      icon: Icons.source_outlined,
+                      title: 'Lyrics Providers',
+                      subtitle: _getLyricsProvidersSubtitle(
+                        settings.lyricsProviders,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LyricsProviderPriorityPage(),
+                        ),
+                      ),
                     ),
-                    showDivider: false,
-                  ),
+                    SettingsSwitchItem(
+                      icon: Icons.translate_outlined,
+                      title: 'Netease: Include Translation',
+                      subtitle: settings.lyricsIncludeTranslationNetease
+                          ? 'Append translated lyrics when available'
+                          : 'Use original lyrics only',
+                      value: settings.lyricsIncludeTranslationNetease,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsIncludeTranslationNetease(value),
+                    ),
+                    SettingsSwitchItem(
+                      icon: Icons.text_fields_outlined,
+                      title: 'Netease: Include Romanization',
+                      subtitle: settings.lyricsIncludeRomanizationNetease
+                          ? 'Append romanized lyrics when available'
+                          : 'Disabled',
+                      value: settings.lyricsIncludeRomanizationNetease,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsIncludeRomanizationNetease(value),
+                    ),
+                    SettingsSwitchItem(
+                      icon: Icons.record_voice_over_outlined,
+                      title: 'Apple/QQ Multi-Person Word-by-Word',
+                      subtitle: settings.lyricsMultiPersonWordByWord
+                          ? 'Enable v1/v2 speaker and [bg:] tags'
+                          : 'Simplified word-by-word formatting',
+                      value: settings.lyricsMultiPersonWordByWord,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsMultiPersonWordByWord(value),
+                    ),
+                    SettingsItem(
+                      icon: Icons.language_outlined,
+                      title: 'Musixmatch Language',
+                      subtitle: settings.musixmatchLanguage.isEmpty
+                          ? 'Auto (original)'
+                          : settings.musixmatchLanguage.toUpperCase(),
+                      onTap: () => _showMusixmatchLanguagePicker(
+                        context,
+                        ref,
+                        settings.musixmatchLanguage,
+                      ),
+                      showDivider: false,
+                    ),
+                  ],
                 ],
               ),
             ),
