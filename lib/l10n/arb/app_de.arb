@@ -1165,7 +1165,7 @@
   "@dialogImportPlaylistTitle": {
     "description": "Dialog title - import CSV playlist"
   },
-  "dialogImportPlaylistMessage": "{count} Titel in CSV gefunden. Zur Warteschlange hinzufügen?",
+  "dialogImportPlaylistMessage": "{count} Titel gefunden hinzufügen?",
   "csvImportTracks": "{count} Titel aus CSV",
   "@csvImportTracks": {
     "description": "Label shown in quality picker for CSV import",
@@ -1183,7 +1183,7 @@
       }
     }
   },
-  "snackbarAddedToQueue": "\"{trackName}\" zur Warteschlange hinzugefügt",
+  "snackbarAddedToQueue": "\"{trackName}\" hinzugefügt",
   "@snackbarAddedToQueue": {
     "description": "Snackbar - track added to download queue",
     "placeholders": {
@@ -1192,7 +1192,7 @@
       }
     }
   },
-  "snackbarAddedTracksToQueue": "{count} Titel zur Warteschlange hinzugefügt",
+  "snackbarAddedTracksToQueue": "{count} Titel hinzugefügt",
   "@snackbarAddedTracksToQueue": {
     "description": "Snackbar - multiple tracks added to queue",
     "placeholders": {
@@ -1349,7 +1349,7 @@
       }
     }
   },
-  "statusQueued": "In der Warteschlange",
+  "statusQueued": "In Warteschlange",
   "@statusQueued": {
     "description": "Download status - waiting in queue"
   },
@@ -2734,7 +2734,7 @@
   "@albumFolderArtistYearAlbum": {
     "description": "Album folder option with year"
   },
-  "albumFolderArtistYearAlbumSubtitle": "Albums/Artist Name/[2005] Album Name/",
+  "albumFolderArtistYearAlbumSubtitle": "Albums/Künster Name/[2005] Album Name/",
   "@albumFolderArtistYearAlbumSubtitle": {
     "description": "Folder structure example"
   },
@@ -2884,7 +2884,7 @@
   "@discographyDownloadAll": {
     "description": "Option - download entire discography"
   },
-  "discographyDownloadAllSubtitle": "{count} tracks from {albumCount} releases",
+  "discographyDownloadAllSubtitle": "{count} Titel von {albumCount} Releases",
   "@discographyDownloadAllSubtitle": {
     "description": "Subtitle showing total tracks and albums",
     "placeholders": {
@@ -2900,7 +2900,7 @@
   "@discographyAlbumsOnly": {
     "description": "Option - download only albums"
   },
-  "discographyAlbumsOnlySubtitle": "{count} tracks from {albumCount} albums",
+  "discographyAlbumsOnlySubtitle": "{count} Titel von {albumCount} Albums",
   "@discographyAlbumsOnlySubtitle": {
     "description": "Subtitle showing album tracks count",
     "placeholders": {
@@ -2916,7 +2916,7 @@
   "@discographySinglesOnly": {
     "description": "Option - download only singles"
   },
-  "discographySinglesOnlySubtitle": "{count} tracks from {albumCount} singles",
+  "discographySinglesOnlySubtitle": "{count} Titel von {albumCount} Singles",
   "@discographySinglesOnlySubtitle": {
     "description": "Subtitle showing singles tracks count",
     "placeholders": {
@@ -3070,7 +3070,7 @@
   "@libraryShowDuplicateIndicator": {
     "description": "Toggle for duplicate indicator in search"
   },
-  "libraryShowDuplicateIndicatorSubtitle": "Show when searching for existing tracks",
+  "libraryShowDuplicateIndicatorSubtitle": "Bei der Suche nach vorhandenen Titeln anzeigen",
   "@libraryShowDuplicateIndicatorSubtitle": {
     "description": "Subtitle for duplicate indicator toggle"
   },
@@ -3476,7 +3476,7 @@
   "@tutorialLibraryDesc": {
     "description": "Tutorial library page description"
   },
-  "tutorialLibraryTip1": "Downloadfortschritt und Warteschlange im Bibliotheks-Tab anzeigen",
+  "tutorialLibraryTip1": "Fortschritt und Warteschlange im Bibliothek‑Tab anzeigen",
   "@tutorialLibraryTip1": {
     "description": "Tutorial library tip 1"
   },
@@ -3762,7 +3762,7 @@
   "@trackReEnrich": {
     "description": "Menu action - re-embed metadata into audio file"
   },
-  "trackReEnrichSubtitle": "Re-embed metadata without re-downloading",
+  "trackReEnrichSubtitle": "Metadaten neu einbetten ohne erneuten herunterladen",
   "@trackReEnrichSubtitle": {
     "description": "Subtitle for re-enrich metadata action"
   },
