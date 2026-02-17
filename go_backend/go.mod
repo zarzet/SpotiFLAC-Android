@@ -5,12 +5,12 @@ go 1.25.0
 toolchain go1.26.0
 
 require (
-	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3
+	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5
 	github.com/go-flac/flacpicture/v2 v2.0.2
 	github.com/go-flac/flacvorbis/v2 v2.0.2
 	github.com/go-flac/go-flac/v2 v2.0.4
 	github.com/refraction-networking/utls v1.8.2
-	golang.org/x/mobile v0.0.0-20260209203831-923679eb55af
+	golang.org/x/mobile v0.0.0-20260211191516-dcd2a3258864
 	golang.org/x/net v0.50.0
 )
 
