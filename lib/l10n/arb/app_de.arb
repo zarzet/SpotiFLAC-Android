@@ -1532,7 +1532,7 @@
   "@filenameHint": {
     "description": "Default filename format hint"
   },
-  "filenameShowAdvancedTags": "Show advanced tags",
+  "filenameShowAdvancedTags": "Erweiterte Tags anzeigen",
   "@filenameShowAdvancedTags": {
     "description": "Toggle label for showing advanced filename tags"
   },
@@ -2139,19 +2139,19 @@
   "@trackEmbedLyrics": {
     "description": "Action - embed lyrics into audio file"
   },
-  "trackLyricsEmbedded": "Lyrics embedded successfully",
+  "trackLyricsEmbedded": "Lyrics erfolgreich eingebettet",
   "@trackLyricsEmbedded": {
     "description": "Snackbar - lyrics saved to file"
   },
-  "trackInstrumental": "Instrumental track",
+  "trackInstrumental": "Instrumentalspur",
   "@trackInstrumental": {
     "description": "Message when track is instrumental (no lyrics)"
   },
-  "trackCopiedToClipboard": "Copied to clipboard",
+  "trackCopiedToClipboard": "In Zwischenablage kopiert",
   "@trackCopiedToClipboard": {
     "description": "Snackbar - content copied"
   },
-  "trackDeleteConfirmTitle": "Remove from device?",
+  "trackDeleteConfirmTitle": "Vom Gerät entfernen?",
   "@trackDeleteConfirmTitle": {
     "description": "Delete confirmation title"
   },
@@ -2159,7 +2159,7 @@
   "@trackDeleteConfirmMessage": {
     "description": "Delete confirmation message"
   },
-  "trackCannotOpen": "Cannot open: {message}",
+  "trackCannotOpen": "Fehler beim Öffnen von: {message}",
   "@trackCannotOpen": {
     "description": "Error opening file",
     "placeholders": {
@@ -2176,7 +2176,7 @@
   "@dateYesterday": {
     "description": "Relative date - yesterday"
   },
-  "dateDaysAgo": "{count} days ago",
+  "dateDaysAgo": "Vor {count} Tagen",
   "@dateDaysAgo": {
     "description": "Relative date - days ago",
     "placeholders": {
@@ -2185,7 +2185,7 @@
       }
     }
   },
-  "dateWeeksAgo": "{count} weeks ago",
+  "dateWeeksAgo": "Vor {count} Wochen",
   "@dateWeeksAgo": {
     "description": "Relative date - weeks ago",
     "placeholders": {
@@ -2194,7 +2194,7 @@
       }
     }
   },
-  "dateMonthsAgo": "{count} months ago",
+  "dateMonthsAgo": "Vor {count} Monaten",
   "@dateMonthsAgo": {
     "description": "Relative date - months ago",
     "placeholders": {
@@ -2215,7 +2215,7 @@
   "@concurrentParallel3": {
     "description": "Download mode - 3 simultaneous"
   },
-  "tapToSeeError": "Tap to see error details",
+  "tapToSeeError": "Tippe, um Fehlerdetails zu sehen",
   "@tapToSeeError": {
     "description": "Tooltip for failed download"
   },
@@ -2247,23 +2247,23 @@
   "@storeClearFilters": {
     "description": "Button to clear all filters"
   },
-  "storeNoResults": "No extensions found",
+  "storeNoResults": "Keine Erweiterungen gefunden",
   "@storeNoResults": {
     "description": "Empty state when no extensions match filters"
   },
-  "extensionProviderPriority": "Provider Priority",
+  "extensionProviderPriority": "Angebotspriorität",
   "@extensionProviderPriority": {
     "description": "Extension capability - provider priority"
   },
-  "extensionInstallButton": "Install Extension",
+  "extensionInstallButton": "Erweiterung installieren",
   "@extensionInstallButton": {
     "description": "Button to install extension"
   },
-  "extensionDefaultProvider": "Default (Deezer/Spotify)",
+  "extensionDefaultProvider": "Standard (Deezer/Spotify)",
   "@extensionDefaultProvider": {
     "description": "Default search provider option"
   },
-  "extensionDefaultProviderSubtitle": "Use built-in search",
+  "extensionDefaultProviderSubtitle": "Eingebaute Suche verwenden",
   "@extensionDefaultProviderSubtitle": {
     "description": "Subtitle for default provider"
   },
@@ -2283,15 +2283,15 @@
   "@extensionCapabilities": {
     "description": "Section header - extension features"
   },
-  "extensionMetadataProvider": "Metadata Provider",
+  "extensionMetadataProvider": "Metadaten-Anbieter",
   "@extensionMetadataProvider": {
     "description": "Capability - provides metadata"
   },
-  "extensionDownloadProvider": "Download Provider",
+  "extensionDownloadProvider": "Download-Anbieter",
   "@extensionDownloadProvider": {
     "description": "Capability - provides downloads"
   },
-  "extensionLyricsProvider": "Lyrics Provider",
+  "extensionLyricsProvider": "Lyrics-Anbieter",
   "@extensionLyricsProvider": {
     "description": "Capability - provides lyrics"
   },
@@ -2299,7 +2299,7 @@
   "@extensionUrlHandler": {
     "description": "Capability - handles URLs"
   },
-  "extensionQualityOptions": "Quality Options",
+  "extensionQualityOptions": "Qualitätsoptionen",
   "@extensionQualityOptions": {
     "description": "Capability - quality selection"
   },
@@ -2315,7 +2315,7 @@
   "@extensionSettings": {
     "description": "Section header - extension settings"
   },
-  "extensionRemoveButton": "Remove Extension",
+  "extensionRemoveButton": "Erweiterung entfernen",
   "@extensionRemoveButton": {
     "description": "Button to uninstall extension"
   },
@@ -2323,19 +2323,19 @@
   "@extensionUpdated": {
     "description": "Extension detail - last update"
   },
-  "extensionMinAppVersion": "Min App Version",
+  "extensionMinAppVersion": "Min App-Version",
   "@extensionMinAppVersion": {
     "description": "Extension detail - minimum app version"
   },
-  "extensionCustomTrackMatching": "Custom Track Matching",
+  "extensionCustomTrackMatching": "Benutzerdefiniertes Track-Matching",
   "@extensionCustomTrackMatching": {
     "description": "Capability - custom track matching algorithm"
   },
-  "extensionPostProcessing": "Post-Processing",
+  "extensionPostProcessing": "Post-processing",
   "@extensionPostProcessing": {
     "description": "Capability - post-download processing"
   },
-  "extensionHooksAvailable": "{count} hook(s) available",
+  "extensionHooksAvailable": "{count} Hook(s) verfügbar",
   "@extensionHooksAvailable": {
     "description": "Post-processing hooks count",
     "placeholders": {
@@ -2344,7 +2344,7 @@
       }
     }
   },
-  "extensionPatternsCount": "{count} pattern(s)",
+  "extensionPatternsCount": "{count} Muster",
   "@extensionPatternsCount": {
     "description": "URL patterns count",
     "placeholders": {
@@ -2353,7 +2353,7 @@
       }
     }
   },
-  "extensionStrategy": "Strategy: {strategy}",
+  "extensionStrategy": "Strategie: {strategy}",
   "@extensionStrategy": {
     "description": "Track matching strategy name",
     "placeholders": {
@@ -2362,15 +2362,15 @@
       }
     }
   },
-  "extensionsProviderPrioritySection": "Provider Priority",
+  "extensionsProviderPrioritySection": "Provider-Priorität",
   "@extensionsProviderPrioritySection": {
     "description": "Section header - provider priority"
   },
-  "extensionsInstalledSection": "Installed Extensions",
+  "extensionsInstalledSection": "Installierte Erweiterungen",
   "@extensionsInstalledSection": {
     "description": "Section header - installed extensions"
   },
-  "extensionsNoExtensions": "No extensions installed",
+  "extensionsNoExtensions": "Keine Erweiterungen installiert",
   "@extensionsNoExtensions": {
     "description": "Empty state - no extensions"
   },
@@ -2378,7 +2378,7 @@
   "@extensionsNoExtensionsSubtitle": {
     "description": "Empty state subtitle"
   },
-  "extensionsInstallButton": "Install Extension",
+  "extensionsInstallButton": "Erweiterung installieren",
   "@extensionsInstallButton": {
     "description": "Button to install extension from file"
   },
@@ -2386,11 +2386,11 @@
   "@extensionsInfoTip": {
     "description": "Security warning about extensions"
   },
-  "extensionsInstalledSuccess": "Extension installed successfully",
+  "extensionsInstalledSuccess": "Erweiterung erfolgreich installiert",
   "@extensionsInstalledSuccess": {
     "description": "Success message after install"
   },
-  "extensionsDownloadPriority": "Download Priority",
+  "extensionsDownloadPriority": "Download-Priorität",
   "@extensionsDownloadPriority": {
     "description": "Setting - download provider order"
   },
@@ -2505,6 +2505,57 @@
   "youtubeQualityNote": "YouTube bietet nur verlustbehaftete Audioqualität. Deswegen ist es kein Teil des verlustfreien Fallbacks.",
   "@youtubeQualityNote": {
     "description": "Note for YouTube service explaining lossy-only quality"
+  },
+  "youtubeOpusBitrateTitle": "YouTube Opus Bitrate",
+  "@youtubeOpusBitrateTitle": {
+    "description": "Title for YouTube Opus bitrate setting"
+  },
+  "youtubeMp3BitrateTitle": "YouTube MP3 Bitrate",
+  "@youtubeMp3BitrateTitle": {
+    "description": "Title for YouTube MP3 bitrate setting"
+  },
+  "youtubeBitrateSubtitle": "{bitrate}kbps ({min}-{max})",
+  "@youtubeBitrateSubtitle": {
+    "description": "Subtitle showing current bitrate and valid range",
+    "placeholders": {
+      "bitrate": {
+        "type": "int"
+      },
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "youtubeBitrateInputHelp": "Enter custom bitrate ({min}-{max} kbps)",
+  "@youtubeBitrateInputHelp": {
+    "description": "Helper text for manual YouTube bitrate input",
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "youtubeBitrateFieldLabel": "Bitrate (kbps)",
+  "@youtubeBitrateFieldLabel": {
+    "description": "Label for YouTube bitrate input field"
+  },
+  "youtubeBitrateValidationError": "Bitrate must be between {min} and {max} kbps",
+  "@youtubeBitrateValidationError": {
+    "description": "Validation error for invalid YouTube bitrate input",
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
   },
   "downloadAskBeforeDownload": "Ask Before Download",
   "@downloadAskBeforeDownload": {
