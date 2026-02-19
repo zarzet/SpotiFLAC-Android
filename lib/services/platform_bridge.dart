@@ -133,6 +133,16 @@ class PlatformBridge {
     await _channel.invokeMethod('setDownloadDirectory', {'path': path});
   }
 
+  static Future<void> setNetworkCompatibilityOptions({
+    required bool allowHttp,
+    required bool insecureTls,
+  }) async {
+    await _channel.invokeMethod('setNetworkCompatibilityOptions', {
+      'allow_http': allowHttp,
+      'insecure_tls': insecureTls,
+    });
+  }
+
   static Future<Map<String, dynamic>> checkDuplicate(
     String outputDir,
     String isrc,
@@ -244,7 +254,10 @@ class PlatformBridge {
     return result as bool? ?? false;
   }
 
-  static Future<bool> shareMultipleContentUris(List<String> uris, {String title = ''}) async {
+  static Future<bool> shareMultipleContentUris(
+    List<String> uris, {
+    String title = '',
+  }) async {
     final result = await _channel.invokeMethod('shareMultipleContentUris', {
       'uris': uris,
       'title': title,

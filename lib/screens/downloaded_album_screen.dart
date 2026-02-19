@@ -11,7 +11,9 @@ import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/services/history_database.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/lyrics_metadata_helper.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
+import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.dart';
 
@@ -79,7 +81,8 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
 
   void _onScroll() {
     final expandedHeight = _calculateExpandedHeight(context);
-    final shouldShow = _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
+    final shouldShow =
+        _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
     if (shouldShow != _showTitleInAppBar) {
       setState(() => _showTitleInAppBar = shouldShow);
     }
@@ -464,7 +467,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
           final showContent = collapseRatio > 0.3;
 
           return FlexibleSpaceBar(
-            collapseMode: CollapseMode.parallax,
+            collapseMode: CollapseMode.pin,
             background: Stack(
               fit: StackFit.expand,
               children: [
@@ -478,7 +481,8 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
                   )
                 else if (widget.coverUrl != null)
                   CachedNetworkImage(
-                    imageUrl: _highResCoverUrl(widget.coverUrl) ?? widget.coverUrl!,
+                    imageUrl:
+                        _highResCoverUrl(widget.coverUrl) ?? widget.coverUrl!,
                     fit: BoxFit.cover,
                     cacheManager: CoverCacheManager.instance,
                     placeholder: (_, _) =>
@@ -576,9 +580,10 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      context.l10n.downloadedAlbumDownloadedCount(
-                                        tracks.length,
-                                      ),
+                                      context.l10n
+                                          .downloadedAlbumDownloadedCount(
+                                            tracks.length,
+                                          ),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
@@ -1099,6 +1104,9 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     final historyDb = HistoryDatabase.instance;
     final newQuality =
         '${targetFormat.toUpperCase()} ${bitrate.trim().toLowerCase()}';
+    final settings = ref.read(settingsProvider);
+    final shouldEmbedLyrics =
+        settings.embedLyrics && settings.lyricsMode != 'external';
 
     for (int i = 0; i < total; i++) {
       if (!mounted) break;
@@ -1131,6 +1139,15 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
             });
           }
         } catch (_) {}
+        await ensureLyricsMetadataForConversion(
+          metadata: metadata,
+          sourcePath: item.filePath,
+          shouldEmbedLyrics: shouldEmbedLyrics,
+          trackName: item.trackName,
+          artistName: item.artistName,
+          spotifyId: item.spotifyId ?? '',
+          durationMs: (item.duration ?? 0) * 1000,
+        );
 
         String? coverPath;
         try {

@@ -1,7 +1,6 @@
 package gobackend
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -46,14 +45,39 @@ func NewSongLinkClient() *SongLinkClient {
 	return globalSongLinkClient
 }
 
+func songLinkBaseURL() string {
+	opts := GetNetworkCompatibilityOptions()
+	if opts.AllowHTTP {
+		return "http://api.song.link/v1-alpha.1/links"
+	}
+	return "https://api.song.link/v1-alpha.1/links"
+}
+
+func buildSongLinkURLFromTarget(targetURL string, userCountry string) string {
+	apiURL := fmt.Sprintf("%s?url=%s", songLinkBaseURL(), url.QueryEscape(targetURL))
+	if userCountry != "" {
+		apiURL = fmt.Sprintf("%s&userCountry=%s", apiURL, url.QueryEscape(userCountry))
+	}
+	return apiURL
+}
+
+func buildSongLinkURLByPlatform(platform, entityType, entityID, userCountry string) string {
+	apiURL := fmt.Sprintf("%s?platform=%s&type=%s&id=%s",
+		songLinkBaseURL(),
+		url.QueryEscape(platform),
+		url.QueryEscape(entityType),
+		url.QueryEscape(entityID))
+	if userCountry != "" {
+		apiURL = fmt.Sprintf("%s&userCountry=%s", apiURL, url.QueryEscape(userCountry))
+	}
+	return apiURL
+}
+
 func (s *SongLinkClient) CheckTrackAvailability(spotifyTrackID string, isrc string) (*TrackAvailability, error) {
 	songLinkRateLimiter.WaitForSlot()
 
-	spotifyBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9vcGVuLnNwb3RpZnkuY29tL3RyYWNrLw==")
-	spotifyURL := fmt.Sprintf("%s%s", string(spotifyBase), spotifyTrackID)
-
-	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hcGkuc29uZy5saW5rL3YxLWFscGhhLjEvbGlua3M/dXJsPQ==")
-	apiURL := fmt.Sprintf("%s%s", string(apiBase), url.QueryEscape(spotifyURL))
+	spotifyURL := fmt.Sprintf("https://open.spotify.com/track/%s", spotifyTrackID)
+	apiURL := buildSongLinkURLFromTarget(spotifyURL, "")
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -351,11 +375,8 @@ type AlbumAvailability struct {
 func (s *SongLinkClient) CheckAlbumAvailability(spotifyAlbumID string) (*AlbumAvailability, error) {
 	songLinkRateLimiter.WaitForSlot()
 
-	spotifyBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9vcGVuLnNwb3RpZnkuY29tL2FsYnVtLw==")
-	spotifyURL := fmt.Sprintf("%s%s", string(spotifyBase), spotifyAlbumID)
-
-	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hcGkuc29uZy5saW5rL3YxLWFscGhhLjEvbGlua3M/dXJsPQ==")
-	apiURL := fmt.Sprintf("%s%s", string(apiBase), url.QueryEscape(spotifyURL))
+	spotifyURL := fmt.Sprintf("https://open.spotify.com/album/%s", spotifyAlbumID)
+	apiURL := buildSongLinkURLFromTarget(spotifyURL, "")
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -440,9 +461,7 @@ func (s *SongLinkClient) checkAvailabilityFromDeezerSongLink(deezerTrackID strin
 	songLinkRateLimiter.WaitForSlot()
 
 	deezerURL := fmt.Sprintf("https://www.deezer.com/track/%s", deezerTrackID)
-
-	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hcGkuc29uZy5saW5rL3YxLWFscGhhLjEvbGlua3M/dXJsPQ==")
-	apiURL := fmt.Sprintf("%s%s&userCountry=US", string(apiBase), url.QueryEscape(deezerURL))
+	apiURL := buildSongLinkURLFromTarget(deezerURL, "US")
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -546,10 +565,7 @@ func (s *SongLinkClient) CheckAvailabilityByPlatform(platform, entityType, entit
 
 	songLinkRateLimiter.WaitForSlot()
 
-	apiURL := fmt.Sprintf("https://api.song.link/v1-alpha.1/links?platform=%s&type=%s&id=%s&userCountry=US",
-		url.QueryEscape(platform),
-		url.QueryEscape(entityType),
-		url.QueryEscape(entityID))
+	apiURL := buildSongLinkURLByPlatform(platform, entityType, entityID, "US")
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -706,8 +722,7 @@ func (s *SongLinkClient) GetYouTubeURLFromDeezer(deezerTrackID string) (string, 
 func (s *SongLinkClient) CheckAvailabilityFromURL(inputURL string) (*TrackAvailability, error) {
 	songLinkRateLimiter.WaitForSlot()
 
-	apiBase, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hcGkuc29uZy5saW5rL3YxLWFscGhhLjEvbGlua3M/dXJsPQ==")
-	apiURL := fmt.Sprintf("%s%s", string(apiBase), url.QueryEscape(inputURL))
+	apiURL := buildSongLinkURLFromTarget(inputURL, "")
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {

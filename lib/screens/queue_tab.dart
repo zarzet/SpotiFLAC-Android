@@ -13,8 +13,11 @@ import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/lyrics_metadata_helper.dart';
 import 'package:spotiflac_android/models/download_item.dart';
+import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
+import 'package:spotiflac_android/providers/library_collections_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/library_database.dart';
@@ -22,6 +25,7 @@ import 'package:spotiflac_android/services/history_database.dart';
 import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
+import 'package:spotiflac_android/screens/library_tracks_folder_screen.dart';
 import 'package:spotiflac_android/screens/local_album_screen.dart';
 
 /// Represents the source of a library item
@@ -112,6 +116,76 @@ class UnifiedLibraryItem {
       '${trackName.toLowerCase()}|${artistName.toLowerCase()}|${albumName.toLowerCase()}';
   String get albumKey =>
       '${albumName.toLowerCase()}|${artistName.toLowerCase()}';
+
+  /// Returns the collection key used to match this item against playlist
+  /// entries. Uses the same logic as [trackCollectionKey] from the collections
+  /// provider: prefer ISRC, fall back to source:id.
+  String get collectionKey {
+    if (historyItem != null) {
+      final isrc = historyItem!.isrc?.trim();
+      if (isrc != null && isrc.isNotEmpty) return 'isrc:${isrc.toUpperCase()}';
+      final source = historyItem!.service.trim().isNotEmpty
+          ? historyItem!.service.trim()
+          : 'builtin';
+      return '$source:${historyItem!.id}';
+    }
+    if (localItem != null) {
+      final isrc = localItem!.isrc?.trim();
+      if (isrc != null && isrc.isNotEmpty) return 'isrc:${isrc.toUpperCase()}';
+      return 'local:${localItem!.id}';
+    }
+    return 'builtin:$id';
+  }
+
+  /// Convert to a [Track] for adding to collections/playlists.
+  Track toTrack() {
+    if (historyItem != null) {
+      final h = historyItem!;
+      return Track(
+        id: h.id,
+        name: h.trackName,
+        artistName: h.artistName,
+        albumName: h.albumName,
+        albumArtist: h.albumArtist,
+        coverUrl: h.coverUrl,
+        isrc: h.isrc,
+        duration: h.duration ?? 0,
+        trackNumber: h.trackNumber,
+        discNumber: h.discNumber,
+        releaseDate: h.releaseDate,
+        source: h.service,
+      );
+    }
+    if (localItem != null) {
+      final l = localItem!;
+      // Store coverPath (even local file paths) in coverUrl so playlist
+      // entries retain the cover.  All renderers must check whether the
+      // value is a URL or a local path and use the appropriate widget.
+      return Track(
+        id: l.id,
+        name: l.trackName,
+        artistName: l.artistName,
+        albumName: l.albumName,
+        albumArtist: l.albumArtist,
+        coverUrl: l.coverPath,
+        isrc: l.isrc,
+        duration: l.duration ?? 0,
+        trackNumber: l.trackNumber,
+        discNumber: l.discNumber,
+        releaseDate: l.releaseDate,
+        source: 'local',
+      );
+    }
+    // Fallback — should not happen
+    return Track(
+      id: id,
+      name: trackName,
+      artistName: artistName,
+      albumName: albumName,
+      coverUrl: coverUrl,
+      duration: 0,
+    );
+  }
 }
 
 class _GroupedAlbum {
@@ -295,6 +369,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+
+  bool _isPlaylistSelectionMode = false;
+  final Set<String> _selectedPlaylistIds = {};
 
   PageController? _filterPageController;
   final List<String> _filterModes = ['all', 'albums', 'singles'];
@@ -694,6 +771,211 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     setState(() {
       _selectedIds.addAll(items.map((e) => e.id));
     });
+  }
+
+  // --- Playlist selection mode ---
+
+  void _enterPlaylistSelectionMode(String playlistId) {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isPlaylistSelectionMode = true;
+      _selectedPlaylistIds.add(playlistId);
+    });
+  }
+
+  void _exitPlaylistSelectionMode() {
+    setState(() {
+      _isPlaylistSelectionMode = false;
+      _selectedPlaylistIds.clear();
+    });
+  }
+
+  void _togglePlaylistSelection(String playlistId) {
+    setState(() {
+      if (_selectedPlaylistIds.contains(playlistId)) {
+        _selectedPlaylistIds.remove(playlistId);
+        if (_selectedPlaylistIds.isEmpty) {
+          _isPlaylistSelectionMode = false;
+        }
+      } else {
+        _selectedPlaylistIds.add(playlistId);
+      }
+    });
+  }
+
+  void _selectAllPlaylists(List<UserPlaylistCollection> playlists) {
+    setState(() {
+      _selectedPlaylistIds.addAll(playlists.map((e) => e.id));
+    });
+  }
+
+  Future<void> _deleteSelectedPlaylists(BuildContext context) async {
+    final count = _selectedPlaylistIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.collectionDeletePlaylist),
+        content: Text(
+          'Delete $count ${count == 1 ? 'playlist' : 'playlists'}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.l10n.dialogCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(ctx.l10n.dialogDelete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final notifier = ref.read(libraryCollectionsProvider.notifier);
+    for (final id in _selectedPlaylistIds.toList()) {
+      await notifier.deletePlaylist(id);
+    }
+
+    if (!context.mounted) return;
+    _exitPlaylistSelectionMode();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$count ${count == 1 ? 'playlist' : 'playlists'} deleted',
+        ),
+      ),
+    );
+  }
+
+  /// Bottom action bar for playlist selection mode.
+  Widget _buildPlaylistSelectionBottomBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<UserPlaylistCollection> playlists,
+    double bottomPadding,
+  ) {
+    final selectedCount = _selectedPlaylistIds.length;
+    final allSelected =
+        selectedCount == playlists.length && playlists.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding > 0 ? 8 : 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              Row(
+                children: [
+                  IconButton.filledTonal(
+                    onPressed: _exitPlaylistSelectionMode,
+                    icon: const Icon(Icons.close),
+                    style: IconButton.styleFrom(
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$selectedCount selected',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          allSelected
+                              ? 'All playlists selected'
+                              : 'Tap playlists to select',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  TextButton.icon(
+                    onPressed: () {
+                      if (allSelected) {
+                        _exitPlaylistSelectionMode();
+                      } else {
+                        _selectAllPlaylists(playlists);
+                      }
+                    },
+                    icon: Icon(
+                      allSelected ? Icons.deselect : Icons.select_all,
+                      size: 20,
+                    ),
+                    label: Text(allSelected ? 'Deselect' : 'Select All'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: selectedCount > 0
+                      ? () => _deleteSelectedPlaylists(context)
+                      : null,
+                  icon: const Icon(Icons.delete_outline),
+                  label: Text(
+                    selectedCount > 0
+                        ? 'Delete $selectedCount ${selectedCount == 1 ? 'playlist' : 'playlists'}'
+                        : 'Select playlists to delete',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: selectedCount > 0
+                        ? colorScheme.error
+                        : colorScheme.surfaceContainerHighest,
+                    foregroundColor: selectedCount > 0
+                        ? colorScheme.onError
+                        : colorScheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _getQualityBadgeText(String quality) {
@@ -1691,6 +1973,289 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     ).then((_) => _searchFocusNode.unfocus());
   }
 
+  void _openWishlistFolder() {
+    _searchFocusNode.unfocus();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => const LibraryTracksFolderScreen(
+              mode: LibraryTracksFolderMode.wishlist,
+            ),
+          ),
+        )
+        .then((_) => _searchFocusNode.unfocus());
+  }
+
+  void _openLovedFolder() {
+    _searchFocusNode.unfocus();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => const LibraryTracksFolderScreen(
+              mode: LibraryTracksFolderMode.loved,
+            ),
+          ),
+        )
+        .then((_) => _searchFocusNode.unfocus());
+  }
+
+  void _openPlaylistById(String playlistId) {
+    _searchFocusNode.unfocus();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => LibraryTracksFolderScreen(
+              mode: LibraryTracksFolderMode.playlist,
+              playlistId: playlistId,
+            ),
+          ),
+        )
+        .then((_) => _searchFocusNode.unfocus());
+  }
+
+  Future<void> _showCreatePlaylistDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final playlistName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(dialogContext.l10n.collectionCreatePlaylist),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: dialogContext.l10n.collectionPlaylistNameHint,
+              ),
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.isEmpty) {
+                  return dialogContext.l10n.collectionPlaylistNameRequired;
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.of(dialogContext).pop(controller.text.trim());
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(dialogContext.l10n.dialogCancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.of(dialogContext).pop(controller.text.trim());
+              },
+              child: Text(dialogContext.l10n.actionCreate),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (playlistName == null || playlistName.isEmpty) return;
+    await ref
+        .read(libraryCollectionsProvider.notifier)
+        .createPlaylist(playlistName);
+  }
+
+  /// Build a playlist cover thumbnail (custom cover > first track cover > icon fallback).
+  /// Pass a finite [size] (e.g. 56) for list view, or `null` for grid view
+  /// where the widget should expand to fill its parent.
+  Widget _buildPlaylistCover(
+    UserPlaylistCollection playlist,
+    ColorScheme colorScheme, [
+    double? size,
+  ]) {
+    final borderRadius = BorderRadius.circular(8);
+
+    final customCoverPath = playlist.coverImagePath;
+    if (customCoverPath != null && customCoverPath.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: borderRadius,
+        child: Image.file(
+          File(customCoverPath),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              _playlistIconFallback(colorScheme, size),
+        ),
+      );
+    }
+
+    final firstCoverUrl = playlist.tracks
+        .where((e) => e.track.coverUrl != null && e.track.coverUrl!.isNotEmpty)
+        .map((e) => e.track.coverUrl!)
+        .firstOrNull;
+
+    if (firstCoverUrl != null) {
+      // Guard against local file paths that may have been stored as coverUrl
+      final isLocalPath = !firstCoverUrl.startsWith('http://') &&
+          !firstCoverUrl.startsWith('https://');
+      if (isLocalPath) {
+        return ClipRRect(
+          borderRadius: borderRadius,
+          child: Image.file(
+            File(firstCoverUrl),
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                _playlistIconFallback(colorScheme, size),
+          ),
+        );
+      }
+      return ClipRRect(
+        borderRadius: borderRadius,
+        child: CachedNetworkImage(
+          imageUrl: firstCoverUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: (_, _) =>
+              _playlistIconFallback(colorScheme, size),
+          errorWidget: (_, _, _) =>
+              _playlistIconFallback(colorScheme, size),
+        ),
+      );
+    }
+
+    return _playlistIconFallback(colorScheme, size);
+  }
+
+  /// Icon fallback for playlists with no cover.
+  /// When [size] is null the container expands to fill its parent (grid view)
+  /// and uses a fixed icon size.
+  Widget _playlistIconFallback(ColorScheme colorScheme, [double? size]) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF5085A5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.queue_music,
+        color: Colors.white,
+        size: size != null ? size * 0.5 : 40,
+      ),
+    );
+  }
+
+  /// Handle a track being dropped onto a playlist.
+  /// When selection mode is active and the dragged item is among the selected,
+  /// all selected tracks are added to the playlist.
+  Future<void> _onTrackDroppedOnPlaylist(
+    BuildContext context,
+    UnifiedLibraryItem item,
+    String playlistId,
+    String playlistName, {
+    List<UnifiedLibraryItem> allItems = const [],
+  }) async {
+    final notifier = ref.read(libraryCollectionsProvider.notifier);
+
+    // If in selection mode and the dragged item is selected, add ALL selected
+    if (_isSelectionMode &&
+        _selectedIds.isNotEmpty &&
+        _selectedIds.contains(item.id)) {
+      final selectedItems = allItems
+          .where((e) => _selectedIds.contains(e.id))
+          .toList();
+      // Fallback: if allItems is empty or no match, at least add the dragged item
+      if (selectedItems.isEmpty) {
+        selectedItems.add(item);
+      }
+
+      int addedCount = 0;
+      int alreadyCount = 0;
+      for (final selected in selectedItems) {
+        final track = selected.toTrack();
+        final added = await notifier.addTrackToPlaylist(playlistId, track);
+        if (added) {
+          addedCount++;
+        } else {
+          alreadyCount++;
+        }
+      }
+
+      if (!context.mounted) return;
+      final message = addedCount > 0
+          ? 'Added $addedCount ${addedCount == 1 ? 'track' : 'tracks'} to $playlistName'
+              '${alreadyCount > 0 ? ' ($alreadyCount already in playlist)' : ''}'
+          : context.l10n.collectionAlreadyInPlaylist(playlistName);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      _exitSelectionMode();
+      return;
+    }
+
+    // Single track drop
+    final track = item.toTrack();
+    final added = await notifier.addTrackToPlaylist(playlistId, track);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          added
+              ? context.l10n.collectionAddedToPlaylist(playlistName)
+              : context.l10n.collectionAlreadyInPlaylist(playlistName),
+        ),
+      ),
+    );
+  }
+
+  /// Build a compact floating feedback widget shown while dragging a track.
+  /// Shows the count when multiple tracks are selected and being dragged.
+  Widget _buildDragFeedback(
+    BuildContext context,
+    UnifiedLibraryItem item,
+    ColorScheme colorScheme,
+  ) {
+    final isDraggingMultiple = _isSelectionMode &&
+        _selectedIds.contains(item.id) &&
+        _selectedIds.length > 1;
+    final count = isDraggingMultiple ? _selectedIds.length : 1;
+
+    return Material(
+      elevation: 6,
+      borderRadius: BorderRadius.circular(12),
+      color: colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.playlist_add, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Text(
+                isDraggingMultiple
+                    ? '$count tracks'
+                    : item.trackName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _initializePageController();
@@ -1708,6 +2273,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     final localLibraryItems = localLibraryEnabled
         ? ref.watch(localLibraryProvider.select((s) => s.items))
         : const <LocalLibraryItem>[];
+    final collectionState = ref.watch(libraryCollectionsProvider);
 
     _ensureHistoryCaches(allHistoryItems, localLibraryItems);
     final historyViewMode = ref.watch(
@@ -1747,6 +2313,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
           albumCounts: historyStats.albumCounts,
           localAlbumCounts: historyStats.localAlbumCounts,
           localLibraryItems: localLibraryItems,
+          collectionState: collectionState,
         ),
       );
     }
@@ -2020,6 +2587,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                       hasQueueItems: hasQueueItems,
                       filterData: filterData,
                       localLibraryItems: localLibraryItems,
+                      collectionState: collectionState,
                     );
                   },
                 ),
@@ -2043,7 +2611,25 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                       albumCounts: historyStats.albumCounts,
                       localLibraryItems: localLibraryItems,
                       localAlbumCounts: historyStats.localAlbumCounts,
+                      collectionState: collectionState,
                     ),
+                    bottomPadding,
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // Playlist selection bottom bar
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            left: 0,
+            right: 0,
+            bottom: _isPlaylistSelectionMode ? 0 : -(200 + bottomPadding),
+            child: _isPlaylistSelectionMode
+                ? _buildPlaylistSelectionBottomBar(
+                    context,
+                    colorScheme,
+                    collectionState.playlists,
                     bottomPadding,
                   )
                 : const SizedBox.shrink(),
@@ -2060,6 +2646,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     required Map<String, int> albumCounts,
     required List<LocalLibraryItem> localLibraryItems,
     required Map<String, int> localAlbumCounts,
+    required LibraryCollectionsState collectionState,
   }) {
     final historyItems = _resolveHistoryItems(
       filterMode: filterMode,
@@ -2075,7 +2662,19 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     );
 
     // Apply advanced filters to match what's displayed
-    return _applyAdvancedFilters(unifiedItems);
+    final filtered = _applyAdvancedFilters(unifiedItems);
+
+    // Exclude tracks already in a playlist
+    final playlistTrackKeys = <String>{};
+    for (final playlist in collectionState.playlists) {
+      for (final entry in playlist.tracks) {
+        playlistTrackKeys.add(entry.key);
+      }
+    }
+    if (playlistTrackKeys.isEmpty) return filtered;
+    return filtered
+        .where((item) => !playlistTrackKeys.contains(item.collectionKey))
+        .toList(growable: false);
   }
 
   List<UnifiedLibraryItem> _getUnifiedItems({
@@ -2139,6 +2738,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     required Map<String, int> albumCounts,
     required Map<String, int> localAlbumCounts,
     required List<LocalLibraryItem> localLibraryItems,
+    required LibraryCollectionsState collectionState,
   }) {
     final historyItems = _resolveHistoryItems(
       filterMode: filterMode,
@@ -2156,7 +2756,24 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       localLibraryItems: localLibraryItems,
       localAlbumCounts: localAlbumCounts,
     );
-    final filteredUnifiedItems = _applyAdvancedFilters(unifiedItems);
+    final filtered = _applyAdvancedFilters(unifiedItems);
+
+    // Remove tracks that are already in any playlist so they don't appear
+    // in the main tracks list.  When a track is removed from a playlist (or
+    // the playlist is deleted) it will automatically reappear here because it
+    // will no longer be in the set.
+    final playlistTrackKeys = <String>{};
+    for (final playlist in collectionState.playlists) {
+      for (final entry in playlist.tracks) {
+        playlistTrackKeys.add(entry.key);
+      }
+    }
+
+    final filteredUnifiedItems = playlistTrackKeys.isEmpty
+        ? filtered
+        : filtered
+              .where((item) => !playlistTrackKeys.contains(item.collectionKey))
+              .toList(growable: false);
 
     return _FilterContentData(
       historyItems: historyItems,
@@ -2229,6 +2846,358 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     );
   }
 
+  /// Build a Spotify-style collection list item (Wishlist, Loved, Playlists)
+  Widget _buildCollectionListItem({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    IconData? icon,
+    Color? iconColor,
+    Color? iconBgColor,
+    Widget? coverWidget,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+  }) {
+    final cover = coverWidget ??
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: iconBgColor ?? colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon ?? Icons.folder, color: iconColor ?? Colors.white, size: 28),
+        );
+
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            SizedBox(width: 56, height: 56, child: cover),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build a collection grid item for grid view mode
+  Widget _buildCollectionGridItem({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    IconData? icon,
+    Color? iconColor,
+    Color? iconBgColor,
+    Widget? coverWidget,
+    required String title,
+    required int count,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+  }) {
+    final cover = coverWidget ??
+        Container(
+          decoration: BoxDecoration(
+            color: iconBgColor ?? colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon ?? Icons.folder, color: iconColor ?? Colors.white, size: 40),
+        );
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: cover,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            '$count ${count == 1 ? 'item' : 'items'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build a collection item at [index] for the unified "All" tab grid view.
+  /// Index 0 = Wishlist, 1 = Loved, 2+ = individual playlists.
+  Widget _buildAllTabGridCollectionItem({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required int index,
+    required LibraryCollectionsState collectionState,
+    List<UnifiedLibraryItem> filteredUnifiedItems = const [],
+  }) {
+    if (index == 0) {
+      return _buildCollectionGridItem(
+        context: context,
+        colorScheme: colorScheme,
+        icon: Icons.add_circle_outline,
+        iconColor: Colors.white,
+        iconBgColor: const Color(0xFF1DB954),
+        title: context.l10n.collectionWishlist,
+        count: collectionState.wishlistCount,
+        onTap: _openWishlistFolder,
+      );
+    } else if (index == 1) {
+      return _buildCollectionGridItem(
+        context: context,
+        colorScheme: colorScheme,
+        icon: Icons.favorite,
+        iconColor: Colors.white,
+        iconBgColor: const Color(0xFF8C67AC),
+        title: context.l10n.collectionLoved,
+        count: collectionState.lovedCount,
+        onTap: _openLovedFolder,
+      );
+    } else {
+      final playlist = collectionState.playlists[index - 2];
+      final isSelected = _selectedPlaylistIds.contains(playlist.id);
+      return DragTarget<UnifiedLibraryItem>(
+        onWillAcceptWithDetails: (_) => !_isPlaylistSelectionMode,
+        onAcceptWithDetails: (details) {
+          _onTrackDroppedOnPlaylist(
+            context,
+            details.data,
+            playlist.id,
+            playlist.name,
+            allItems: filteredUnifiedItems,
+          );
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isHovering = candidateData.isNotEmpty;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: isHovering
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.primary,
+                      width: 2,
+                    ),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                  )
+                : isSelected
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.primary,
+                          width: 2,
+                        ),
+                        color: colorScheme.primary.withValues(alpha: 0.08),
+                      )
+                    : null,
+            child: Stack(
+              children: [
+                _buildCollectionGridItem(
+                  context: context,
+                  colorScheme: colorScheme,
+                  coverWidget: _buildPlaylistCover(playlist, colorScheme),
+                  title: playlist.name,
+                  count: playlist.tracks.length,
+                  onTap: _isPlaylistSelectionMode
+                      ? () => _togglePlaylistSelection(playlist.id)
+                      : () => _openPlaylistById(playlist.id),
+                  onLongPress: _isPlaylistSelectionMode
+                      ? () => _togglePlaylistSelection(playlist.id)
+                      : () => _enterPlaylistSelectionMode(playlist.id),
+                ),
+                if (_isPlaylistSelectionMode)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.surface.withValues(alpha: 0.85),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.outline,
+                          width: 2,
+                        ),
+                      ),
+                      child: isSelected
+                          ? Icon(Icons.check, size: 16,
+                              color: colorScheme.onPrimary)
+                          : const SizedBox(width: 16, height: 16),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  /// Build a collection item at [index] for the unified "All" tab list view.
+  /// Index 0 = Wishlist, 1 = Loved, 2+ = individual playlists.
+  Widget _buildAllTabListCollectionItem({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required int index,
+    required LibraryCollectionsState collectionState,
+    List<UnifiedLibraryItem> filteredUnifiedItems = const [],
+  }) {
+    if (index == 0) {
+      return _buildCollectionListItem(
+        context: context,
+        colorScheme: colorScheme,
+        icon: Icons.add_circle_outline,
+        iconColor: Colors.white,
+        iconBgColor: const Color(0xFF1DB954),
+        title: context.l10n.collectionWishlist,
+        subtitle:
+            '${context.l10n.collectionFoldersTitle} • ${collectionState.wishlistCount} ${collectionState.wishlistCount == 1 ? 'track' : 'tracks'}',
+        onTap: _openWishlistFolder,
+      );
+    } else if (index == 1) {
+      return _buildCollectionListItem(
+        context: context,
+        colorScheme: colorScheme,
+        icon: Icons.favorite,
+        iconColor: Colors.white,
+        iconBgColor: const Color(0xFF8C67AC),
+        title: context.l10n.collectionLoved,
+        subtitle:
+            '${context.l10n.collectionFoldersTitle} • ${collectionState.lovedCount} ${collectionState.lovedCount == 1 ? 'track' : 'tracks'}',
+        onTap: _openLovedFolder,
+      );
+    } else {
+      final playlist = collectionState.playlists[index - 2];
+      final isSelected = _selectedPlaylistIds.contains(playlist.id);
+      return DragTarget<UnifiedLibraryItem>(
+        onWillAcceptWithDetails: (_) => !_isPlaylistSelectionMode,
+        onAcceptWithDetails: (details) {
+          _onTrackDroppedOnPlaylist(
+            context,
+            details.data,
+            playlist.id,
+            playlist.name,
+            allItems: filteredUnifiedItems,
+          );
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isHovering = candidateData.isNotEmpty;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: isHovering
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.primary,
+                      width: 2,
+                    ),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                  )
+                : isSelected
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.primary,
+                          width: 2,
+                        ),
+                        color: colorScheme.primary.withValues(alpha: 0.08),
+                      )
+                    : null,
+            child: Row(
+              children: [
+                if (_isPlaylistSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.outline,
+                          width: 2,
+                        ),
+                      ),
+                      child: isSelected
+                          ? Icon(Icons.check, size: 18,
+                              color: colorScheme.onPrimary)
+                          : const SizedBox(width: 18, height: 18),
+                    ),
+                  ),
+                Expanded(
+                  child: _buildCollectionListItem(
+                    context: context,
+                    colorScheme: colorScheme,
+                    coverWidget: _buildPlaylistCover(playlist, colorScheme, 56),
+                    title: playlist.name,
+                    subtitle:
+                        '${playlist.tracks.length} ${playlist.tracks.length == 1 ? 'track' : 'tracks'}',
+                    onTap: _isPlaylistSelectionMode
+                        ? () => _togglePlaylistSelection(playlist.id)
+                        : () => _openPlaylistById(playlist.id),
+                    onLongPress: _isPlaylistSelectionMode
+                        ? () => _togglePlaylistSelection(playlist.id)
+                        : () => _enterPlaylistSelectionMode(playlist.id),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+  }
+
   Widget _buildFilterContent({
     required BuildContext context,
     required ColorScheme colorScheme,
@@ -2237,6 +3206,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     required bool hasQueueItems,
     required _FilterContentData filterData,
     required List<LocalLibraryItem> localLibraryItems,
+    required LibraryCollectionsState collectionState,
   }) {
     final historyItems = filterData.historyItems;
     final showFilteringIndicator = filterData.showFilteringIndicator;
@@ -2284,10 +3254,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                     ),
                   if (!_isSelectionMode && filteredUnifiedItems.isNotEmpty)
                     TextButton.icon(
-                      onPressed: () =>
-                          _enterSelectionMode(filteredUnifiedItems.first.id),
-                      icon: const Icon(Icons.checklist, size: 18),
-                      label: Text(context.l10n.actionSelect),
+                      onPressed: () => _showCreatePlaylistDialog(context),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: Text(context.l10n.collectionCreatePlaylist),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -2296,6 +3265,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
               ),
             ),
           ),
+
+        // Collection folders as list items (Spotify-style) in "All" tab
+        // are now rendered inline with tracks below (unified sliver)
 
         if ((filteredGroupedAlbums.isNotEmpty ||
                 filteredGroupedLocalAlbums.isNotEmpty) &&
@@ -2444,45 +3416,119 @@ class _QueueTabState extends ConsumerState<QueueTab> {
             ),
           ),
 
-        // Unified list for 'all' filter (merged downloaded + local)
-        if (filteredUnifiedItems.isNotEmpty && filterMode == 'all')
-          historyViewMode == 'grid'
-              ? SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 0.75,
+        // Unified list/grid for 'all' filter: collection items + tracks combined
+        if (filterMode == 'all') ...[
+          if (historyViewMode == 'grid')
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.75,
+                    ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final collectionCount =
+                      2 + collectionState.playlists.length;
+                  if (index < collectionCount) {
+                    return _buildAllTabGridCollectionItem(
+                      context: context,
+                      colorScheme: colorScheme,
+                      index: index,
+                      collectionState: collectionState,
+                      filteredUnifiedItems: filteredUnifiedItems,
+                    );
+                  }
+                  final trackIndex = index - collectionCount;
+                  if (trackIndex < filteredUnifiedItems.length) {
+                    final item = filteredUnifiedItems[trackIndex];
+                    return KeyedSubtree(
+                      key: ValueKey(item.id),
+                      child: LongPressDraggable<UnifiedLibraryItem>(
+                        data: item,
+                        feedback: _buildDragFeedback(
+                          context,
+                          item,
+                          colorScheme,
                         ),
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = filteredUnifiedItems[index];
-                      return KeyedSubtree(
-                        key: ValueKey(item.id),
+                        childWhenDragging: Opacity(
+                          opacity: 0.4,
+                          child: _buildUnifiedGridItem(
+                            context,
+                            item,
+                            colorScheme,
+                          ),
+                        ),
                         child: _buildUnifiedGridItem(
                           context,
                           item,
                           colorScheme,
                         ),
-                      );
-                    }, childCount: filteredUnifiedItems.length),
-                  ),
-                )
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final item = filteredUnifiedItems[index];
-                    return KeyedSubtree(
-                      key: ValueKey(item.id),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+                childCount:
+                    2 +
+                    collectionState.playlists.length +
+                    filteredUnifiedItems.length,
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final collectionCount =
+                    2 + collectionState.playlists.length;
+                if (index < collectionCount) {
+                  return _buildAllTabListCollectionItem(
+                    context: context,
+                    colorScheme: colorScheme,
+                    index: index,
+                    collectionState: collectionState,
+                    filteredUnifiedItems: filteredUnifiedItems,
+                  );
+                }
+                final trackIndex = index - collectionCount;
+                if (trackIndex < filteredUnifiedItems.length) {
+                  final item = filteredUnifiedItems[trackIndex];
+                  return KeyedSubtree(
+                    key: ValueKey(item.id),
+                    child: LongPressDraggable<UnifiedLibraryItem>(
+                      data: item,
+                      feedback: _buildDragFeedback(
+                        context,
+                        item,
+                        colorScheme,
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.4,
+                        child: _buildUnifiedLibraryItem(
+                          context,
+                          item,
+                          colorScheme,
+                        ),
+                      ),
                       child: _buildUnifiedLibraryItem(
                         context,
                         item,
                         colorScheme,
                       ),
-                    );
-                  }, childCount: filteredUnifiedItems.length),
-                ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              childCount:
+                  2 +
+                  collectionState.playlists.length +
+                  filteredUnifiedItems.length,
+              ),
+            ),
+        ],
 
         // Singles filter - show unified items (downloaded + local singles)
         if (filterMode == 'singles')
@@ -2519,10 +3565,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                     ),
                   if (!_isSelectionMode && filteredUnifiedItems.isNotEmpty)
                     TextButton.icon(
-                      onPressed: () =>
-                          _enterSelectionMode(filteredUnifiedItems.first.id),
-                      icon: const Icon(Icons.checklist, size: 18),
-                      label: Text(context.l10n.actionSelect),
+                      onPressed: () => _showCreatePlaylistDialog(context),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: Text(context.l10n.collectionCreatePlaylist),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -3442,6 +4487,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     final historyDb = HistoryDatabase.instance;
     final newQuality =
         '${targetFormat.toUpperCase()} ${bitrate.trim().toLowerCase()}';
+    final settings = ref.read(settingsProvider);
+    final shouldEmbedLyrics =
+        settings.embedLyrics && settings.lyricsMode != 'external';
 
     for (int i = 0; i < total; i++) {
       if (!mounted) break;
@@ -3475,6 +4523,17 @@ class _QueueTabState extends ConsumerState<QueueTab> {
             });
           }
         } catch (_) {}
+        await ensureLyricsMetadataForConversion(
+          metadata: metadata,
+          sourcePath: item.filePath,
+          shouldEmbedLyrics: shouldEmbedLyrics,
+          trackName: item.trackName,
+          artistName: item.artistName,
+          spotifyId: item.historyItem?.spotifyId ?? '',
+          durationMs:
+              ((item.historyItem?.duration ?? item.localItem?.duration) ?? 0) *
+              1000,
+        );
 
         // Extract cover art
         String? coverPath;
@@ -4455,14 +5514,18 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          dateStr,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
+                        Flexible(
+                          child: Text(
+                            dateStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
-                              ),
+                          ),
                         ),
                         if (item.quality != null &&
                             item.quality!.isNotEmpty) ...[

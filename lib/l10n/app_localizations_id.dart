@@ -2421,6 +2421,17 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
+  String libraryTracksUnit(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'trek',
+      one: 'trek',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String libraryLastScanned(String time) {
     return 'Last scanned: $time';
   }
@@ -2979,6 +2990,154 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get trackConvertFailed => 'Conversion failed';
+
+  @override
+  String get actionCreate => 'Buat';
+
+  @override
+  String get collectionFoldersTitle => 'Folder saya';
+
+  @override
+  String get collectionWishlist => 'Wishlist';
+
+  @override
+  String get collectionLoved => 'Loved';
+
+  @override
+  String get collectionPlaylists => 'Playlist';
+
+  @override
+  String get collectionPlaylist => 'Playlist';
+
+  @override
+  String get collectionAddToPlaylist => 'Tambahkan ke playlist';
+
+  @override
+  String get collectionCreatePlaylist => 'Buat playlist';
+
+  @override
+  String get collectionNoPlaylistsYet => 'Belum ada playlist';
+
+  @override
+  String get collectionNoPlaylistsSubtitle =>
+      'Buat playlist untuk mulai mengategorikan lagu';
+
+  @override
+  String collectionPlaylistTracks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lagu',
+      one: '1 lagu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String collectionAddedToPlaylist(String playlistName) {
+    return 'Ditambahkan ke \"$playlistName\"';
+  }
+
+  @override
+  String collectionAlreadyInPlaylist(String playlistName) {
+    return 'Sudah ada di \"$playlistName\"';
+  }
+
+  @override
+  String get collectionPlaylistCreated => 'Playlist berhasil dibuat';
+
+  @override
+  String get collectionPlaylistNameHint => 'Nama playlist';
+
+  @override
+  String get collectionPlaylistNameRequired => 'Nama playlist wajib diisi';
+
+  @override
+  String get collectionRenamePlaylist => 'Ubah nama playlist';
+
+  @override
+  String get collectionDeletePlaylist => 'Hapus playlist';
+
+  @override
+  String collectionDeletePlaylistMessage(String playlistName) {
+    return 'Hapus \"$playlistName\" beserta semua lagunya?';
+  }
+
+  @override
+  String get collectionPlaylistDeleted => 'Playlist dihapus';
+
+  @override
+  String get collectionPlaylistRenamed => 'Nama playlist diperbarui';
+
+  @override
+  String get collectionWishlistEmptyTitle => 'Wishlist masih kosong';
+
+  @override
+  String get collectionWishlistEmptySubtitle =>
+      'Tap + di lagu untuk menyimpan yang ingin diunduh nanti';
+
+  @override
+  String get collectionLovedEmptyTitle => 'Folder Loved masih kosong';
+
+  @override
+  String get collectionLovedEmptySubtitle =>
+      'Tap love di lagu untuk menyimpan favoritmu';
+
+  @override
+  String get collectionPlaylistEmptyTitle => 'Playlist masih kosong';
+
+  @override
+  String get collectionPlaylistEmptySubtitle =>
+      'Tekan lama tombol + pada lagu untuk menambahkannya ke sini';
+
+  @override
+  String get collectionRemoveFromPlaylist => 'Hapus dari playlist';
+
+  @override
+  String get collectionRemoveFromFolder => 'Hapus dari folder';
+
+  @override
+  String collectionRemoved(String trackName) {
+    return '\"$trackName\" dihapus';
+  }
+
+  @override
+  String collectionAddedToLoved(String trackName) {
+    return '\"$trackName\" ditambahkan ke Loved';
+  }
+
+  @override
+  String collectionRemovedFromLoved(String trackName) {
+    return '\"$trackName\" dihapus dari Loved';
+  }
+
+  @override
+  String collectionAddedToWishlist(String trackName) {
+    return '\"$trackName\" ditambahkan ke Wishlist';
+  }
+
+  @override
+  String collectionRemovedFromWishlist(String trackName) {
+    return '\"$trackName\" dihapus dari Wishlist';
+  }
+
+  @override
+  String get trackOptionAddToLoved => 'Tambahkan ke Loved';
+
+  @override
+  String get trackOptionRemoveFromLoved => 'Hapus dari Loved';
+
+  @override
+  String get trackOptionAddToWishlist => 'Tambahkan ke Wishlist';
+
+  @override
+  String get trackOptionRemoveFromWishlist => 'Hapus dari Wishlist';
+
+  @override
+  String get collectionPlaylistChangeCover => 'Ubah gambar sampul';
+
+  @override
+  String get collectionPlaylistRemoveCover => 'Hapus gambar sampul';
 
   @override
   String selectionShareCount(int count) {

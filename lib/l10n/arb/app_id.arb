@@ -3182,6 +3182,15 @@
       }
     }
   },
+  "libraryTracksUnit": "{count, plural, =1{trek} other{trek}}",
+  "@libraryTracksUnit": {
+    "description": "Unit label for tracks count (without the number itself)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "libraryLastScanned": "Last scanned: {time}",
   "@libraryLastScanned": {
     "description": "Last scan time display",
@@ -3927,5 +3936,201 @@
   "trackConvertFailed": "Conversion failed",
   "@trackConvertFailed": {
     "description": "Snackbar when conversion fails"
-  }
+  },
+
+  "actionCreate": "Buat",
+  "@actionCreate": {
+    "description": "Generic action button - create"
+  },
+  "collectionFoldersTitle": "Folder saya",
+  "@collectionFoldersTitle": {
+    "description": "Library section title for custom folders"
+  },
+  "collectionWishlist": "Wishlist",
+  "@collectionWishlist": {
+    "description": "Custom folder for saved tracks to download later"
+  },
+  "collectionLoved": "Loved",
+  "@collectionLoved": {
+    "description": "Custom folder for favorite tracks"
+  },
+  "collectionPlaylists": "Playlist",
+  "@collectionPlaylists": {
+    "description": "Custom user playlists folder"
+  },
+  "collectionPlaylist": "Playlist",
+  "@collectionPlaylist": {
+    "description": "Single playlist label"
+  },
+  "collectionAddToPlaylist": "Tambahkan ke playlist",
+  "@collectionAddToPlaylist": {
+    "description": "Action to add a track to user playlist"
+  },
+  "collectionCreatePlaylist": "Buat playlist",
+  "@collectionCreatePlaylist": {
+    "description": "Action to create a new playlist"
+  },
+  "collectionNoPlaylistsYet": "Belum ada playlist",
+  "@collectionNoPlaylistsYet": {
+    "description": "Empty state title when user has no playlists"
+  },
+  "collectionNoPlaylistsSubtitle": "Buat playlist untuk mulai mengategorikan lagu",
+  "@collectionNoPlaylistsSubtitle": {
+    "description": "Empty state subtitle when user has no playlists"
+  },
+  "collectionPlaylistTracks": "{count, plural, =1{1 lagu} other{{count} lagu}}",
+  "@collectionPlaylistTracks": {
+    "description": "Track count label for custom playlists",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "collectionAddedToPlaylist": "Ditambahkan ke \"{playlistName}\"",
+  "@collectionAddedToPlaylist": {
+    "description": "Snackbar after adding track to playlist",
+    "placeholders": {
+      "playlistName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionAlreadyInPlaylist": "Sudah ada di \"{playlistName}\"",
+  "@collectionAlreadyInPlaylist": {
+    "description": "Snackbar when track already exists in playlist",
+    "placeholders": {
+      "playlistName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionPlaylistCreated": "Playlist berhasil dibuat",
+  "@collectionPlaylistCreated": {
+    "description": "Snackbar after creating playlist"
+  },
+  "collectionPlaylistNameHint": "Nama playlist",
+  "@collectionPlaylistNameHint": {
+    "description": "Hint text for playlist name input"
+  },
+  "collectionPlaylistNameRequired": "Nama playlist wajib diisi",
+  "@collectionPlaylistNameRequired": {
+    "description": "Validation error for empty playlist name"
+  },
+  "collectionRenamePlaylist": "Ubah nama playlist",
+  "@collectionRenamePlaylist": {
+    "description": "Action to rename playlist"
+  },
+  "collectionDeletePlaylist": "Hapus playlist",
+  "@collectionDeletePlaylist": {
+    "description": "Action to delete playlist"
+  },
+  "collectionDeletePlaylistMessage": "Hapus \"{playlistName}\" beserta semua lagunya?",
+  "@collectionDeletePlaylistMessage": {
+    "description": "Confirmation message for deleting playlist",
+    "placeholders": {
+      "playlistName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionPlaylistDeleted": "Playlist dihapus",
+  "@collectionPlaylistDeleted": {
+    "description": "Snackbar after deleting playlist"
+  },
+  "collectionPlaylistRenamed": "Nama playlist diperbarui",
+  "@collectionPlaylistRenamed": {
+    "description": "Snackbar after renaming playlist"
+  },
+  "collectionWishlistEmptyTitle": "Wishlist masih kosong",
+  "@collectionWishlistEmptyTitle": {
+    "description": "Wishlist empty state title"
+  },
+  "collectionWishlistEmptySubtitle": "Tap + di lagu untuk menyimpan yang ingin diunduh nanti",
+  "@collectionWishlistEmptySubtitle": {
+    "description": "Wishlist empty state subtitle"
+  },
+  "collectionLovedEmptyTitle": "Folder Loved masih kosong",
+  "@collectionLovedEmptyTitle": {
+    "description": "Loved empty state title"
+  },
+  "collectionLovedEmptySubtitle": "Tap love di lagu untuk menyimpan favoritmu",
+  "@collectionLovedEmptySubtitle": {
+    "description": "Loved empty state subtitle"
+  },
+  "collectionPlaylistEmptyTitle": "Playlist masih kosong",
+  "@collectionPlaylistEmptyTitle": {
+    "description": "Playlist empty state title"
+  },
+  "collectionPlaylistEmptySubtitle": "Tekan lama tombol + pada lagu untuk menambahkannya ke sini",
+  "@collectionPlaylistEmptySubtitle": {
+    "description": "Playlist empty state subtitle"
+  },
+  "collectionRemoveFromPlaylist": "Hapus dari playlist",
+  "@collectionRemoveFromPlaylist": {
+    "description": "Tooltip for removing track from playlist"
+  },
+  "collectionRemoveFromFolder": "Hapus dari folder",
+  "@collectionRemoveFromFolder": {
+    "description": "Tooltip for removing track from wishlist/loved folder"
+  },
+  "collectionRemoved": "\"{trackName}\" dihapus",
+  "@collectionRemoved": {
+    "description": "Snackbar after removing a track from a collection",
+    "placeholders": {
+      "trackName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionAddedToLoved": "\"{trackName}\" ditambahkan ke Loved",
+  "@collectionAddedToLoved": {
+    "description": "Snackbar after adding track to loved folder",
+    "placeholders": {
+      "trackName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionRemovedFromLoved": "\"{trackName}\" dihapus dari Loved",
+  "@collectionRemovedFromLoved": {
+    "description": "Snackbar after removing track from loved folder",
+    "placeholders": {
+      "trackName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionAddedToWishlist": "\"{trackName}\" ditambahkan ke Wishlist",
+  "@collectionAddedToWishlist": {
+    "description": "Snackbar after adding track to wishlist",
+    "placeholders": {
+      "trackName": {
+        "type": "String"
+      }
+    }
+  },
+  "collectionRemovedFromWishlist": "\"{trackName}\" dihapus dari Wishlist",
+  "@collectionRemovedFromWishlist": {
+    "description": "Snackbar after removing track from wishlist",
+    "placeholders": {
+      "trackName": {
+        "type": "String"
+      }
+    }
+  },
+
+  "trackOptionAddToLoved": "Tambahkan ke Loved",
+  "@trackOptionAddToLoved": {"description": "Bottom sheet action label - add track to loved folder"},
+  "trackOptionRemoveFromLoved": "Hapus dari Loved",
+  "@trackOptionRemoveFromLoved": {"description": "Bottom sheet action label - remove track from loved folder"},
+  "trackOptionAddToWishlist": "Tambahkan ke Wishlist",
+  "@trackOptionAddToWishlist": {"description": "Bottom sheet action label - add track to wishlist"},
+  "trackOptionRemoveFromWishlist": "Hapus dari Wishlist",
+  "@trackOptionRemoveFromWishlist": {"description": "Bottom sheet action label - remove track from wishlist"},
+
+  "collectionPlaylistChangeCover": "Ubah gambar sampul",
+  "@collectionPlaylistChangeCover": {"description": "Bottom sheet action to pick a custom cover image for a playlist"},
+  "collectionPlaylistRemoveCover": "Hapus gambar sampul",
+  "@collectionPlaylistRemoveCover": {"description": "Bottom sheet action to remove custom cover image from a playlist"}
 }

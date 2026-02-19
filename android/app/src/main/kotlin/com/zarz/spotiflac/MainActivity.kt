@@ -666,11 +666,13 @@ class MainActivity: FlutterFragmentActivity() {
         val pfd = contentResolver.openFileDescriptor(document.uri, "rw")
             ?: return errorJson("Failed to open SAF file")
 
+        var detachedFd: Int? = null
         try {
-            // Keep SAF PFD ownership in Kotlin and pass only procfs path to Go.
-            // Go re-opens this procfs FD path for writing to avoid raw FD ownership handoff.
-            req.put("output_path", "/proc/self/fd/${pfd.fd}")
-            req.put("output_fd", 0)
+            // Prefer handing off a detached FD directly to Go.
+            // Some devices/providers reject re-opening /proc/self/fd/* with permission denied.
+            detachedFd = pfd.detachFd()
+            req.put("output_path", "")
+            req.put("output_fd", detachedFd)
             req.put("output_ext", outputExt)
             val response = downloader(req.toString())
             val respObj = JSONObject(response)
@@ -685,9 +687,13 @@ class MainActivity: FlutterFragmentActivity() {
             document.delete()
             return errorJson("SAF download failed: ${e.message}")
         } finally {
-            try {
-                pfd.close()
-            } catch (_: Exception) {}
+            // If detachFd() failed before handoff, close original ParcelFileDescriptor.
+            // Otherwise Go owns the detached raw FD and is responsible for closing it.
+            if (detachedFd == null) {
+                try {
+                    pfd.close()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -1351,6 +1357,14 @@ class MainActivity: FlutterFragmentActivity() {
                             val path = call.argument<String>("path") ?: ""
                             withContext(Dispatchers.IO) {
                                 Gobackend.setDownloadDirectory(path)
+                            }
+                            result.success(null)
+                        }
+                        "setNetworkCompatibilityOptions", "setSongLinkNetworkOptions" -> {
+                            val allowHttp = call.argument<Boolean>("allow_http") ?: false
+                            val insecureTls = call.argument<Boolean>("insecure_tls") ?: false
+                            withContext(Dispatchers.IO) {
+                                Gobackend.setNetworkCompatibilityOptions(allowHttp, insecureTls)
                             }
                             result.success(null)
                         }

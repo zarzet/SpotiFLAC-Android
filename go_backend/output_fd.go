@@ -18,7 +18,15 @@ func openOutputForWrite(outputPath string, outputFD int) (*os.File, error) {
 	path := strings.TrimSpace(outputPath)
 	if strings.HasPrefix(path, "/proc/self/fd/") {
 		// Re-open procfs fd path instead of taking ownership of raw detached fd.
-		return os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
+		// Some SAF providers reject O_TRUNC on these descriptors with EACCES/EPERM.
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
+		if err == nil {
+			return file, nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "permission denied") {
+			return os.OpenFile(path, os.O_WRONLY, 0)
+		}
+		return nil, err
 	}
 
 	return os.Create(outputPath)

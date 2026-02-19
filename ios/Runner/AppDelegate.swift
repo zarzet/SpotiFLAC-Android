@@ -127,6 +127,13 @@ import Gobackend  // Import Go framework
             GobackendSetDownloadDirectory(path, &error)
             if let error = error { throw error }
             return nil
+
+        case "setNetworkCompatibilityOptions", "setSongLinkNetworkOptions":
+            let args = call.arguments as! [String: Any]
+            let allowHTTP = args["allow_http"] as? Bool ?? false
+            let insecureTLS = args["insecure_tls"] as? Bool ?? false
+            GobackendSetNetworkCompatibilityOptions(allowHTTP, insecureTLS)
+            return nil
             
         case "checkDuplicate":
             let args = call.arguments as! [String: Any]

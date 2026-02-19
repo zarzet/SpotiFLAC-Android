@@ -548,7 +548,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                 final showContent = collapseRatio > 0.3;
 
                 return FlexibleSpaceBar(
-                  collapseMode: CollapseMode.parallax,
+                  collapseMode: CollapseMode.pin,
                   background: _buildHeaderBackground(
                     context,
                     colorScheme,

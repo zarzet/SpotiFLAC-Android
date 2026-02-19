@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
-import 'package:spotiflac_android/models/download_item.dart';
 import 'package:spotiflac_android/providers/track_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
@@ -18,6 +17,7 @@ import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/home_tab.dart'
     show ExtensionAlbumScreen;
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
+import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
 
 /// Simple in-memory cache for artist data
 class _ArtistCache {
@@ -1255,13 +1255,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
             : false;
 
         final isQueued = queueItem != null;
-        final isDownloading = queueItem?.status == DownloadStatus.downloading;
-        final isFinalizing = queueItem?.status == DownloadStatus.finalizing;
-        final isCompleted = queueItem?.status == DownloadStatus.completed;
-        final progress = queueItem?.progress ?? 0.0;
-
-        final showAsDownloaded =
-            isCompleted || (!isQueued && isInHistory) || isInLocalLibrary;
 
         return InkWell(
           onTap: () => _handlePopularTrackTap(
@@ -1346,16 +1339,8 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                     ],
                   ),
                 ),
-                _buildPopularDownloadButton(
+                TrackCollectionQuickActions(
                   track: track,
-                  colorScheme: colorScheme,
-                  isQueued: isQueued,
-                  isDownloading: isDownloading,
-                  isFinalizing: isFinalizing,
-                  showAsDownloaded: showAsDownloaded,
-                  isInHistory: isInHistory,
-                  isInLocalLibrary: isInLocalLibrary,
-                  progress: progress,
                 ),
               ],
             ),
@@ -1411,117 +1396,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     }
 
     _downloadTrack(track);
-  }
-
-  Widget _buildPopularDownloadButton({
-    required Track track,
-    required ColorScheme colorScheme,
-    required bool isQueued,
-    required bool isDownloading,
-    required bool isFinalizing,
-    required bool showAsDownloaded,
-    required bool isInHistory,
-    required bool isInLocalLibrary,
-    required double progress,
-  }) {
-    const double size = 40.0;
-    const double iconSize = 20.0;
-
-    if (showAsDownloaded) {
-      return GestureDetector(
-        onTap: () => _handlePopularTrackTap(
-          track,
-          isQueued: isQueued,
-          isInHistory: isInHistory,
-          isInLocalLibrary: isInLocalLibrary,
-        ),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check,
-            color: colorScheme.onPrimaryContainer,
-            size: iconSize,
-          ),
-        ),
-      );
-    } else if (isFinalizing) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: colorScheme.tertiary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            Icon(Icons.edit_note, color: colorScheme.tertiary, size: 14),
-          ],
-        ),
-      );
-    } else if (isDownloading) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              value: progress > 0 ? progress : null,
-              strokeWidth: 2.5,
-              color: colorScheme.primary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            if (progress > 0)
-              Text(
-                '${(progress * 100).toInt()}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-          ],
-        ),
-      );
-    } else if (isQueued) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.hourglass_empty,
-          color: colorScheme.onSurfaceVariant,
-          size: iconSize,
-        ),
-      );
-    } else {
-      return GestureDetector(
-        onTap: () => _downloadTrack(track),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.download,
-            color: colorScheme.onSecondaryContainer,
-            size: iconSize,
-          ),
-        ),
-      );
-    }
   }
 
   void _downloadTrack(Track track) {

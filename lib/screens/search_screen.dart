@@ -175,10 +175,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ],
       ),
-      trailing: IconButton(
-        icon: Icon(Icons.download, color: colorScheme.primary),
-        onPressed: () => _downloadTrack(track),
-      ),
+      trailing: null,
       onTap: () => _downloadTrack(track),
     );
   }

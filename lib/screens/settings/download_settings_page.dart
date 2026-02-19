@@ -312,8 +312,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     SettingsItem(
                       icon: Icons.lyrics_outlined,
                       title: context.l10n.lyricsMode,
-                      subtitle:
-                          _getLyricsModeLabel(context, settings.lyricsMode),
+                      subtitle: _getLyricsModeLabel(
+                        context,
+                        settings.lyricsMode,
+                      ),
                       onTap: () => _showLyricsModePicker(
                         context,
                         ref,
@@ -533,6 +535,19 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       ref,
                       settings.downloadNetworkMode,
                     ),
+                  ),
+                  SettingsSwitchItem(
+                    icon: Icons.security_outlined,
+                    title: 'Network compatibility mode',
+                    subtitle: settings.networkCompatibilityMode
+                        ? 'Enabled: try HTTP + accept invalid TLS certificates (unsafe)'
+                        : 'Off: strict HTTPS certificate validation (recommended)',
+                    value: settings.networkCompatibilityMode,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setNetworkCompatibilityMode(value);
+                    },
                   ),
                   SettingsSwitchItem(
                     icon: Icons.file_download_outlined,

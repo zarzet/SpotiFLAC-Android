@@ -102,33 +102,31 @@ func NewExtensionRuntime(ext *LoadedExtension) *ExtensionRuntime {
 		vm:          ext.VM,
 	}
 
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Jar:     jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if req.URL.Scheme != "https" {
-				GoLog("[Extension:%s] Redirect blocked: non-https scheme '%s'\n", ext.ID, req.URL.Scheme)
-				return fmt.Errorf("redirect blocked: only https is allowed")
-			}
+	client := NewHTTPClientWithTimeout(30 * time.Second)
+	client.Jar = jar
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if req.URL.Scheme != "https" {
+			GoLog("[Extension:%s] Redirect blocked: non-https scheme '%s'\n", ext.ID, req.URL.Scheme)
+			return fmt.Errorf("redirect blocked: only https is allowed")
+		}
 
-			domain := req.URL.Hostname()
-			if domain == "" {
-				GoLog("[Extension:%s] Redirect blocked: missing hostname\n", ext.ID)
-				return fmt.Errorf("redirect blocked: hostname is required")
-			}
-			if !ext.Manifest.IsDomainAllowed(domain) {
-				GoLog("[Extension:%s] Redirect blocked: domain '%s' not in allowed list\n", ext.ID, domain)
-				return &RedirectBlockedError{Domain: domain}
-			}
-			if isPrivateIP(domain) {
-				GoLog("[Extension:%s] Redirect blocked: private IP '%s'\n", ext.ID, domain)
-				return &RedirectBlockedError{Domain: domain, IsPrivate: true}
-			}
-			if len(via) >= 10 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
+		domain := req.URL.Hostname()
+		if domain == "" {
+			GoLog("[Extension:%s] Redirect blocked: missing hostname\n", ext.ID)
+			return fmt.Errorf("redirect blocked: hostname is required")
+		}
+		if !ext.Manifest.IsDomainAllowed(domain) {
+			GoLog("[Extension:%s] Redirect blocked: domain '%s' not in allowed list\n", ext.ID, domain)
+			return &RedirectBlockedError{Domain: domain}
+		}
+		if isPrivateIP(domain) {
+			GoLog("[Extension:%s] Redirect blocked: private IP '%s'\n", ext.ID, domain)
+			return &RedirectBlockedError{Domain: domain, IsPrivate: true}
+		}
+		if len(via) >= 10 {
+			return http.ErrUseLastResponse
+		}
+		return nil
 	}
 	runtime.httpClient = client
 

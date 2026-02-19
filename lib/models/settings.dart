@@ -49,6 +49,8 @@ class AppSettings {
   autoExportFailedDownloads; // Auto export failed downloads to TXT file
   final String
   downloadNetworkMode; // 'any' = WiFi + Mobile, 'wifi_only' = WiFi only
+  final bool
+  networkCompatibilityMode; // Try HTTP + allow invalid TLS cert for API requests
 
   // Local Library Settings
   final bool localLibraryEnabled; // Enable local library scanning
@@ -112,6 +114,7 @@ class AppSettings {
     this.useAllFilesAccess = false,
     this.autoExportFailedDownloads = false,
     this.downloadNetworkMode = 'any',
+    this.networkCompatibilityMode = false,
     // Local Library defaults
     this.localLibraryEnabled = false,
     this.localLibraryPath = '',
@@ -173,6 +176,7 @@ class AppSettings {
     bool? useAllFilesAccess,
     bool? autoExportFailedDownloads,
     String? downloadNetworkMode,
+    bool? networkCompatibilityMode,
     // Local Library
     bool? localLibraryEnabled,
     String? localLibraryPath,
@@ -235,6 +239,8 @@ class AppSettings {
       autoExportFailedDownloads:
           autoExportFailedDownloads ?? this.autoExportFailedDownloads,
       downloadNetworkMode: downloadNetworkMode ?? this.downloadNetworkMode,
+      networkCompatibilityMode:
+          networkCompatibilityMode ?? this.networkCompatibilityMode,
       // Local Library
       localLibraryEnabled: localLibraryEnabled ?? this.localLibraryEnabled,
       localLibraryPath: localLibraryPath ?? this.localLibraryPath,

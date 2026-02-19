@@ -4342,6 +4342,12 @@ abstract class AppLocalizations {
   /// **'{count} tracks'**
   String libraryTracksCount(int count);
 
+  /// Unit label for tracks count (without the number itself)
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{track} other{tracks}}'**
+  String libraryTracksUnit(int count);
+
   /// Last scan time display
   ///
   /// In en, this message translates to:
@@ -5257,6 +5263,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conversion failed'**
   String get trackConvertFailed;
+
+  /// Generic action button - create
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get actionCreate;
+
+  /// Library section title for custom folders
+  ///
+  /// In en, this message translates to:
+  /// **'My folders'**
+  String get collectionFoldersTitle;
+
+  /// Custom folder for saved tracks to download later
+  ///
+  /// In en, this message translates to:
+  /// **'Wishlist'**
+  String get collectionWishlist;
+
+  /// Custom folder for favorite tracks
+  ///
+  /// In en, this message translates to:
+  /// **'Loved'**
+  String get collectionLoved;
+
+  /// Custom user playlists folder
+  ///
+  /// In en, this message translates to:
+  /// **'Playlists'**
+  String get collectionPlaylists;
+
+  /// Single playlist label
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist'**
+  String get collectionPlaylist;
+
+  /// Action to add a track to user playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Add to playlist'**
+  String get collectionAddToPlaylist;
+
+  /// Action to create a new playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Create playlist'**
+  String get collectionCreatePlaylist;
+
+  /// Empty state title when user has no playlists
+  ///
+  /// In en, this message translates to:
+  /// **'No playlists yet'**
+  String get collectionNoPlaylistsYet;
+
+  /// Empty state subtitle when user has no playlists
+  ///
+  /// In en, this message translates to:
+  /// **'Create a playlist to start categorizing tracks'**
+  String get collectionNoPlaylistsSubtitle;
+
+  /// Track count label for custom playlists
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 track} other{{count} tracks}}'**
+  String collectionPlaylistTracks(int count);
+
+  /// Snackbar after adding track to playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Added to \"{playlistName}\"'**
+  String collectionAddedToPlaylist(String playlistName);
+
+  /// Snackbar when track already exists in playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Already in \"{playlistName}\"'**
+  String collectionAlreadyInPlaylist(String playlistName);
+
+  /// Snackbar after creating playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist created'**
+  String get collectionPlaylistCreated;
+
+  /// Hint text for playlist name input
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist name'**
+  String get collectionPlaylistNameHint;
+
+  /// Validation error for empty playlist name
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist name is required'**
+  String get collectionPlaylistNameRequired;
+
+  /// Action to rename playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Rename playlist'**
+  String get collectionRenamePlaylist;
+
+  /// Action to delete playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Delete playlist'**
+  String get collectionDeletePlaylist;
+
+  /// Confirmation message for deleting playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{playlistName}\" and all tracks inside it?'**
+  String collectionDeletePlaylistMessage(String playlistName);
+
+  /// Snackbar after deleting playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist deleted'**
+  String get collectionPlaylistDeleted;
+
+  /// Snackbar after renaming playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist renamed'**
+  String get collectionPlaylistRenamed;
+
+  /// Wishlist empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'Wishlist is empty'**
+  String get collectionWishlistEmptyTitle;
+
+  /// Wishlist empty state subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + on tracks to save what you want to download later'**
+  String get collectionWishlistEmptySubtitle;
+
+  /// Loved empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'Loved folder is empty'**
+  String get collectionLovedEmptyTitle;
+
+  /// Loved empty state subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Tap love on tracks to keep your favorites'**
+  String get collectionLovedEmptySubtitle;
+
+  /// Playlist empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist is empty'**
+  String get collectionPlaylistEmptyTitle;
+
+  /// Playlist empty state subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Long-press + on any track to add it here'**
+  String get collectionPlaylistEmptySubtitle;
+
+  /// Tooltip for removing track from playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from playlist'**
+  String get collectionRemoveFromPlaylist;
+
+  /// Tooltip for removing track from wishlist/loved folder
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from folder'**
+  String get collectionRemoveFromFolder;
+
+  /// Snackbar after removing a track from a collection
+  ///
+  /// In en, this message translates to:
+  /// **'\"{trackName}\" removed'**
+  String collectionRemoved(String trackName);
+
+  /// Snackbar after adding track to loved folder
+  ///
+  /// In en, this message translates to:
+  /// **'\"{trackName}\" added to Loved'**
+  String collectionAddedToLoved(String trackName);
+
+  /// Snackbar after removing track from loved folder
+  ///
+  /// In en, this message translates to:
+  /// **'\"{trackName}\" removed from Loved'**
+  String collectionRemovedFromLoved(String trackName);
+
+  /// Snackbar after adding track to wishlist
+  ///
+  /// In en, this message translates to:
+  /// **'\"{trackName}\" added to Wishlist'**
+  String collectionAddedToWishlist(String trackName);
+
+  /// Snackbar after removing track from wishlist
+  ///
+  /// In en, this message translates to:
+  /// **'\"{trackName}\" removed from Wishlist'**
+  String collectionRemovedFromWishlist(String trackName);
+
+  /// Bottom sheet action label - add track to loved folder
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Loved'**
+  String get trackOptionAddToLoved;
+
+  /// Bottom sheet action label - remove track from loved folder
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Loved'**
+  String get trackOptionRemoveFromLoved;
+
+  /// Bottom sheet action label - add track to wishlist
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Wishlist'**
+  String get trackOptionAddToWishlist;
+
+  /// Bottom sheet action label - remove track from wishlist
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Wishlist'**
+  String get trackOptionRemoveFromWishlist;
+
+  /// Bottom sheet action to pick a custom cover image for a playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Change cover image'**
+  String get collectionPlaylistChangeCover;
+
+  /// Bottom sheet action to remove custom cover image from a playlist
+  ///
+  /// In en, this message translates to:
+  /// **'Remove cover image'**
+  String get collectionPlaylistRemoveCover;
 
   /// Share button text with count in selection mode
   ///

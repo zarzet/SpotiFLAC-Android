@@ -140,6 +140,12 @@ func CheckAvailability(spotifyID, isrc string) (string, error) {
 	return string(jsonBytes), nil
 }
 
+// SetSongLinkNetworkOptions is kept for backward compatibility.
+// It now applies global network compatibility options for all backend API requests.
+func SetSongLinkNetworkOptions(allowHTTP, insecureTLS bool) {
+	SetNetworkCompatibilityOptions(allowHTTP, insecureTLS)
+}
+
 type DownloadRequest struct {
 	ISRC                 string `json:"isrc"`
 	Service              string `json:"service"`

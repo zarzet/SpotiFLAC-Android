@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/lyrics_metadata_helper.dart';
 import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/ffmpeg_service.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
@@ -66,7 +67,8 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
 
   void _onScroll() {
     final expandedHeight = _calculateExpandedHeight(context);
-    final shouldShow = _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
+    final shouldShow =
+        _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
     if (shouldShow != _showTitleInAppBar) {
       setState(() => _showTitleInAppBar = shouldShow);
     }
@@ -311,7 +313,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
           final showContent = collapseRatio > 0.3;
 
           return FlexibleSpaceBar(
-            collapseMode: CollapseMode.parallax,
+            collapseMode: CollapseMode.pin,
             background: Stack(
               fit: StackFit.expand,
               children: [
@@ -1188,6 +1190,9 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     int successCount = 0;
     final total = selected.length;
     final localDb = LibraryDatabase.instance;
+    final settings = ref.read(settingsProvider);
+    final shouldEmbedLyrics =
+        settings.embedLyrics && settings.lyricsMode != 'external';
 
     for (int i = 0; i < total; i++) {
       if (!mounted) break;
@@ -1220,6 +1225,14 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
             });
           }
         } catch (_) {}
+        await ensureLyricsMetadataForConversion(
+          metadata: metadata,
+          sourcePath: item.filePath,
+          shouldEmbedLyrics: shouldEmbedLyrics,
+          trackName: item.trackName,
+          artistName: item.artistName,
+          durationMs: (item.duration ?? 0) * 1000,
+        );
 
         String? coverPath;
         try {

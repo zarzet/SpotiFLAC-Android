@@ -45,6 +45,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     LogBuffer.loggingEnabled = state.enableLogging;
 
     _syncLyricsSettingsToBackend();
+    _syncNetworkCompatibilitySettingsToBackend();
   }
 
   void _syncLyricsSettingsToBackend() {
@@ -59,6 +60,16 @@ class SettingsNotifier extends Notifier<AppSettings> {
       'musixmatch_language': state.musixmatchLanguage,
     }).catchError((e) {
       _log.w('Failed to sync lyrics fetch options to backend: $e');
+    });
+  }
+
+  void _syncNetworkCompatibilitySettingsToBackend() {
+    final compatibilityMode = state.networkCompatibilityMode;
+    PlatformBridge.setNetworkCompatibilityOptions(
+      allowHttp: compatibilityMode,
+      insecureTls: compatibilityMode,
+    ).catchError((e) {
+      _log.w('Failed to sync network compatibility options to backend: $e');
     });
   }
 
@@ -464,6 +475,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
   void setDownloadNetworkMode(String mode) {
     state = state.copyWith(downloadNetworkMode: mode);
     _saveSettings();
+  }
+
+  void setNetworkCompatibilityMode(bool enabled) {
+    state = state.copyWith(networkCompatibilityMode: enabled);
+    _saveSettings();
+    _syncNetworkCompatibilitySettingsToBackend();
   }
 
   void setLocalLibraryEnabled(bool enabled) {

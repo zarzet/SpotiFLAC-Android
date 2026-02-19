@@ -656,14 +656,8 @@ class _LibraryHeroCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isScanning
-                      ? context.l10n
-                            .libraryTracksCount(scannedFiles)
-                            .replaceAll(scannedFiles.toString(), '')
-                            .trim()
-                      : context.l10n
-                            .libraryTracksCount(displayCount)
-                            .replaceAll(displayCount.toString(), '')
-                            .trim(),
+                      ? context.l10n.libraryTracksUnit(scannedFiles)
+                      : context.l10n.libraryTracksUnit(displayCount),
                   style: TextStyle(
                     fontSize: 16,
                     color: colorScheme.onSurfaceVariant,

@@ -4,13 +4,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
-import 'package:spotiflac_android/models/download_item.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
 import 'package:spotiflac_android/screens/artist_screen.dart';
 import 'package:spotiflac_android/screens/home_tab.dart'
@@ -116,7 +116,8 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
 
   void _onScroll() {
     final expandedHeight = _calculateExpandedHeight(context);
-    final shouldShow = _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
+    final shouldShow =
+        _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
     if (shouldShow != _showTitleInAppBar) {
       setState(() => _showTitleInAppBar = shouldShow);
     }
@@ -225,12 +226,14 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final tracks = _tracks ?? [];
+    final pageBackgroundColor = colorScheme.surface;
 
     return Scaffold(
+      backgroundColor: pageBackgroundColor,
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          _buildAppBar(context, colorScheme),
+          _buildAppBar(context, colorScheme, pageBackgroundColor),
           _buildInfoCard(context, colorScheme),
           if (_isLoading)
             const SliverToBoxAdapter(
@@ -255,7 +258,11 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildAppBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Color pageBackgroundColor,
+  ) {
     final expandedHeight = _calculateExpandedHeight(context);
     final tracks = _tracks ?? [];
     final artistName = tracks.isNotEmpty ? tracks.first.artistName : null;
@@ -265,7 +272,7 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       expandedHeight: expandedHeight,
       pinned: true,
       stretch: true,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: pageBackgroundColor,
       surfaceTintColor: Colors.transparent,
       title: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
@@ -289,14 +296,15 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
           final showContent = collapseRatio > 0.3;
 
           return FlexibleSpaceBar(
-            collapseMode: CollapseMode.parallax,
+            collapseMode: CollapseMode.pin,
             background: Stack(
               fit: StackFit.expand,
               children: [
                 // Full-screen cover background (no blur, full resolution)
                 if (widget.coverUrl != null)
                   CachedNetworkImage(
-                    imageUrl: _highResCoverUrl(widget.coverUrl) ?? widget.coverUrl!,
+                    imageUrl:
+                        _highResCoverUrl(widget.coverUrl) ?? widget.coverUrl!,
                     fit: BoxFit.cover,
                     cacheManager: CoverCacheManager.instance,
                     placeholder: (_, _) =>
@@ -359,8 +367,7 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                         if (artistName != null && artistName.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           GestureDetector(
-                            onTap: () =>
-                                _navigateToArtist(context, artistName),
+                            onTap: () => _navigateToArtist(context, artistName),
                             child: Text(
                               artistName,
                               style: TextStyle(
@@ -410,16 +417,14 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                                   ],
                                 ),
                               ),
-                              if (releaseDate != null &&
-                                  releaseDate.isNotEmpty)
+                              if (releaseDate != null && releaseDate.isNotEmpty)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
@@ -445,16 +450,20 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: () => _downloadAll(context),
-                            icon: const Icon(Icons.download, size: 18),
-                            label: Text(
-                              context.l10n.downloadAllCount(tracks.length),
-                            ),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
+                          Center(
+                            child: FilledButton.icon(
+                              onPressed: () => _downloadAll(context),
+                              icon: const Icon(Icons.download, size: 18),
+                              label: Text(
+                                context.l10n.downloadAllCount(tracks.length),
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black87,
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
                               ),
                             ),
                           ),
@@ -716,13 +725,6 @@ class _AlbumTrackItem extends ConsumerWidget {
         : false;
 
     final isQueued = queueItem != null;
-    final isDownloading = queueItem?.status == DownloadStatus.downloading;
-    final isFinalizing = queueItem?.status == DownloadStatus.finalizing;
-    final isCompleted = queueItem?.status == DownloadStatus.completed;
-    final progress = queueItem?.progress ?? 0.0;
-
-    final showAsDownloaded =
-        isCompleted || (!isQueued && isInHistory) || isInLocalLibrary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -798,18 +800,7 @@ class _AlbumTrackItem extends ConsumerWidget {
               ],
             ],
           ),
-          trailing: _buildDownloadButton(
-            context,
-            ref,
-            colorScheme,
-            isQueued: isQueued,
-            isDownloading: isDownloading,
-            isFinalizing: isFinalizing,
-            showAsDownloaded: showAsDownloaded,
-            isInHistory: isInHistory,
-            isInLocalLibrary: isInLocalLibrary,
-            progress: progress,
-          ),
+          trailing: TrackCollectionQuickActions(track: track),
           onTap: () => _handleTap(
             context,
             ref,
@@ -868,118 +859,5 @@ class _AlbumTrackItem extends ConsumerWidget {
     }
 
     onDownload();
-  }
-
-  Widget _buildDownloadButton(
-    BuildContext context,
-    WidgetRef ref,
-    ColorScheme colorScheme, {
-    required bool isQueued,
-    required bool isDownloading,
-    required bool isFinalizing,
-    required bool showAsDownloaded,
-    required bool isInHistory,
-    required bool isInLocalLibrary,
-    required double progress,
-  }) {
-    const double size = 44.0;
-    const double iconSize = 20.0;
-
-    if (showAsDownloaded) {
-      return GestureDetector(
-        onTap: () => _handleTap(
-          context,
-          ref,
-          isQueued: isQueued,
-          isInHistory: isInHistory,
-          isInLocalLibrary: isInLocalLibrary,
-        ),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check,
-            color: colorScheme.onPrimaryContainer,
-            size: iconSize,
-          ),
-        ),
-      );
-    } else if (isFinalizing) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              strokeWidth: 3,
-              color: colorScheme.tertiary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            Icon(Icons.edit_note, color: colorScheme.tertiary, size: 16),
-          ],
-        ),
-      );
-    } else if (isDownloading) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              value: progress > 0 ? progress : null,
-              strokeWidth: 3,
-              color: colorScheme.primary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            if (progress > 0)
-              Text(
-                '${(progress * 100).toInt()}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-          ],
-        ),
-      );
-    } else if (isQueued) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.hourglass_empty,
-          color: colorScheme.onSurfaceVariant,
-          size: iconSize,
-        ),
-      );
-    } else {
-      return GestureDetector(
-        onTap: onDownload,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.download,
-            color: colorScheme.onSecondaryContainer,
-            size: iconSize,
-          ),
-        ),
-      );
-    }
   }
 }
