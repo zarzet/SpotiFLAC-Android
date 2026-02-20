@@ -998,6 +998,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

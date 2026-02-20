@@ -20,6 +20,7 @@ Future<void> showAddTrackToPlaylistSheet(
 
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: (sheetContext) {
       final playlists = ref.watch(
@@ -154,6 +155,7 @@ Future<void> showAddTracksToPlaylistSheet(
 
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: (sheetContext) {
       final playlists = ref.watch(
@@ -352,10 +354,7 @@ class _PlaylistPickerThumbnail extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: colorScheme.primary,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: colorScheme.primary, width: 1.5),
                 ),
                 child: Icon(
                   Icons.check,

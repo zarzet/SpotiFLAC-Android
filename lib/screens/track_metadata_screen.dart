@@ -2337,6 +2337,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   ) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -2567,6 +2568,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3004,6 +3006,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
     final saved = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(

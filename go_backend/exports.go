@@ -3145,7 +3145,10 @@ func callExtensionFunctionJSON(extensionID, functionName string, timeout time.Du
 		return "", fmt.Errorf("extension '%s' is disabled", extensionID)
 	}
 
-	provider := NewExtensionProviderWrapper(ext)
+	// Goja runtime is not thread-safe; guard direct extension.*() calls with VMMu
+	// to avoid races with other provider calls (e.g. getAlbum/getPlaylist).
+	ext.VMMu.Lock()
+	defer ext.VMMu.Unlock()
 
 	script := fmt.Sprintf(`
 		(function() {
@@ -3156,7 +3159,7 @@ func callExtensionFunctionJSON(extensionID, functionName string, timeout time.Du
 		})()
 	`, functionName, functionName)
 
-	result, err := RunWithTimeoutAndRecover(provider.vm, script, timeout)
+	result, err := RunWithTimeoutAndRecover(ext.VM, script, timeout)
 	if err != nil {
 		return "", fmt.Errorf("%s failed: %w", functionName, err)
 	}

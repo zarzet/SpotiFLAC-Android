@@ -858,6 +858,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   ) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -992,6 +993,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -1209,6 +1211,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
         settings.storageMode == 'saf' && settings.downloadTreeUri.isNotEmpty;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1288,6 +1291,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1451,6 +1455,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1544,6 +1549,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1604,6 +1610,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1702,6 +1709,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1786,6 +1794,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1857,6 +1866,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final normalizedCurrent = current.trim().toUpperCase();
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1924,6 +1934,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -2147,9 +2158,7 @@ class _ServiceChip extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected
                       ? colorScheme.onPrimaryContainer
                       : colorScheme.onSurfaceVariant,

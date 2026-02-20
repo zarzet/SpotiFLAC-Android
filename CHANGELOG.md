@@ -2,6 +2,8 @@
 
 ## [4.0.0-beta.1] - 2026-02-20
 
+> **This is a beta build.** Some features may be unstable and bugs are expected. If you encounter any issues, please report them on our [Telegram group](https://t.me/spotiflac) or [create a new issue](https://github.com/zarzet/spotiflac-mobile/issues/new) on GitHub.
+
 ### Added
 
 - **Interaction Mode Setting**: New "Interaction Mode" toggle in Options settings to switch between Downloader Mode (tap to queue downloads) and Streaming Mode (tap to play instantly)

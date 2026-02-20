@@ -1514,6 +1514,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1948,6 +1949,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
           );
         }
+        return;
       case RecentAccessType.album:
         if (item.providerId == 'download') {
           Navigator.push(
@@ -1987,6 +1989,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
           );
         }
+        return;
       case RecentAccessType.track:
         final historyItem = ref
             .read(downloadHistoryProvider.notifier)
@@ -1998,10 +2001,44 @@ class _HomeTabState extends ConsumerState<HomeTab>
             context,
           ).showSnackBar(SnackBar(content: Text(item.name)));
         }
+        return;
       case RecentAccessType.playlist:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.recentPlaylistInfo(item.name))),
-        );
+        if (item.id.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.recentPlaylistInfo(item.name))),
+          );
+          return;
+        }
+
+        if (item.providerId != null &&
+            item.providerId!.isNotEmpty &&
+            item.providerId != 'deezer' &&
+            item.providerId != 'spotify') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExtensionPlaylistScreen(
+                extensionId: item.providerId!,
+                playlistId: item.id,
+                playlistName: item.name,
+                coverUrl: item.imageUrl,
+              ),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlaylistScreen(
+                playlistName: item.name,
+                coverUrl: item.imageUrl,
+                tracks: const [],
+                playlistId: item.id,
+              ),
+            ),
+          );
+        }
+        return;
     }
   }
 

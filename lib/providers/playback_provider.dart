@@ -206,6 +206,9 @@ class PlaybackController extends Notifier<PlaybackState> {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   _SpotiFLACAudioHandler? _audioHandler;
   var _initialized = false;
+  static const Duration _prefetchThreshold = Duration(seconds: 12);
+  int? _prefetchingQueueIndex;
+  int? _lastPrefetchAttemptIndex;
 
   // Shuffle order: indices into queue
   List<int> _shuffleOrder = [];
@@ -256,6 +259,7 @@ class PlaybackController extends Notifier<PlaybackState> {
           )
           .listen((position) {
             state = state.copyWith(position: position);
+            _maybePrefetchNext(position);
           }),
     );
 
@@ -508,17 +512,17 @@ class PlaybackController extends Notifier<PlaybackState> {
 
   // ─── Public: play a Track (streaming) ────────────────────────────────────
   Future<void> playTrackStream(Track track) async {
+    // Cut current audio immediately so previous track does not continue
+    // while waiting for the next stream URL to resolve.
+    try {
+      await _player.stop();
+    } catch (e) {
+      _log.w('Failed to stop current playback before stream switch: $e');
+    }
     await FFmpegService.stopLiveDecryptedStream();
 
-    final settings = ref.read(settingsProvider);
-    final extensionState = ref.read(extensionProvider);
-    final hasActiveExtensions = extensionState.extensions.any((e) => e.enabled);
-    final selectedService = _resolveService(settings.defaultService);
-    final sourceForResolver = _resolveStreamSource(track, extensionState);
-    final quality = _resolveStreamQuality(
-      selectedService,
-      settings.audioQuality,
-    );
+    final streamRequest = _buildStreamRequest(track);
+    final selectedService = streamRequest.selectedService;
 
     final resolvingItem = PlaybackItem(
       id: track.id,
@@ -546,23 +550,9 @@ class PlaybackController extends Notifier<PlaybackState> {
     );
     _updateMediaItemNotification(resolvingItem);
 
-    final payload = StreamRequestPayload(
-      service: selectedService,
-      spotifyId: track.id,
-      isrc: track.isrc ?? '',
-      trackName: track.name,
-      artistName: track.artistName,
-      albumName: track.albumName,
-      quality: quality,
-      source: sourceForResolver,
-      deezerId: track.deezerId ?? '',
-      durationMs: track.duration,
-      useExtensions: settings.useExtensionProviders && hasActiveExtensions,
-      useFallback: settings.autoFallback,
-      songLinkRegion: settings.songLinkRegion,
+    final result = await PlatformBridge.resolveStreamByStrategy(
+      streamRequest.payload,
     );
-
-    final result = await PlatformBridge.resolveStreamByStrategy(payload);
     final requiresDecryption = result['requires_decryption'] == true;
     if (result['success'] != true && !requiresDecryption) {
       final failure = _buildStreamResolveFailure(result);
@@ -659,6 +649,8 @@ class PlaybackController extends Notifier<PlaybackState> {
   // ─── Public: play a list of tracks (set queue) ───────────────────────────
   Future<void> playTrackList(List<Track> tracks, {int startIndex = 0}) async {
     if (tracks.isEmpty) return;
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
 
     final items = tracks
         .map(
@@ -695,6 +687,8 @@ class PlaybackController extends Notifier<PlaybackState> {
     Track track,
     List<Track> albumTracks,
   ) async {
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
     final items = albumTracks
         .map(
           (t) => PlaybackItem(
@@ -773,9 +767,18 @@ class PlaybackController extends Notifier<PlaybackState> {
 
   // ─── Public: clear queue ─────────────────────────────────────────────────
   void clearQueue() {
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
     state = state.copyWith(queue: [], currentIndex: -1);
     _shuffleOrder = [];
     _shufflePosition = -1;
+  }
+
+  // ─── Public: jump to specific queue index ────────────────────────────────
+  Future<void> playQueueIndex(int index) async {
+    if (index < 0 || index >= state.queue.length) return;
+    if (index == state.currentIndex) return;
+    await _playQueueIndex(index);
   }
 
   // ─── Public: skip next / previous ────────────────────────────────────────
@@ -848,6 +851,8 @@ class PlaybackController extends Notifier<PlaybackState> {
   Future<void> stop() async {
     await FFmpegService.stopLiveDecryptedStream();
     await _player.stop();
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
     _audioHandler?.playbackState.add(
       audio_service.PlaybackState(
         processingState: audio_service.AudioProcessingState.idle,
@@ -883,6 +888,8 @@ class PlaybackController extends Notifier<PlaybackState> {
   Future<void> _playQueueIndex(int index) async {
     if (index < 0 || index >= state.queue.length) return;
 
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
     final item = state.queue[index];
     state = state.copyWith(currentIndex: index);
 
@@ -915,7 +922,18 @@ class PlaybackController extends Notifier<PlaybackState> {
     // Already have a URI
     if (item.sourceUri.isNotEmpty) {
       final uri = _uriFromPath(item.sourceUri);
-      await _setSourceAndPlay(uri, item);
+      try {
+        await _setSourceAndPlay(uri, item);
+      } catch (e) {
+        if (item.track == null) rethrow;
+        _log.w('Prefetched stream failed for ${item.id}, re-resolving: $e');
+        await playTrackStream(item.track!);
+        final updatedQueue = [...state.queue];
+        if (index < updatedQueue.length && state.currentItem != null) {
+          updatedQueue[index] = state.currentItem!;
+          state = state.copyWith(queue: updatedQueue);
+        }
+      }
     }
   }
 
@@ -1143,6 +1161,139 @@ class PlaybackController extends Notifier<PlaybackState> {
       return Uri.parse(input);
     }
     return Uri.file(input);
+  }
+
+  void _maybePrefetchNext(Duration position) {
+    if (state.isLoading || state.currentIndex < 0 || state.queue.isEmpty) {
+      return;
+    }
+    final duration = state.duration;
+    if (duration <= Duration.zero) return;
+
+    final remaining = duration - position;
+    if (remaining > _prefetchThreshold || remaining.isNegative) return;
+
+    final nextIndex = _peekNextIndexForPrefetch();
+    if (nextIndex == null) return;
+    if (_prefetchingQueueIndex == nextIndex ||
+        _lastPrefetchAttemptIndex == nextIndex) {
+      return;
+    }
+    if (nextIndex < 0 || nextIndex >= state.queue.length) return;
+
+    final nextItem = state.queue[nextIndex];
+    if (nextItem.sourceUri.isNotEmpty ||
+        nextItem.track == null ||
+        nextItem.isLocal) {
+      return;
+    }
+
+    _lastPrefetchAttemptIndex = nextIndex;
+    unawaited(_prefetchQueueIndex(nextIndex));
+  }
+
+  int? _peekNextIndexForPrefetch() {
+    if (state.queue.isEmpty) return null;
+
+    if (state.shuffle) {
+      final nextPos = _shufflePosition + 1;
+      if (nextPos < _shuffleOrder.length) {
+        return _shuffleOrder[nextPos];
+      }
+      if (state.repeatMode == RepeatMode.all && _shuffleOrder.isNotEmpty) {
+        return _shuffleOrder.first;
+      }
+      return null;
+    }
+
+    final next = state.currentIndex + 1;
+    if (next < state.queue.length) return next;
+    if (state.repeatMode == RepeatMode.all) return 0;
+    return null;
+  }
+
+  Future<void> _prefetchQueueIndex(int index) async {
+    if (_prefetchingQueueIndex == index) return;
+    if (index < 0 || index >= state.queue.length) return;
+
+    final queueItem = state.queue[index];
+    final track = queueItem.track;
+    if (track == null || queueItem.sourceUri.isNotEmpty || queueItem.isLocal) {
+      return;
+    }
+
+    _prefetchingQueueIndex = index;
+    try {
+      final streamRequest = _buildStreamRequest(track);
+      final result = await PlatformBridge.resolveStreamByStrategy(
+        streamRequest.payload,
+      );
+
+      if (result['success'] != true || result['requires_decryption'] == true) {
+        return;
+      }
+
+      final rawStreamUrl = (result['stream_url'] as String?)?.trim() ?? '';
+      if (rawStreamUrl.isEmpty) return;
+      if (index >= state.queue.length) return;
+
+      final current = state.queue[index];
+      if (current.id != queueItem.id || current.sourceUri.isNotEmpty) {
+        return;
+      }
+
+      final updatedQueue = [...state.queue];
+      updatedQueue[index] = current.copyWith(
+        sourceUri: rawStreamUrl,
+        service:
+            (result['service'] as String?) ?? streamRequest.selectedService,
+        format: (result['format'] as String?) ?? '',
+        bitDepth: (result['bit_depth'] as int?) ?? 0,
+        sampleRate: (result['sample_rate'] as int?) ?? 0,
+        bitrate: (result['bitrate'] as int?) ?? 0,
+      );
+      state = state.copyWith(queue: updatedQueue);
+      _log.d('Prefetched stream URL for next track index $index');
+    } catch (e) {
+      _log.d('Prefetch skipped for track index $index: $e');
+    } finally {
+      if (_prefetchingQueueIndex == index) {
+        _prefetchingQueueIndex = null;
+      }
+    }
+  }
+
+  ({String selectedService, StreamRequestPayload payload}) _buildStreamRequest(
+    Track track,
+  ) {
+    final settings = ref.read(settingsProvider);
+    final extensionState = ref.read(extensionProvider);
+    final hasActiveExtensions = extensionState.extensions.any((e) => e.enabled);
+    final selectedService = _resolveService(settings.defaultService);
+    final sourceForResolver = _resolveStreamSource(track, extensionState);
+    final quality = _resolveStreamQuality(
+      selectedService,
+      settings.audioQuality,
+    );
+
+    return (
+      selectedService: selectedService,
+      payload: StreamRequestPayload(
+        service: selectedService,
+        spotifyId: track.id,
+        isrc: track.isrc ?? '',
+        trackName: track.name,
+        artistName: track.artistName,
+        albumName: track.albumName,
+        quality: quality,
+        source: sourceForResolver,
+        deezerId: track.deezerId ?? '',
+        durationMs: track.duration,
+        useExtensions: settings.useExtensionProviders && hasActiveExtensions,
+        useFallback: settings.autoFallback,
+        songLinkRegion: settings.songLinkRegion,
+      ),
+    );
   }
 
   String _resolveService(String defaultService) {

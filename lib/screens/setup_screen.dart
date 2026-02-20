@@ -291,6 +291,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     await showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -339,8 +340,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(validation.errorReason ?? 'Invalid folder selected'),
-                            backgroundColor: Theme.of(context).colorScheme.error,
+                            content: Text(
+                              validation.errorReason ??
+                                  'Invalid folder selected',
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                             duration: const Duration(seconds: 4),
                           ),
                         );

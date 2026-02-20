@@ -243,12 +243,39 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
                     tooltip: 'Close',
                   ),
                   const Spacer(),
-                  // Queue info
+                  // Queue info (tappable to open queue sheet)
                   if (state.queue.length > 1)
-                    Text(
-                      '${state.currentIndex + 1} / ${state.queue.length}',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    GestureDetector(
+                      onTap: () => _showQueueSheet(context, ref),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withValues(
+                            alpha: 0.5,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.queue_music_rounded,
+                              size: 16,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${state.currentIndex + 1} / ${state.queue.length}',
+                              style: textTheme.labelMedium?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   const Spacer(),
@@ -443,6 +470,19 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
     final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  void _showQueueSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _QueueBottomSheet(ref: ref),
+    );
   }
 }
 
@@ -1268,6 +1308,357 @@ class _CoverArt extends StatelessWidget {
         Icons.music_note_rounded,
         size: iconSize,
         color: colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+// ─── Queue Bottom Sheet ──────────────────────────────────────────────────────
+class _QueueBottomSheet extends ConsumerWidget {
+  final WidgetRef ref;
+
+  const _QueueBottomSheet({required this.ref});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(playbackProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final queue = state.queue;
+    final currentIndex = state.currentIndex;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.3,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            // Drag handle
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.queue_music_rounded,
+                    size: 22,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Queue',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${queue.length} tracks',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // Queue list
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                padding: const EdgeInsets.only(bottom: 16),
+                itemCount: queue.length + _sectionHeaderCount(
+                  currentIndex,
+                  queue.length,
+                ),
+                itemBuilder: (context, index) {
+                  // Calculate real item index accounting for section headers
+                  return _buildQueueListItem(
+                    context,
+                    ref,
+                    index,
+                    queue,
+                    currentIndex,
+                    colorScheme,
+                    textTheme,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  int _sectionHeaderCount(int currentIndex, int queueLength) {
+    int count = 0;
+    if (currentIndex > 0) count++; // "Already Played" header
+    count++; // "Now Playing" header
+    if (currentIndex < queueLength - 1) count++; // "Up Next" header
+    return count;
+  }
+
+  Widget _buildQueueListItem(
+    BuildContext context,
+    WidgetRef ref,
+    int listIndex,
+    List<PlaybackItem> queue,
+    int currentIndex,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    // Build a flat list: [played header?, played items, now playing header,
+    //                     now playing item, up next header?, up next items]
+    int offset = 0;
+
+    // Section: Already Played
+    if (currentIndex > 0) {
+      if (listIndex == offset) {
+        return _sectionHeader(
+          'Played',
+          Icons.history_rounded,
+          colorScheme,
+          textTheme,
+        );
+      }
+      offset++;
+      if (listIndex < offset + currentIndex) {
+        final queueIdx = listIndex - offset;
+        return _queueTrackTile(
+          context,
+          ref,
+          queue[queueIdx],
+          queueIdx,
+          currentIndex,
+          colorScheme,
+          textTheme,
+          isPlayed: true,
+        );
+      }
+      offset += currentIndex;
+    }
+
+    // Section: Now Playing
+    if (listIndex == offset) {
+      return _sectionHeader(
+        'Now Playing',
+        Icons.play_circle_filled_rounded,
+        colorScheme,
+        textTheme,
+        isPrimary: true,
+      );
+    }
+    offset++;
+    if (listIndex == offset) {
+      return _queueTrackTile(
+        context,
+        ref,
+        queue[currentIndex],
+        currentIndex,
+        currentIndex,
+        colorScheme,
+        textTheme,
+        isCurrent: true,
+      );
+    }
+    offset++;
+
+    // Section: Up Next
+    if (currentIndex < queue.length - 1) {
+      if (listIndex == offset) {
+        final upNextCount = queue.length - currentIndex - 1;
+        return _sectionHeader(
+          'Up Next ($upNextCount)',
+          Icons.skip_next_rounded,
+          colorScheme,
+          textTheme,
+        );
+      }
+      offset++;
+      final queueIdx = currentIndex + 1 + (listIndex - offset);
+      if (queueIdx < queue.length) {
+        return _queueTrackTile(
+          context,
+          ref,
+          queue[queueIdx],
+          queueIdx,
+          currentIndex,
+          colorScheme,
+          textTheme,
+        );
+      }
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _sectionHeader(
+    String title,
+    IconData icon,
+    ColorScheme colorScheme,
+    TextTheme textTheme, {
+    bool isPrimary = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isPrimary
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isPrimary
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _queueTrackTile(
+    BuildContext context,
+    WidgetRef ref,
+    PlaybackItem item,
+    int queueIndex,
+    int currentIndex,
+    ColorScheme colorScheme,
+    TextTheme textTheme, {
+    bool isCurrent = false,
+    bool isPlayed = false,
+  }) {
+    final opacity = isPlayed ? 0.5 : 1.0;
+
+    return Material(
+      color: isCurrent
+          ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: isCurrent
+            ? null
+            : () {
+                ref.read(playbackProvider.notifier).playQueueIndex(queueIndex);
+                Navigator.of(context).pop();
+              },
+        child: Opacity(
+          opacity: opacity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                // Track number in queue
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    '${queueIndex + 1}',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: isCurrent
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: isCurrent
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Cover art
+                _CoverArt(
+                  url: item.coverUrl,
+                  isLocal: item.hasLocalCover,
+                  size: 44,
+                  borderRadius: 8,
+                ),
+                const SizedBox(width: 12),
+                // Track info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: isCurrent
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isCurrent
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Now playing indicator
+                if (isCurrent)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.equalizer_rounded,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                // Remove from queue button (for up next items only)
+                if (!isCurrent && !isPlayed)
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(playbackProvider.notifier)
+                          .removeFromQueue(queueIndex);
+                    },
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Remove',
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:spotiflac_android/models/settings.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
 
@@ -232,8 +233,15 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void setInteractionMode(String mode) {
     final normalized = mode == 'streaming' ? 'streaming' : 'downloader';
+    final wasStreaming = state.isStreamingMode;
     state = state.copyWith(interactionMode: normalized);
     _saveSettings();
+
+    // Stop playback and clear queue when switching away from streaming mode
+    if (wasStreaming && normalized == 'downloader') {
+      final playback = ref.read(playbackProvider.notifier);
+      playback.stop();
+    }
   }
 
   void setAudioQuality(String quality) {

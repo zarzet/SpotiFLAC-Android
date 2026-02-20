@@ -364,6 +364,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+  OverlayEntry? _selectionOverlayEntry;
+  List<UnifiedLibraryItem> _selectionOverlayItems = const [];
+  double _selectionOverlayBottomPadding = 0;
 
   bool _isPlaylistSelectionMode = false;
   final Set<String> _selectedPlaylistIds = {};
@@ -441,6 +444,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
   @override
   void dispose() {
+    _hideSelectionOverlay();
     for (final notifier in _fileExistsNotifiers.values) {
       notifier.dispose();
     }
@@ -747,6 +751,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       _isSelectionMode = false;
       _selectedIds.clear();
     });
+    _hideSelectionOverlay();
   }
 
   void _toggleSelection(String itemId) {
@@ -766,6 +771,52 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     setState(() {
       _selectedIds.addAll(items.map((e) => e.id));
     });
+  }
+
+  void _hideSelectionOverlay() {
+    _selectionOverlayEntry?.remove();
+    _selectionOverlayEntry = null;
+  }
+
+  void _syncSelectionOverlay({
+    required List<UnifiedLibraryItem> items,
+    required double bottomPadding,
+  }) {
+    if (!mounted) return;
+    if (!_isSelectionMode) {
+      _hideSelectionOverlay();
+      return;
+    }
+
+    _selectionOverlayItems = items;
+    _selectionOverlayBottomPadding = bottomPadding;
+
+    if (_selectionOverlayEntry != null) {
+      _selectionOverlayEntry!.markNeedsBuild();
+      return;
+    }
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _selectionOverlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Material(
+            color: Colors.transparent,
+            child: _buildSelectionBottomBar(
+              context,
+              colorScheme,
+              _selectionOverlayItems,
+              _selectionOverlayBottomPadding,
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_selectionOverlayEntry!);
   }
 
   // --- Playlist selection mode ---
@@ -1426,6 +1477,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surfaceContainerLow,
       shape: const RoundedRectangleBorder(
@@ -2074,11 +2126,17 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   /// Pass a finite [size] (e.g. 56) for list view, or `null` for grid view
   /// where the widget should expand to fill its parent.
   Widget _buildPlaylistCover(
+    BuildContext context,
     UserPlaylistCollection playlist,
     ColorScheme colorScheme, [
     double? size,
   ]) {
     final borderRadius = BorderRadius.circular(8);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheExtent = size != null
+        ? (size * dpr).round().clamp(64, 1024)
+        : 420;
+    final placeholder = _playlistIconFallback(colorScheme, size);
 
     final customCoverPath = playlist.coverImagePath;
     if (customCoverPath != null && customCoverPath.isNotEmpty) {
@@ -2089,7 +2147,14 @@ class _QueueTabState extends ConsumerState<QueueTab> {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _playlistIconFallback(colorScheme, size),
+          cacheWidth: cacheExtent,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.low,
+          frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return placeholder;
+          },
+          errorBuilder: (_, _, _) => placeholder,
         ),
       );
     }
@@ -2112,7 +2177,14 @@ class _QueueTabState extends ConsumerState<QueueTab> {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _playlistIconFallback(colorScheme, size),
+            cacheWidth: cacheExtent,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.low,
+            frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) return child;
+              return placeholder;
+            },
+            errorBuilder: (_, _, _) => placeholder,
           ),
         );
       }
@@ -2123,13 +2195,15 @@ class _QueueTabState extends ConsumerState<QueueTab> {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholder: (_, _) => _playlistIconFallback(colorScheme, size),
-          errorWidget: (_, _, _) => _playlistIconFallback(colorScheme, size),
+          memCacheWidth: cacheExtent,
+          cacheManager: CoverCacheManager.instance,
+          placeholder: (_, _) => placeholder,
+          errorWidget: (_, _, _) => placeholder,
         ),
       );
     }
 
-    return _playlistIconFallback(colorScheme, size);
+    return placeholder;
   }
 
   /// Icon fallback for playlists with no cover.
@@ -2314,6 +2388,20 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     }
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final selectionItems = _buildUnifiedItemsForSelection(
+      filterMode: historyFilterMode,
+      allHistoryItems: allHistoryItems,
+      albumCounts: historyStats.albumCounts,
+      localLibraryItems: localLibraryItems,
+      localAlbumCounts: historyStats.localAlbumCounts,
+      collectionState: collectionState,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncSelectionOverlay(
+        items: selectionItems,
+        bottomPadding: bottomPadding,
+      );
+    });
 
     return PopScope(
       canPop: !_isSelectionMode,
@@ -2501,118 +2589,28 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                     ),
                   ),
               ],
-              body: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  final parentController = widget.parentPageController;
-                  if (parentController == null ||
-                      !parentController.hasClients) {
-                    return false;
-                  }
-
-                  final page = _filterPageController!.page?.round() ?? 0;
-
-                  if (notification is OverscrollNotification) {
-                    final overscroll = notification.overscroll;
-
-                    if (page == 0 && overscroll < 0) {
-                      final currentOffset = parentController.offset;
-                      final targetOffset = (currentOffset + overscroll).clamp(
-                        0.0,
-                        parentController.position.maxScrollExtent,
-                      );
-                      parentController.jumpTo(targetOffset);
-                      return true;
-                    }
-
-                    if (page == 2 && overscroll > 0) {
-                      final currentOffset = parentController.offset;
-                      final targetOffset = (currentOffset + overscroll).clamp(
-                        0.0,
-                        parentController.position.maxScrollExtent,
-                      );
-                      parentController.jumpTo(targetOffset);
-                      return true;
-                    }
-                  }
-
-                  if (notification is ScrollEndNotification) {
-                    if (page == 0 || page == 2) {
-                      final currentPage =
-                          parentController.page ??
-                          widget.parentPageIndex.toDouble();
-                      final historyPage = widget.parentPageIndex.toDouble();
-                      final offset = currentPage - historyPage;
-
-                      if (offset.abs() > 0.01) {
-                        if (offset < -0.3) {
-                          parentController.animateToPage(
-                            widget.parentPageIndex - 1,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOutCubic,
-                          );
-                        } else if (offset > 0.3) {
-                          parentController.animateToPage(
-                            widget.nextPageIndex ??
-                                (widget.parentPageIndex + 1),
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOutCubic,
-                          );
-                        } else {
-                          parentController.jumpToPage(widget.parentPageIndex);
-                        }
-                      }
-                    }
-                  }
-
-                  return false;
+              body: PageView.builder(
+                controller: _filterPageController!,
+                physics: const ClampingScrollPhysics(),
+                onPageChanged: _onFilterPageChanged,
+                itemCount: _filterModes.length,
+                itemBuilder: (context, index) {
+                  final filterMode = _filterModes[index];
+                  final filterData = getFilterData(filterMode);
+                  return _buildFilterContent(
+                    context: context,
+                    colorScheme: colorScheme,
+                    filterMode: filterMode,
+                    historyViewMode: historyViewMode,
+                    hasQueueItems: hasQueueItems,
+                    filterData: filterData,
+                    localLibraryItems: localLibraryItems,
+                    collectionState: collectionState,
+                  );
                 },
-                child: PageView.builder(
-                  controller: _filterPageController!,
-                  physics: const ClampingScrollPhysics(),
-                  onPageChanged: _onFilterPageChanged,
-                  itemCount: _filterModes.length,
-                  itemBuilder: (context, index) {
-                    final filterMode = _filterModes[index];
-                    final filterData = getFilterData(filterMode);
-                    return _buildFilterContent(
-                      context: context,
-                      colorScheme: colorScheme,
-                      filterMode: filterMode,
-                      historyViewMode: historyViewMode,
-                      hasQueueItems: hasQueueItems,
-                      filterData: filterData,
-                      localLibraryItems: localLibraryItems,
-                      collectionState: collectionState,
-                    );
-                  },
-                ),
               ),
             ),
           ), // ScrollConfiguration
-
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            left: 0,
-            right: 0,
-            bottom: _isSelectionMode ? 0 : -(200 + bottomPadding),
-            child: _isSelectionMode
-                ? _buildSelectionBottomBar(
-                    context,
-                    colorScheme,
-                    _buildUnifiedItemsForSelection(
-                      filterMode: historyFilterMode,
-                      allHistoryItems: allHistoryItems,
-                      albumCounts: historyStats.albumCounts,
-                      localLibraryItems: localLibraryItems,
-                      localAlbumCounts: historyStats.localAlbumCounts,
-                      collectionState: collectionState,
-                    ),
-                    bottomPadding,
-                  )
-                : const SizedBox.shrink(),
-          ),
-
           // Playlist selection bottom bar
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
@@ -3032,7 +3030,11 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                 _buildCollectionGridItem(
                   context: context,
                   colorScheme: colorScheme,
-                  coverWidget: _buildPlaylistCover(playlist, colorScheme),
+                  coverWidget: _buildPlaylistCover(
+                    context,
+                    playlist,
+                    colorScheme,
+                  ),
                   title: playlist.name,
                   count: playlist.tracks.length,
                   onTap: _isPlaylistSelectionMode
@@ -3182,7 +3184,12 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                   child: _buildCollectionListItem(
                     context: context,
                     colorScheme: colorScheme,
-                    coverWidget: _buildPlaylistCover(playlist, colorScheme, 56),
+                    coverWidget: _buildPlaylistCover(
+                      context,
+                      playlist,
+                      colorScheme,
+                      56,
+                    ),
                     title: playlist.name,
                     subtitle:
                         '${playlist.tracks.length} ${playlist.tracks.length == 1 ? 'track' : 'tracks'}',
@@ -4289,6 +4296,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
