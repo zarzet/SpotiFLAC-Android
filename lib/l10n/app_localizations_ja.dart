@@ -249,6 +249,22 @@ class AppLocalizationsJa extends AppLocalizations {
       'Try other services if download fails';
 
   @override
+  String get optionsInteractionMode => 'Interaction Mode';
+
+  @override
+  String get modeDownloader => 'Downloader Mode';
+
+  @override
+  String get modeDownloaderSubtitle =>
+      'Tap tracks to add them to download queue';
+
+  @override
+  String get modeStreaming => 'Streaming Mode';
+
+  @override
+  String get modeStreamingSubtitle => 'Tap tracks to play instantly';
+
+  @override
   String get optionsUseExtensionProviders => '拡張のプロバイダーを使用する';
 
   @override
@@ -1555,6 +1571,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String playAllCount(int count) {
+    return 'Play All ($count)';
+  }
+
+  @override
   String tracksCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -2226,7 +2247,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get discographyDownload => 'ディスコグラフィをダウンロード';
 
   @override
+  String get discographyPlay => 'Play Discography';
+
+  @override
   String get discographyDownloadAll => 'すべてダウンロード';
+
+  @override
+  String get discographyPlayAll => 'Play All';
 
   @override
   String discographyDownloadAllSubtitle(int count, int albumCount) {
@@ -2271,6 +2298,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get discographyDownloadSelected => '選択済みをダウンロード';
+
+  @override
+  String get discographyPlaySelected => 'Play Selected';
 
   @override
   String discographyAddedToQueue(int count) {

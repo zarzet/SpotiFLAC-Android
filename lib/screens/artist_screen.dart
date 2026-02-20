@@ -9,6 +9,7 @@ import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/track_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
@@ -481,6 +482,9 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     ColorScheme colorScheme,
     List<ArtistAlbum> allAlbums,
   ) {
+    final isStreamingMode = ref.watch(
+      settingsProvider.select((s) => s.isStreamingMode),
+    );
     final allSelected = _selectedAlbumIds.length == allAlbums.length;
     final selectedCount = _selectedAlbumIds.length;
     final selectedAlbums = allAlbums
@@ -585,7 +589,11 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text(
-                                  context.l10n.discographyDownloadSelected,
+                                  isStreamingMode
+                                      ? context.l10n.discographyPlaySelected
+                                      : context
+                                            .l10n
+                                            .discographyDownloadSelected,
                                 ),
                               ),
                             ),
@@ -647,8 +655,17 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                                 selectedAlbums,
                               )
                             : null,
-                        icon: const Icon(Icons.download, size: 18),
-                        label: Text(context.l10n.discographyDownloadSelected),
+                        icon: Icon(
+                          isStreamingMode
+                              ? Icons.play_arrow_rounded
+                              : Icons.download,
+                          size: 18,
+                        ),
+                        label: Text(
+                          isStreamingMode
+                              ? context.l10n.discographyPlaySelected
+                              : context.l10n.discographyDownloadSelected,
+                        ),
                       ),
                     ],
                   ),
@@ -663,6 +680,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     ColorScheme colorScheme,
     List<ArtistAlbum> albums,
   ) {
+    final isStreamingMode = ref.read(settingsProvider).isStreamingMode;
     final albumsOnly = albums.where((a) => a.albumType == 'album').toList();
     final singles = albums.where((a) => a.albumType == 'single').toList();
 
@@ -698,10 +716,17 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                 child: Row(
                   children: [
-                    Icon(Icons.download, color: colorScheme.primary),
+                    Icon(
+                      isStreamingMode
+                          ? Icons.play_arrow_rounded
+                          : Icons.download,
+                      color: colorScheme.primary,
+                    ),
                     const SizedBox(width: 12),
                     Text(
-                      context.l10n.discographyDownload,
+                      isStreamingMode
+                          ? context.l10n.discographyPlay
+                          : context.l10n.discographyDownload,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -714,7 +739,9 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               if (albums.isNotEmpty)
                 _DiscographyOptionTile(
                   icon: Icons.library_music,
-                  title: context.l10n.discographyDownloadAll,
+                  title: isStreamingMode
+                      ? context.l10n.discographyPlayAll
+                      : context.l10n.discographyDownloadAll,
                   subtitle: context.l10n.discographyDownloadAllSubtitle(
                     totalTracks,
                     albums.length,
@@ -772,6 +799,10 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     List<ArtistAlbum> albums,
   ) async {
     final settings = ref.read(settingsProvider);
+    if (settings.isStreamingMode) {
+      await _fetchAndPlayAlbums(albums);
+      return;
+    }
 
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
@@ -791,6 +822,83 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   ) async {
     _exitSelectionMode();
     await _downloadAlbums(context, albums);
+  }
+
+  Future<void> _fetchAndPlayAlbums(List<ArtistAlbum> albums) async {
+    if (_isFetchingDiscography) return;
+
+    setState(() => _isFetchingDiscography = true);
+
+    if (!mounted) {
+      setState(() => _isFetchingDiscography = false);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _FetchingProgressDialog(
+        totalAlbums: albums.length,
+        onCancel: () {
+          setState(() => _isFetchingDiscography = false);
+          Navigator.pop(ctx);
+        },
+      ),
+    );
+
+    final allTracks = <Track>[];
+    int fetchedCount = 0;
+    int failedCount = 0;
+
+    for (final album in albums) {
+      if (!_isFetchingDiscography) break;
+      try {
+        final tracks = await _fetchAlbumTracks(album);
+        allTracks.addAll(tracks);
+      } catch (_) {
+        failedCount++;
+      }
+
+      fetchedCount++;
+      if (mounted) {
+        _FetchingProgressDialog.updateProgress(
+          context,
+          fetchedCount,
+          albums.length,
+        );
+      }
+    }
+
+    setState(() => _isFetchingDiscography = false);
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    if (allTracks.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.errorNoTracksFound)),
+        );
+      }
+      return;
+    }
+
+    try {
+      await ref
+          .read(playbackProvider.notifier)
+          .playTrackStreamAndSetQueue(allTracks.first, allTracks);
+      if (mounted && failedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.discographyFailedToFetch)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Cannot play stream: $e')));
+      }
+    }
   }
 
   Future<void> _fetchAndQueueAlbums(
@@ -1110,17 +1218,18 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                       children: [
                         Text(
                           widget.artistName,
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                offset: const Offset(0, 1),
-                                blurRadius: 4,
-                                color: Colors.black.withValues(alpha: 0.5),
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    offset: const Offset(0, 1),
+                                    blurRadius: 4,
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1128,16 +1237,19 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                           const SizedBox(height: 4),
                           Text(
                             listenersText,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              shadows: [
-                                Shadow(
-                                  offset: const Offset(0, 1),
-                                  blurRadius: 2,
-                                  color: Colors.black.withValues(alpha: 0.5),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  shadows: [
+                                    Shadow(
+                                      offset: const Offset(0, 1),
+                                      blurRadius: 2,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
                           ),
                         ],
                       ],
@@ -1159,9 +1271,23 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                           colorScheme,
                           albums,
                         ),
-                        icon: const Icon(Icons.download_rounded, size: 26),
+                        icon: Icon(
+                          ref.watch(
+                                settingsProvider.select(
+                                  (s) => s.isStreamingMode,
+                                ),
+                              )
+                              ? Icons.play_arrow_rounded
+                              : Icons.download_rounded,
+                          size: 26,
+                        ),
                         color: Colors.black87,
-                        tooltip: context.l10n.discographyDownload,
+                        tooltip:
+                            ref.watch(
+                              settingsProvider.select((s) => s.isStreamingMode),
+                            )
+                            ? context.l10n.discographyPlay
+                            : context.l10n.discographyDownload,
                       ),
                     ),
                   ],
@@ -1263,6 +1389,11 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
             isInHistory: isInHistory,
             isInLocalLibrary: isInLocalLibrary,
           ),
+          onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+            context,
+            ref,
+            track,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -1339,9 +1470,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                     ],
                   ),
                 ),
-                TrackCollectionQuickActions(
-                  track: track,
-                ),
+                TrackCollectionQuickActions(track: track),
               ],
             ),
           ),
@@ -1357,6 +1486,12 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     required bool isInHistory,
     required bool isInLocalLibrary,
   }) async {
+    final isStreamingMode = ref.read(settingsProvider).isStreamingMode;
+    if (isStreamingMode) {
+      _downloadTrack(track);
+      return;
+    }
+
     if (isQueued) return;
 
     if (isInLocalLibrary) {
@@ -1401,6 +1536,22 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   void _downloadTrack(Track track) {
     final settings = ref.read(settingsProvider);
     ref.read(settingsProvider.notifier).setHasSearchedBefore();
+
+    if (settings.isStreamingMode) {
+      final queue = (_topTracks != null && _topTracks!.isNotEmpty)
+          ? _topTracks!
+          : [track];
+      ref
+          .read(playbackProvider.notifier)
+          .playTrackStreamAndSetQueue(track, queue)
+          .catchError((e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Cannot play stream: $e')));
+          });
+      return;
+    }
 
     void enqueue(String service, {String? quality}) {
       ref

@@ -230,6 +230,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setInteractionMode(String mode) {
+    final normalized = mode == 'streaming' ? 'streaming' : 'downloader';
+    state = state.copyWith(interactionMode: normalized);
+    _saveSettings();
+  }
+
   void setAudioQuality(String quality) {
     state = state.copyWith(audioQuality: quality);
     _saveSettings();

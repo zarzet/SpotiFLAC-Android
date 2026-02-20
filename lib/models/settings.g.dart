@@ -7,6 +7,7 @@ part of 'settings.dart';
 // **************************************************************************
 
 AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
+  interactionMode: json['interactionMode'] as String? ?? 'downloader',
   defaultService: json['defaultService'] as String? ?? 'tidal',
   audioQuality: json['audioQuality'] as String? ?? 'LOSSLESS',
   filenameFormat: json['filenameFormat'] as String? ?? '{title} - {artist}',
@@ -77,6 +78,7 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
 Map<String, dynamic> _$AppSettingsToJson(
   AppSettings instance,
 ) => <String, dynamic>{
+  'interactionMode': instance.interactionMode,
   'defaultService': instance.defaultService,
   'audioQuality': instance.audioQuality,
   'filenameFormat': instance.filenameFormat,

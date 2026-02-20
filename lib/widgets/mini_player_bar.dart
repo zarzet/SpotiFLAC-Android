@@ -211,6 +211,8 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
 
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final mediaSectionHeight = (screenHeight * 0.50).clamp(300.0, 560.0);
 
     final duration = state.duration;
     final position = state.position;
@@ -272,7 +274,8 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
             ),
 
             // ── Main content area (swipeable cover / lyrics)
-            Expanded(
+            SizedBox(
+              height: mediaSectionHeight,
               child: PageView(
                 controller: _pageController,
                 onPageChanged: (page) => setState(() => _currentPage = page),
@@ -428,7 +431,7 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
 
             // ── Playback controls
             _PlaybackControls(state: state),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
           ],
         ),
       ),
@@ -791,16 +794,17 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
                 // Target style — AnimatedDefaultTextStyle will
                 // smoothly tween fontSize / fontWeight / color.
                 final targetStyle = TextStyle(
-                  fontSize: isCurrent ? 22 : 18,
-                  fontWeight:
-                      isCurrent ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: isCurrent ? 24 : 19,
+                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                   color: isCurrent
                       ? widget.colorScheme.onSurface
                       : isPast
-                          ? widget.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.35)
-                          : widget.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.55),
+                      ? widget.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.35,
+                        )
+                      : widget.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.55,
+                        ),
                   height: 1.4,
                 );
 
@@ -864,7 +868,7 @@ class _WordByWordLine extends StatelessWidget {
 
     // Current line: word-by-word gradient sweep
     final baseStyle = TextStyle(
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: FontWeight.w700,
       height: 1.4,
     );
@@ -970,7 +974,7 @@ class _UnsyncedLyricsView extends StatelessWidget {
           child: Text(
             line.text,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 19,
               fontWeight: FontWeight.w500,
               color: colorScheme.onSurface.withValues(alpha: 0.8),
               height: 1.5,

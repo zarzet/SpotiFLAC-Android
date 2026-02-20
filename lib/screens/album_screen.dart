@@ -5,6 +5,7 @@ import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
@@ -265,6 +266,9 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
     ColorScheme colorScheme,
     Color pageBackgroundColor,
   ) {
+    final isStreamingMode = ref.watch(
+      settingsProvider.select((s) => s.isStreamingMode),
+    );
     final expandedHeight = _calculateExpandedHeight(context);
     final tracks = _tracks ?? [];
     final artistName = tracks.isNotEmpty ? tracks.first.artistName : null;
@@ -458,10 +462,21 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                               _buildLoveAllButton(),
                               const SizedBox(width: 12),
                               FilledButton.icon(
-                                onPressed: () => _downloadAll(context),
-                                icon: const Icon(Icons.download, size: 18),
+                                onPressed: () => isStreamingMode
+                                    ? _playAll(context)
+                                    : _downloadAll(context),
+                                icon: Icon(
+                                  isStreamingMode
+                                      ? Icons.play_arrow_rounded
+                                      : Icons.download,
+                                  size: 18,
+                                ),
                                 label: Text(
-                                  context.l10n.downloadAllCount(tracks.length),
+                                  isStreamingMode
+                                      ? context.l10n.playAllCount(tracks.length)
+                                      : context.l10n.downloadAllCount(
+                                          tracks.length,
+                                        ),
                                 ),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: Colors.white,
@@ -527,6 +542,21 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
 
   void _downloadTrack(BuildContext context, Track track) {
     final settings = ref.read(settingsProvider);
+    if (settings.isStreamingMode) {
+      final queue = _tracks ?? [track];
+      final messenger = ScaffoldMessenger.of(this.context);
+      ref
+          .read(playbackProvider.notifier)
+          .playTrackStreamAndSetQueue(track, queue)
+          .catchError((e) {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(content: Text('Cannot play stream: $e')),
+            );
+          });
+      return;
+    }
+
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
         context,
@@ -588,6 +618,22 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
     }
   }
 
+  void _playAll(BuildContext context) {
+    final tracks = _tracks;
+    if (tracks == null || tracks.isEmpty) return;
+    final firstTrack = tracks.first;
+    final messenger = ScaffoldMessenger.of(this.context);
+    ref
+        .read(playbackProvider.notifier)
+        .playTrackStreamAndSetQueue(firstTrack, tracks)
+        .catchError((e) {
+          if (!mounted) return;
+          messenger.showSnackBar(
+            SnackBar(content: Text('Cannot play stream: $e')),
+          );
+        });
+  }
+
   Widget _buildLoveAllButton() {
     final collectionsState = ref.watch(libraryCollectionsProvider);
     final tracks = _tracks;
@@ -608,8 +654,9 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
         ),
       ),
       child: IconButton(
-        onPressed:
-            tracks == null || tracks.isEmpty ? null : () => _loveAll(tracks),
+        onPressed: tracks == null || tracks.isEmpty
+            ? null
+            : () => _loveAll(tracks),
         icon: Icon(
           allLoved ? Icons.favorite : Icons.favorite_border,
           size: 22,
@@ -634,10 +681,9 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
         ),
       ),
       child: IconButton(
-        onPressed:
-            _tracks == null || _tracks!.isEmpty
-                ? null
-                : () => showAddTracksToPlaylistSheet(context, ref, _tracks!),
+        onPressed: _tracks == null || _tracks!.isEmpty
+            ? null
+            : () => showAddTracksToPlaylistSheet(context, ref, _tracks!),
         icon: const Icon(Icons.add, size: 22, color: Colors.white),
         tooltip: 'Add to Playlist',
         padding: EdgeInsets.zero,
@@ -657,9 +703,7 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Removed ${tracks.length} tracks from Loved'),
-          ),
+          SnackBar(content: Text('Removed ${tracks.length} tracks from Loved')),
         );
       }
     } else {
@@ -672,9 +716,7 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added $addedCount tracks to Loved'),
-          ),
+          SnackBar(content: Text('Added $addedCount tracks to Loved')),
         );
       }
     }
@@ -909,6 +951,11 @@ class _AlbumTrackItem extends ConsumerWidget {
             isInHistory: isInHistory,
             isInLocalLibrary: isInLocalLibrary,
           ),
+          onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+            context,
+            ref,
+            track,
+          ),
         ),
       ),
     );
@@ -921,6 +968,12 @@ class _AlbumTrackItem extends ConsumerWidget {
     required bool isInHistory,
     required bool isInLocalLibrary,
   }) async {
+    final isStreamingMode = ref.read(settingsProvider).isStreamingMode;
+    if (isStreamingMode) {
+      onDownload();
+      return;
+    }
+
     if (isQueued) return;
 
     if (isInLocalLibrary) {

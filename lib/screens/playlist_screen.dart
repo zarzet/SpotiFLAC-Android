@@ -9,6 +9,7 @@ import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
 import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
 
@@ -167,6 +168,9 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+    final isStreamingMode = ref.watch(
+      settingsProvider.select((s) => s.isStreamingMode),
+    );
     final expandedHeight = _calculateExpandedHeight(context);
 
     return SliverAppBar(
@@ -299,10 +303,21 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                           const SizedBox(height: 16),
                           Center(
                             child: FilledButton.icon(
-                              onPressed: () => _downloadAll(context),
-                              icon: const Icon(Icons.download, size: 18),
+                              onPressed: () => isStreamingMode
+                                  ? _playAll(context)
+                                  : _downloadAll(context),
+                              icon: Icon(
+                                isStreamingMode
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.download,
+                                size: 18,
+                              ),
                               label: Text(
-                                context.l10n.downloadAllCount(_tracks.length),
+                                isStreamingMode
+                                    ? context.l10n.playAllCount(_tracks.length)
+                                    : context.l10n.downloadAllCount(
+                                        _tracks.length,
+                                      ),
                               ),
                               style: FilledButton.styleFrom(
                                 backgroundColor: Colors.white,
@@ -410,6 +425,20 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
 
   void _downloadTrack(BuildContext context, Track track) {
     final settings = ref.read(settingsProvider);
+    if (settings.isStreamingMode) {
+      final messenger = ScaffoldMessenger.of(this.context);
+      ref
+          .read(playbackProvider.notifier)
+          .playTrackStreamAndSetQueue(track, _tracks)
+          .catchError((e) {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(content: Text('Cannot play stream: $e')),
+            );
+          });
+      return;
+    }
+
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
         context,
@@ -470,6 +499,21 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
         ),
       );
     }
+  }
+
+  void _playAll(BuildContext context) {
+    if (_tracks.isEmpty) return;
+    final firstTrack = _tracks.first;
+    final messenger = ScaffoldMessenger.of(this.context);
+    ref
+        .read(playbackProvider.notifier)
+        .playTrackStreamAndSetQueue(firstTrack, _tracks)
+        .catchError((e) {
+          if (!mounted) return;
+          messenger.showSnackBar(
+            SnackBar(content: Text('Cannot play stream: $e')),
+          );
+        });
   }
 }
 
@@ -602,15 +646,18 @@ class _PlaylistTrackItem extends ConsumerWidget {
               ],
             ],
           ),
-          trailing: TrackCollectionQuickActions(
-            track: track,
-          ),
+          trailing: TrackCollectionQuickActions(track: track),
           onTap: () => _handleTap(
             context,
             ref,
             isQueued: isQueued,
             isInHistory: isInHistory,
             isInLocalLibrary: isInLocalLibrary,
+          ),
+          onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+            context,
+            ref,
+            track,
           ),
         ),
       ),
@@ -624,6 +671,12 @@ class _PlaylistTrackItem extends ConsumerWidget {
     required bool isInHistory,
     required bool isInLocalLibrary,
   }) async {
+    final isStreamingMode = ref.read(settingsProvider).isStreamingMode;
+    if (isStreamingMode) {
+      onDownload();
+      return;
+    }
+
     if (isQueued) return;
 
     if (isInLocalLibrary) {

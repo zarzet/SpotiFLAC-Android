@@ -13,6 +13,22 @@ class TrackCollectionQuickActions extends ConsumerWidget {
 
   const TrackCollectionQuickActions({super.key, required this.track});
 
+  static void showTrackOptionsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Track track,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => _TrackOptionsSheet(track: track),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -23,22 +39,9 @@ class TrackCollectionQuickActions extends ConsumerWidget {
         color: colorScheme.onSurfaceVariant,
         size: 20,
       ),
-      onPressed: () => _showTrackOptionsSheet(context, ref),
+      onPressed: () => showTrackOptionsSheet(context, ref, track),
       padding: const EdgeInsets.only(left: 12),
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-    );
-  }
-
-  void _showTrackOptionsSheet(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colorScheme.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) => _TrackOptionsSheet(track: track),
     );
   }
 }
@@ -168,9 +171,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
               Navigator.pop(context);
               ref.read(playbackProvider.notifier).addToQueue(track);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Added "${track.name}" to play queue'),
-                ),
+                SnackBar(content: Text('Added "${track.name}" to play queue')),
               );
             },
           ),

@@ -7,6 +7,7 @@ import 'package:spotiflac_android/providers/track_provider.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
+import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   final String query;
@@ -52,6 +53,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _downloadTrack(Track track) {
     final settings = ref.read(settingsProvider);
+
+    if (settings.isStreamingMode) {
+      _playTrack(track);
+      return;
+    }
+
     ref
         .read(downloadQueueProvider.notifier)
         .addToQueue(track, settings.defaultService);
@@ -197,6 +204,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ],
+      ),
+      onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+        context,
+        ref,
+        track,
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

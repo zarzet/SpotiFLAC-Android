@@ -308,6 +308,26 @@
   "@optionsAutoFallbackSubtitle": {
     "description": "Subtitle for auto fallback"
   },
+  "optionsInteractionMode": "Mode Interaksi",
+  "@optionsInteractionMode": {
+    "description": "Tap behavior mode for track lists"
+  },
+  "modeDownloader": "Mode Downloader",
+  "@modeDownloader": {
+    "description": "Interaction mode where taps queue downloads"
+  },
+  "modeDownloaderSubtitle": "Ketuk lagu untuk menambah ke antrean unduhan",
+  "@modeDownloaderSubtitle": {
+    "description": "Subtitle for downloader interaction mode"
+  },
+  "modeStreaming": "Mode Streaming",
+  "@modeStreaming": {
+    "description": "Interaction mode where taps start playback"
+  },
+  "modeStreamingSubtitle": "Ketuk lagu untuk langsung memutar",
+  "@modeStreamingSubtitle": {
+    "description": "Subtitle for streaming interaction mode"
+  },
   "optionsUseExtensionProviders": "Gunakan Provider Ekstensi",
   "@optionsUseExtensionProviders": {
     "description": "Enable extension download providers"
@@ -2026,6 +2046,15 @@
       }
     }
   },
+  "playAllCount": "Putar Semua ({count})",
+  "@playAllCount": {
+    "description": "Play all button with count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tracksCount": "{count, plural, =1{1 lagu} other{{count} lagu}}",
   "@tracksCount": {
     "description": "Track count display",
@@ -2935,9 +2964,17 @@
   "@discographyDownload": {
     "description": "Button - download artist discography"
   },
+  "discographyPlay": "Putar Diskografi",
+  "@discographyPlay": {
+    "description": "Button - play artist discography"
+  },
   "discographyDownloadAll": "Unduh Semua",
   "@discographyDownloadAll": {
     "description": "Option - download entire discography"
+  },
+  "discographyPlayAll": "Putar Semua",
+  "@discographyPlayAll": {
+    "description": "Option - play entire discography"
   },
   "discographyDownloadAllSubtitle": "{count} tracks from {albumCount} releases",
   "@discographyDownloadAllSubtitle": {
@@ -3019,6 +3056,10 @@
   "discographyDownloadSelected": "Download Selected",
   "@discographyDownloadSelected": {
     "description": "Button - download selected albums"
+  },
+  "discographyPlaySelected": "Putar Terpilih",
+  "@discographyPlaySelected": {
+    "description": "Button - play selected albums"
   },
   "discographyAddedToQueue": "Added {count} tracks to queue",
   "@discographyAddedToQueue": {

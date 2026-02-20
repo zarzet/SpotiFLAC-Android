@@ -354,7 +354,6 @@ class PlaybackController extends Notifier<PlaybackState> {
       else
         audio_service.MediaControl.play,
       audio_service.MediaControl.skipToNext,
-      audio_service.MediaControl.stop,
     ];
 
     final systemActions = <audio_service.MediaAction>{};
@@ -426,6 +425,7 @@ class PlaybackController extends Notifier<PlaybackState> {
     } else {
       // Queue exhausted
       state = state.copyWith(isPlaying: false, position: Duration.zero);
+      _syncServicePlaybackState(ProcessingState.completed, false);
     }
   }
 

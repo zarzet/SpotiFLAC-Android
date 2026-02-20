@@ -544,6 +544,36 @@ abstract class AppLocalizations {
   /// **'Try other services if download fails'**
   String get optionsAutoFallbackSubtitle;
 
+  /// Tap behavior mode for track lists
+  ///
+  /// In en, this message translates to:
+  /// **'Interaction Mode'**
+  String get optionsInteractionMode;
+
+  /// Interaction mode where taps queue downloads
+  ///
+  /// In en, this message translates to:
+  /// **'Downloader Mode'**
+  String get modeDownloader;
+
+  /// Subtitle for downloader interaction mode
+  ///
+  /// In en, this message translates to:
+  /// **'Tap tracks to add them to download queue'**
+  String get modeDownloaderSubtitle;
+
+  /// Interaction mode where taps start playback
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming Mode'**
+  String get modeStreaming;
+
+  /// Subtitle for streaming interaction mode
+  ///
+  /// In en, this message translates to:
+  /// **'Tap tracks to play instantly'**
+  String get modeStreamingSubtitle;
+
   /// Enable extension download providers
   ///
   /// In en, this message translates to:
@@ -2848,6 +2878,12 @@ abstract class AppLocalizations {
   /// **'Download All ({count})'**
   String downloadAllCount(int count);
 
+  /// Play all button with count
+  ///
+  /// In en, this message translates to:
+  /// **'Play All ({count})'**
+  String playAllCount(int count);
+
   /// Track count display
   ///
   /// In en, this message translates to:
@@ -4054,11 +4090,23 @@ abstract class AppLocalizations {
   /// **'Download Discography'**
   String get discographyDownload;
 
+  /// Button - play artist discography
+  ///
+  /// In en, this message translates to:
+  /// **'Play Discography'**
+  String get discographyPlay;
+
   /// Option - download entire discography
   ///
   /// In en, this message translates to:
   /// **'Download All'**
   String get discographyDownloadAll;
+
+  /// Option - play entire discography
+  ///
+  /// In en, this message translates to:
+  /// **'Play All'**
+  String get discographyPlayAll;
 
   /// Subtitle showing total tracks and albums
   ///
@@ -4125,6 +4173,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download Selected'**
   String get discographyDownloadSelected;
+
+  /// Button - play selected albums
+  ///
+  /// In en, this message translates to:
+  /// **'Play Selected'**
+  String get discographyPlaySelected;
 
   /// Snackbar - tracks added from discography
   ///

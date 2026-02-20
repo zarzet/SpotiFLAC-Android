@@ -252,6 +252,22 @@ class AppLocalizationsId extends AppLocalizations {
       'Coba layanan lain jika unduhan gagal';
 
   @override
+  String get optionsInteractionMode => 'Mode Interaksi';
+
+  @override
+  String get modeDownloader => 'Mode Downloader';
+
+  @override
+  String get modeDownloaderSubtitle =>
+      'Ketuk lagu untuk menambah ke antrean unduhan';
+
+  @override
+  String get modeStreaming => 'Mode Streaming';
+
+  @override
+  String get modeStreamingSubtitle => 'Ketuk lagu untuk langsung memutar';
+
+  @override
   String get optionsUseExtensionProviders => 'Gunakan Provider Ekstensi';
 
   @override
@@ -1572,6 +1588,11 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
+  String playAllCount(int count) {
+    return 'Putar Semua ($count)';
+  }
+
+  @override
   String tracksCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -2253,7 +2274,13 @@ class AppLocalizationsId extends AppLocalizations {
   String get discographyDownload => 'Download Discography';
 
   @override
+  String get discographyPlay => 'Putar Diskografi';
+
+  @override
   String get discographyDownloadAll => 'Unduh Semua';
+
+  @override
+  String get discographyPlayAll => 'Putar Semua';
 
   @override
   String discographyDownloadAllSubtitle(int count, int albumCount) {
@@ -2298,6 +2325,9 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get discographyDownloadSelected => 'Download Selected';
+
+  @override
+  String get discographyPlaySelected => 'Putar Terpilih';
 
   @override
   String discographyAddedToQueue(int count) {

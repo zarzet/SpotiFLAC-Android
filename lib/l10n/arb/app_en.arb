@@ -175,6 +175,16 @@
   "@optionsAutoFallback": {"description": "Auto-retry with other services"},
   "optionsAutoFallbackSubtitle": "Try other services if download fails",
   "@optionsAutoFallbackSubtitle": {"description": "Subtitle for auto fallback"},
+  "optionsInteractionMode": "Interaction Mode",
+  "@optionsInteractionMode": {"description": "Tap behavior mode for track lists"},
+  "modeDownloader": "Downloader Mode",
+  "@modeDownloader": {"description": "Interaction mode where taps queue downloads"},
+  "modeDownloaderSubtitle": "Tap tracks to add them to download queue",
+  "@modeDownloaderSubtitle": {"description": "Subtitle for downloader interaction mode"},
+  "modeStreaming": "Streaming Mode",
+  "@modeStreaming": {"description": "Interaction mode where taps start playback"},
+  "modeStreamingSubtitle": "Tap tracks to play instantly",
+  "@modeStreamingSubtitle": {"description": "Subtitle for streaming interaction mode"},
   "optionsUseExtensionProviders": "Use Extension Providers",
   "@optionsUseExtensionProviders": {"description": "Enable extension download providers"},
   "optionsUseExtensionProvidersOn": "Extensions will be tried first",
@@ -1153,6 +1163,13 @@
       "count": {"type": "int"}
     }
   },
+  "playAllCount": "Play All ({count})",
+  "@playAllCount": {
+    "description": "Play all button with count",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "tracksCount": "{count, plural, =1{1 track} other{{count} tracks}}",
   "@tracksCount": {
     "description": "Track count display",
@@ -1671,8 +1688,12 @@
 
   "discographyDownload": "Download Discography",
   "@discographyDownload": {"description": "Button - download artist discography"},
+  "discographyPlay": "Play Discography",
+  "@discographyPlay": {"description": "Button - play artist discography"},
   "discographyDownloadAll": "Download All",
   "@discographyDownloadAll": {"description": "Option - download entire discography"},
+  "discographyPlayAll": "Play All",
+  "@discographyPlayAll": {"description": "Option - play entire discography"},
   "discographyDownloadAllSubtitle": "{count} tracks from {albumCount} releases",
   "@discographyDownloadAllSubtitle": {
     "description": "Subtitle showing total tracks and albums",
@@ -1724,6 +1745,8 @@
   },
   "discographyDownloadSelected": "Download Selected",
   "@discographyDownloadSelected": {"description": "Button - download selected albums"},
+  "discographyPlaySelected": "Play Selected",
+  "@discographyPlaySelected": {"description": "Button - play selected albums"},
   "discographyAddedToQueue": "Added {count} tracks to queue",
   "@discographyAddedToQueue": {
     "description": "Snackbar - tracks added from discography",

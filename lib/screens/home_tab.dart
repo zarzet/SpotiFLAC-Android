@@ -14,6 +14,7 @@ import 'package:spotiflac_android/providers/extension_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/explore_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/artist_screen.dart';
@@ -470,6 +471,20 @@ class _HomeTabState extends ConsumerState<HomeTab>
     if (index >= 0 && index < trackState.tracks.length) {
       final track = trackState.tracks[index];
       final settings = ref.read(settingsProvider);
+
+      if (settings.isStreamingMode) {
+        ref.read(settingsProvider.notifier).setHasSearchedBefore();
+        ref
+            .read(playbackProvider.notifier)
+            .playTrackStreamAndSetQueue(track, trackState.tracks)
+            .catchError((e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Cannot play stream: $e')));
+            });
+        return;
+      }
 
       if (settings.askQualityBeforeDownload) {
         DownloadServicePicker.show(
@@ -1607,6 +1622,18 @@ class _HomeTabState extends ConsumerState<HomeTab>
       coverUrl: item.coverUrl,
       source: item.providerId ?? 'spotify-web',
     );
+
+    if (settings.isStreamingMode) {
+      try {
+        await ref.read(playbackProvider.notifier).playTrackStream(track);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Cannot play stream: $e')));
+      }
+      return;
+    }
 
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
@@ -2969,6 +2996,11 @@ class _TrackItemWithStatus extends ConsumerWidget {
             isInHistory: isInHistory,
             isInLocalLibrary: isInLocalLibrary,
           ),
+          onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+            context,
+            ref,
+            track,
+          ),
           splashColor: colorScheme.primary.withValues(alpha: 0.12),
           highlightColor: colorScheme.primary.withValues(alpha: 0.08),
           child: Padding(
@@ -3061,9 +3093,7 @@ class _TrackItemWithStatus extends ConsumerWidget {
                     ],
                   ),
                 ),
-                TrackCollectionQuickActions(
-                  track: track,
-                ),
+                TrackCollectionQuickActions(track: track),
               ],
             ),
           ),
@@ -3089,6 +3119,12 @@ class _TrackItemWithStatus extends ConsumerWidget {
     required bool isInHistory,
     required bool isInLocalLibrary,
   }) async {
+    final isStreamingMode = ref.read(settingsProvider).isStreamingMode;
+    if (isStreamingMode) {
+      onDownload();
+      return;
+    }
+
     if (isQueued) return;
 
     if (isInLocalLibrary) {

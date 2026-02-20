@@ -1,5 +1,33 @@
 # Changelog
 
+## [4.0.0-beta.1] - 2026-02-20
+
+### Added
+
+- **Interaction Mode Setting**: New "Interaction Mode" toggle in Options settings to switch between Downloader Mode (tap to queue downloads) and Streaming Mode (tap to play instantly)
+  - Affects album, artist discography, playlist, home explore, and search screens
+  - All action buttons (Download All, Download Selected, Download Discography) dynamically switch to Play equivalents when in Streaming Mode
+- **Streaming Playback Integration**: Tapping tracks in Streaming Mode plays them via `playTrackStreamAndSetQueue` with full queue support across all collection screens (album, artist, playlist, home, search)
+- **Long-Press Track Context Menus**: Added `onLongPress` handler on track items across album, artist, home, playlist, and search screens to open the track options bottom sheet via `TrackCollectionQuickActions.showTrackOptionsSheet`
+- **USDT TRC20 Crypto Donation**: Added USDT (TRC20) wallet address to Donate page with tap-to-copy-to-clipboard functionality and snackbar confirmation
+- **Localization**: Added interaction mode and streaming playback strings across all 14 supported locales (`optionsInteractionMode`, `modeDownloader`, `modeDownloaderSubtitle`, `modeStreaming`, `modeStreamingSubtitle`, `playAllCount`, `discographyPlay`, `discographyPlayAll`, `discographyPlaySelected`)
+- **Indonesian (ID) Localization**: Full translations for all new streaming mode strings
+
+### Changed
+
+- **Mini Player Bar Layout**: Media section (cover art / lyrics) now uses fixed-height `SizedBox` (50% screen height, clamped 300–560px) instead of `Expanded` for more consistent layout
+- **Lyrics Font Size Increase**: Synced lyrics current line 22→24px, non-current 18→19px; word-by-word highlight 22→24px; unsynced 18→19px
+- **Playback Media Controls**: Removed stop button from notification media controls for cleaner transport bar
+- **Playback Queue Exhaustion**: Player now properly syncs `ProcessingState.completed` state when queue is exhausted instead of silently stopping
+- **`TrackCollectionQuickActions.showTrackOptionsSheet` Made Static**: Extracted to a public static method so all screens can invoke it directly for long-press handling
+- **Bottom Spacing in Mini Player**: Reduced from 16px to 4px for tighter layout
+
+### Fixed
+
+- **Playback State Not Updating on Queue End**: Fixed playback notification staying in "playing" state when all tracks in queue have finished
+
+---
+
 ## [3.7.0] - 2026-02-19
 
 ### Added

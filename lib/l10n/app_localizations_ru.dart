@@ -256,6 +256,22 @@ class AppLocalizationsRu extends AppLocalizations {
       'Попробовать другие сервисы при сбое загрузки';
 
   @override
+  String get optionsInteractionMode => 'Interaction Mode';
+
+  @override
+  String get modeDownloader => 'Downloader Mode';
+
+  @override
+  String get modeDownloaderSubtitle =>
+      'Tap tracks to add them to download queue';
+
+  @override
+  String get modeStreaming => 'Streaming Mode';
+
+  @override
+  String get modeStreamingSubtitle => 'Tap tracks to play instantly';
+
+  @override
   String get optionsUseExtensionProviders =>
       'Использовать провайдера расширений';
 
@@ -1592,6 +1608,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String playAllCount(int count) {
+    return 'Play All ($count)';
+  }
+
+  @override
   String tracksCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -2288,7 +2309,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get discographyDownload => 'Скачать дискографию';
 
   @override
+  String get discographyPlay => 'Play Discography';
+
+  @override
   String get discographyDownloadAll => 'Скачать всё';
+
+  @override
+  String get discographyPlayAll => 'Play All';
 
   @override
   String discographyDownloadAllSubtitle(int count, int albumCount) {
@@ -2333,6 +2360,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get discographyDownloadSelected => 'Скачать выбранное';
+
+  @override
+  String get discographyPlaySelected => 'Play Selected';
 
   @override
   String discographyAddedToQueue(int count) {

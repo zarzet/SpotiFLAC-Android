@@ -4,6 +4,7 @@ part 'settings.g.dart';
 
 @JsonSerializable()
 class AppSettings {
+  final String interactionMode; // 'downloader' or 'streaming'
   final String defaultService;
   final String audioQuality;
   final String filenameFormat;
@@ -77,6 +78,7 @@ class AppSettings {
   musixmatchLanguage; // Optional ISO language code for Musixmatch localized lyrics
 
   const AppSettings({
+    this.interactionMode = 'downloader',
     this.defaultService = 'tidal',
     this.audioQuality = 'LOSSLESS',
     this.filenameFormat = '{title} - {artist}',
@@ -139,6 +141,7 @@ class AppSettings {
   });
 
   AppSettings copyWith({
+    String? interactionMode,
     String? defaultService,
     String? audioQuality,
     String? filenameFormat,
@@ -195,6 +198,7 @@ class AppSettings {
     String? musixmatchLanguage,
   }) {
     return AppSettings(
+      interactionMode: interactionMode ?? this.interactionMode,
       defaultService: defaultService ?? this.defaultService,
       audioQuality: audioQuality ?? this.audioQuality,
       filenameFormat: filenameFormat ?? this.filenameFormat,
@@ -270,4 +274,6 @@ class AppSettings {
   factory AppSettings.fromJson(Map<String, dynamic> json) =>
       _$AppSettingsFromJson(json);
   Map<String, dynamic> toJson() => _$AppSettingsToJson(this);
+
+  bool get isStreamingMode => interactionMode == 'streaming';
 }
