@@ -19,6 +19,7 @@ type StreamResponse struct {
 	SampleRate         int    `json:"sample_rate,omitempty"`
 	Bitrate            int    `json:"bitrate,omitempty"`
 	RequiresDecryption bool   `json:"requires_decryption,omitempty"`
+	RequiresProxy      bool   `json:"requires_proxy,omitempty"`
 	DecryptionKey      string `json:"decryption_key,omitempty"`
 	Error              string `json:"error,omitempty"`
 	ErrorType          string `json:"error_type,omitempty"`
@@ -185,6 +186,8 @@ func enrichStreamRequestIdentifiers(req *DownloadRequest) {
 			GoLog("[Stream] SongLink got DeezerID but Deezer ISRC lookup failed (deezer:%s): %v\n", req.DeezerID, derr)
 		}
 	}
+
+	enrichStreamRequestMetadataFromDeezer(req)
 }
 
 func getISRCFromDeezerTrackID(trackID string) (string, error) {
@@ -206,6 +209,54 @@ func getISRCFromDeezerTrackID(trackID string) (string, error) {
 		return "", fmt.Errorf("deezer track has no valid ISRC")
 	}
 	return isrc, nil
+}
+
+func enrichStreamRequestMetadataFromDeezer(req *DownloadRequest) {
+	if req == nil {
+		return
+	}
+	deezerID := strings.TrimSpace(req.DeezerID)
+	if deezerID == "" {
+		return
+	}
+
+	needTitleAlias := !hasAlphaNumericRunes(req.TrackName)
+	needDuration := req.DurationMS <= 0
+	needArtist := strings.TrimSpace(req.ArtistName) == ""
+	needAlbum := strings.TrimSpace(req.AlbumName) == ""
+	if !needTitleAlias && !needDuration && !needArtist && !needAlbum {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	trackResp, err := GetDeezerClient().GetTrack(ctx, deezerID)
+	if err != nil || trackResp == nil {
+		if err != nil {
+			GoLog("[Stream] Deezer metadata enrichment failed for deezer:%s: %v\n", deezerID, err)
+		}
+		return
+	}
+
+	track := trackResp.Track
+
+	if needDuration && track.DurationMS > 0 {
+		req.DurationMS = track.DurationMS
+		GoLog("[Stream] Duration enriched from Deezer: %dms (deezer:%s)\n", req.DurationMS, deezerID)
+	}
+
+	if needTitleAlias && hasAlphaNumericRunes(track.Name) {
+		req.TrackName = strings.TrimSpace(track.Name)
+		GoLog("[Stream] Track title alias enriched from Deezer: '%s' (deezer:%s)\n", req.TrackName, deezerID)
+	}
+
+	if needArtist && strings.TrimSpace(track.Artists) != "" {
+		req.ArtistName = strings.TrimSpace(track.Artists)
+	}
+	if needAlbum && strings.TrimSpace(track.AlbumName) != "" {
+		req.AlbumName = strings.TrimSpace(track.AlbumName)
+	}
 }
 
 func normalizeISRC(value string) string {
@@ -490,9 +541,20 @@ func resolveTidalStream(req DownloadRequest) (*StreamResponse, error) {
 	}
 
 	if strings.HasPrefix(streamURL, "MANIFEST:") {
-		directURL, _, _, parseErr := parseManifest(strings.TrimPrefix(streamURL, "MANIFEST:"))
+		manifestB64 := strings.TrimPrefix(streamURL, "MANIFEST:")
+		directURL, _, _, parseErr := parseManifest(manifestB64)
 		if parseErr != nil || strings.TrimSpace(directURL) == "" {
-			return nil, fmt.Errorf("Tidal DASH segmented stream is not directly playable")
+			return &StreamResponse{
+				Success:       true,
+				Service:       "tidal",
+				StreamURL:     "MANIFEST:" + manifestB64,
+				Format:        "m4a",
+				BitDepth:      info.BitDepth,
+				SampleRate:    info.SampleRate,
+				RequiresProxy: true,
+				Error:         "Tidal DASH segmented stream requires local proxy playback",
+				ErrorType:     "dash_proxy_required",
+			}, nil
 		}
 		streamURL = directURL
 	}

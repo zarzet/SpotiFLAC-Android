@@ -116,7 +116,8 @@ class MiniPlayerBar extends ConsumerWidget {
                   // Close
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 20),
-                    onPressed: () => ref.read(playbackProvider.notifier).stop(),
+                    onPressed: () =>
+                        ref.read(playbackProvider.notifier).dismissPlayer(),
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
@@ -199,6 +200,14 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(playbackProvider);
+    final playbackNotifier = ref.read(playbackProvider.notifier);
+    final displayOrder = playbackNotifier.getQueueDisplayOrder();
+    final displayPosition = playbackNotifier.getCurrentDisplayQueuePosition(
+      displayOrder: displayOrder,
+    );
+    final queuePositionLabel = displayPosition >= 0
+        ? displayPosition + 1
+        : state.currentIndex + 1;
     final playbackError = _localizedPlaybackError(context, state);
     final item = state.currentItem;
     if (item == null) {
@@ -268,7 +277,7 @@ class _FullScreenPlayerState extends ConsumerState<_FullScreenPlayer> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '${state.currentIndex + 1} / ${state.queue.length}',
+                              '$queuePositionLabel / ${state.queue.length}',
                               style: textTheme.labelMedium?.copyWith(
                                 color: colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.w600,
@@ -1322,10 +1331,17 @@ class _QueueBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playbackProvider);
+    final playbackNotifier = ref.read(playbackProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final queue = state.queue;
-    final currentIndex = state.currentIndex;
+    final displayOrder = playbackNotifier.getQueueDisplayOrder();
+    final currentDisplayIndex = playbackNotifier.getCurrentDisplayQueuePosition(
+      displayOrder: displayOrder,
+    );
+    if (queue.isEmpty || displayOrder.isEmpty || currentDisplayIndex < 0) {
+      return const SizedBox.shrink();
+    }
 
     return DraggableScrollableSheet(
       initialChildSize: 0.65,
@@ -1383,10 +1399,9 @@ class _QueueBottomSheet extends ConsumerWidget {
               child: ListView.builder(
                 controller: scrollController,
                 padding: const EdgeInsets.only(bottom: 16),
-                itemCount: queue.length + _sectionHeaderCount(
-                  currentIndex,
-                  queue.length,
-                ),
+                itemCount:
+                    queue.length +
+                    _sectionHeaderCount(currentDisplayIndex, queue.length),
                 itemBuilder: (context, index) {
                   // Calculate real item index accounting for section headers
                   return _buildQueueListItem(
@@ -1394,7 +1409,8 @@ class _QueueBottomSheet extends ConsumerWidget {
                     ref,
                     index,
                     queue,
-                    currentIndex,
+                    displayOrder,
+                    currentDisplayIndex,
                     colorScheme,
                     textTheme,
                   );
@@ -1420,7 +1436,8 @@ class _QueueBottomSheet extends ConsumerWidget {
     WidgetRef ref,
     int listIndex,
     List<PlaybackItem> queue,
-    int currentIndex,
+    List<int> displayOrder,
+    int currentDisplayIndex,
     ColorScheme colorScheme,
     TextTheme textTheme,
   ) {
@@ -1429,7 +1446,7 @@ class _QueueBottomSheet extends ConsumerWidget {
     int offset = 0;
 
     // Section: Already Played
-    if (currentIndex > 0) {
+    if (currentDisplayIndex > 0) {
       if (listIndex == offset) {
         return _sectionHeader(
           'Played',
@@ -1439,20 +1456,21 @@ class _QueueBottomSheet extends ConsumerWidget {
         );
       }
       offset++;
-      if (listIndex < offset + currentIndex) {
-        final queueIdx = listIndex - offset;
+      if (listIndex < offset + currentDisplayIndex) {
+        final displayIdx = listIndex - offset;
+        final queueIdx = displayOrder[displayIdx];
         return _queueTrackTile(
           context,
           ref,
           queue[queueIdx],
           queueIdx,
-          currentIndex,
+          displayIdx,
           colorScheme,
           textTheme,
           isPlayed: true,
         );
       }
-      offset += currentIndex;
+      offset += currentDisplayIndex;
     }
 
     // Section: Now Playing
@@ -1467,12 +1485,13 @@ class _QueueBottomSheet extends ConsumerWidget {
     }
     offset++;
     if (listIndex == offset) {
+      final queueIdx = displayOrder[currentDisplayIndex];
       return _queueTrackTile(
         context,
         ref,
-        queue[currentIndex],
-        currentIndex,
-        currentIndex,
+        queue[queueIdx],
+        queueIdx,
+        currentDisplayIndex,
         colorScheme,
         textTheme,
         isCurrent: true,
@@ -1481,9 +1500,9 @@ class _QueueBottomSheet extends ConsumerWidget {
     offset++;
 
     // Section: Up Next
-    if (currentIndex < queue.length - 1) {
+    if (currentDisplayIndex < queue.length - 1) {
       if (listIndex == offset) {
-        final upNextCount = queue.length - currentIndex - 1;
+        final upNextCount = queue.length - currentDisplayIndex - 1;
         return _sectionHeader(
           'Up Next ($upNextCount)',
           Icons.skip_next_rounded,
@@ -1492,14 +1511,15 @@ class _QueueBottomSheet extends ConsumerWidget {
         );
       }
       offset++;
-      final queueIdx = currentIndex + 1 + (listIndex - offset);
-      if (queueIdx < queue.length) {
+      final displayIdx = currentDisplayIndex + 1 + (listIndex - offset);
+      if (displayIdx < queue.length) {
+        final queueIdx = displayOrder[displayIdx];
         return _queueTrackTile(
           context,
           ref,
           queue[queueIdx],
           queueIdx,
-          currentIndex,
+          displayIdx,
           colorScheme,
           textTheme,
         );
@@ -1547,7 +1567,7 @@ class _QueueBottomSheet extends ConsumerWidget {
     WidgetRef ref,
     PlaybackItem item,
     int queueIndex,
-    int currentIndex,
+    int displayIndex,
     ColorScheme colorScheme,
     TextTheme textTheme, {
     bool isCurrent = false,
@@ -1576,15 +1596,13 @@ class _QueueBottomSheet extends ConsumerWidget {
                 SizedBox(
                   width: 28,
                   child: Text(
-                    '${queueIndex + 1}',
+                    '${displayIndex + 1}',
                     textAlign: TextAlign.center,
                     style: textTheme.bodySmall?.copyWith(
                       color: isCurrent
                           ? colorScheme.primary
                           : colorScheme.onSurfaceVariant,
-                      fontWeight: isCurrent
-                          ? FontWeight.w700
-                          : FontWeight.w400,
+                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ),

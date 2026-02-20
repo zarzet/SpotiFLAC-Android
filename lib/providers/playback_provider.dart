@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart' as audio_service;
@@ -8,11 +9,14 @@ import 'package:just_audio/just_audio.dart';
 import 'package:spotiflac_android/models/playback_item.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
+import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/services/ffmpeg_service.dart';
+import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/services/stream_request_payload.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final _log = AppLogger('PlaybackProvider');
 
@@ -202,8 +206,10 @@ class _SpotiFLACAudioHandler extends audio_service.BaseAudioHandler
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 class PlaybackController extends Notifier<PlaybackState> {
+  static const String _playbackSnapshotKey = 'playback_snapshot_v1';
   final AudioPlayer _player = AudioPlayer();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+  Timer? _snapshotSaveTimer;
   _SpotiFLACAudioHandler? _audioHandler;
   var _initialized = false;
   static const Duration _prefetchThreshold = Duration(seconds: 12);
@@ -213,6 +219,11 @@ class PlaybackController extends Notifier<PlaybackState> {
   // Shuffle order: indices into queue
   List<int> _shuffleOrder = [];
   int _shufflePosition = -1;
+  int _playRequestEpoch = 0;
+  Duration? _pendingResumePosition;
+  int? _pendingResumeIndex;
+  int _lastProgressSnapshotMs = -1;
+  int _lyricsGeneration = 0;
 
   @override
   PlaybackState build() {
@@ -227,6 +238,7 @@ class PlaybackController extends Notifier<PlaybackState> {
   void _init() {
     unawaited(_configureAudioSession());
     unawaited(_initAudioService());
+    unawaited(_restorePlaybackSnapshot());
 
     _subscriptions.add(
       _player.playerStateStream.listen((playerState) {
@@ -258,8 +270,20 @@ class PlaybackController extends Notifier<PlaybackState> {
             maxPeriod: const Duration(milliseconds: 33),
           )
           .listen((position) {
+            final hasPendingResume =
+                state.currentIndex >= 0 &&
+                _pendingResumePositionForIndex(state.currentIndex) != null;
+            final shouldKeepRestoredPosition =
+                _player.processingState == ProcessingState.idle &&
+                hasPendingResume &&
+                position == Duration.zero &&
+                state.position > Duration.zero;
+            if (shouldKeepRestoredPosition) {
+              return;
+            }
             state = state.copyWith(position: position);
             _maybePrefetchNext(position);
+            _scheduleSnapshotSaveForProgress(position);
           }),
     );
 
@@ -271,7 +295,82 @@ class PlaybackController extends Notifier<PlaybackState> {
 
     _subscriptions.add(
       _player.durationStream.listen((duration) {
-        state = state.copyWith(duration: duration ?? Duration.zero);
+        final hasPendingResume =
+            state.currentIndex >= 0 &&
+            _pendingResumePositionForIndex(state.currentIndex) != null;
+        final shouldKeepRestoredDuration =
+            _player.processingState == ProcessingState.idle &&
+            hasPendingResume &&
+            duration == null &&
+            state.duration > Duration.zero;
+        if (shouldKeepRestoredDuration) {
+          return;
+        }
+        final fallbackDuration = _fallbackDurationForItem(state.currentItem);
+        final resolvedDuration = duration != null && duration > Duration.zero
+            ? duration
+            : fallbackDuration;
+        if (state.duration != resolvedDuration) {
+          state = state.copyWith(duration: resolvedDuration);
+        }
+
+        if (duration != null &&
+            duration > Duration.zero &&
+            state.currentIndex >= 0 &&
+            state.currentIndex < state.queue.length) {
+          final durationMs = duration.inMilliseconds;
+          final currentItem = state.currentItem;
+          final updatedCurrentItem =
+              currentItem != null && currentItem.durationMs != durationMs
+              ? PlaybackItem(
+                  id: currentItem.id,
+                  title: currentItem.title,
+                  artist: currentItem.artist,
+                  album: currentItem.album,
+                  coverUrl: currentItem.coverUrl,
+                  sourceUri: currentItem.sourceUri,
+                  isLocal: currentItem.isLocal,
+                  service: currentItem.service,
+                  durationMs: durationMs,
+                  format: currentItem.format,
+                  bitDepth: currentItem.bitDepth,
+                  sampleRate: currentItem.sampleRate,
+                  bitrate: currentItem.bitrate,
+                  track: currentItem.track,
+                )
+              : currentItem;
+
+          final queueItem = state.queue[state.currentIndex];
+          final shouldUpdateQueueItem = queueItem.durationMs != durationMs;
+
+          if (updatedCurrentItem != currentItem || shouldUpdateQueueItem) {
+            final updatedQueue = [...state.queue];
+            if (shouldUpdateQueueItem) {
+              updatedQueue[state.currentIndex] = PlaybackItem(
+                id: queueItem.id,
+                title: queueItem.title,
+                artist: queueItem.artist,
+                album: queueItem.album,
+                coverUrl: queueItem.coverUrl,
+                sourceUri: queueItem.sourceUri,
+                isLocal: queueItem.isLocal,
+                service: queueItem.service,
+                durationMs: durationMs,
+                format: queueItem.format,
+                bitDepth: queueItem.bitDepth,
+                sampleRate: queueItem.sampleRate,
+                bitrate: queueItem.bitrate,
+                track: queueItem.track,
+              );
+            }
+
+            state = state.copyWith(
+              currentItem: updatedCurrentItem,
+              queue: updatedQueue,
+            );
+            unawaited(_savePlaybackSnapshot());
+          }
+        }
 
         // Update notification duration when known
         if (state.currentItem != null && duration != null) {
@@ -390,6 +489,21 @@ class PlaybackController extends Notifier<PlaybackState> {
     return List.generate(count, (i) => i);
   }
 
+  Uri? _resolveMediaArtUri(String coverUrl) {
+    final raw = coverUrl.trim();
+    if (raw.isEmpty) return null;
+
+    if (raw.startsWith('http://') ||
+        raw.startsWith('https://') ||
+        raw.startsWith('file://') ||
+        raw.startsWith('content://')) {
+      return Uri.tryParse(raw);
+    }
+
+    // Treat bare local paths as file URIs so notification can load local art.
+    return Uri.file(raw);
+  }
+
   void _updateMediaItemNotification(PlaybackItem item) {
     final handler = _audioHandler;
     if (handler == null) return;
@@ -401,13 +515,16 @@ class PlaybackController extends Notifier<PlaybackState> {
         title: item.title,
         artist: item.artist,
         duration: state.duration,
-        artUri:
-            item.coverUrl.isNotEmpty &&
-                (item.coverUrl.startsWith('http://') ||
-                    item.coverUrl.startsWith('https://'))
-            ? Uri.tryParse(item.coverUrl)
-            : null,
+        artUri: _resolveMediaArtUri(item.coverUrl),
         extras: {
+          if ((item.track?.isrc ?? '').trim().isNotEmpty)
+            'isrc': item.track!.isrc!.trim(),
+          'trackName': item.title,
+          'artistName': item.artist,
+          if (item.album.isNotEmpty) 'albumName': item.album,
+          if (item.coverUrl.isNotEmpty) 'coverUrl': item.coverUrl,
+          if (item.sourceUri.isNotEmpty) 'sourceUri': item.sourceUri,
+          'isLocal': item.isLocal,
           if (item.service.isNotEmpty) 'service': item.service,
           if (item.format.isNotEmpty) 'format': item.format,
         },
@@ -451,7 +568,7 @@ class PlaybackController extends Notifier<PlaybackState> {
 
       final track = state.currentItem?.track;
       if (track != null) {
-        await playTrackStream(track);
+        await playTrackStream(track, preserveQueue: true);
         return;
       }
 
@@ -510,8 +627,268 @@ class PlaybackController extends Notifier<PlaybackState> {
     _shuffleOrder = List.generate(state.queue.length, (i) => i)..shuffle(rng);
   }
 
+  List<int> getQueueDisplayOrder() {
+    if (state.queue.isEmpty) return const [];
+
+    if (!state.shuffle) {
+      return List<int>.generate(state.queue.length, (i) => i);
+    }
+
+    final seen = <int>{};
+    final normalized = <int>[];
+    for (final idx in _shuffleOrder) {
+      if (idx >= 0 && idx < state.queue.length && seen.add(idx)) {
+        normalized.add(idx);
+      }
+    }
+    for (var i = 0; i < state.queue.length; i++) {
+      if (seen.add(i)) {
+        normalized.add(i);
+      }
+    }
+    return normalized;
+  }
+
+  int getCurrentDisplayQueuePosition({List<int>? displayOrder}) {
+    final order = displayOrder ?? getQueueDisplayOrder();
+    if (order.isEmpty) return -1;
+
+    if (!state.shuffle) {
+      if (state.currentIndex < 0 || state.currentIndex >= order.length) {
+        return 0;
+      }
+      return state.currentIndex;
+    }
+
+    final position = order.indexOf(state.currentIndex);
+    if (position >= 0) return position;
+    return 0;
+  }
+
+  int _startNewPlayRequest() {
+    _playRequestEpoch++;
+    return _playRequestEpoch;
+  }
+
+  bool _isPlayRequestCurrent(int epoch) => epoch == _playRequestEpoch;
+
+  void _clearLyricsForTrackChange({PlaybackItem? upcomingItem}) {
+    // Invalidate any in-flight lyrics fetch from previous track.
+    _lyricsGeneration++;
+    state = state.copyWith(
+      currentItem: upcomingItem ?? state.currentItem,
+      lyricsLoading: false,
+      clearLyrics: true,
+    );
+  }
+
+  Map<String, dynamic> _serializePlaybackItem(PlaybackItem item) => {
+    'id': item.id,
+    'title': item.title,
+    'artist': item.artist,
+    'album': item.album,
+    'coverUrl': item.coverUrl,
+    'sourceUri': item.sourceUri,
+    'isLocal': item.isLocal,
+    'service': item.service,
+    'durationMs': item.durationMs,
+    'format': item.format,
+    'bitDepth': item.bitDepth,
+    'sampleRate': item.sampleRate,
+    'bitrate': item.bitrate,
+    if (item.track != null) 'track': item.track!.toJson(),
+  };
+
+  PlaybackItem? _deserializePlaybackItem(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final id = (json['id'] as String?)?.trim() ?? '';
+    if (id.isEmpty) return null;
+
+    Track? track;
+    try {
+      final trackJson = json['track'];
+      if (trackJson is Map) {
+        track = Track.fromJson(Map<String, dynamic>.from(trackJson));
+      }
+    } catch (_) {}
+
+    return PlaybackItem(
+      id: id,
+      title: (json['title'] as String?) ?? '',
+      artist: (json['artist'] as String?) ?? '',
+      album: (json['album'] as String?) ?? '',
+      coverUrl: (json['coverUrl'] as String?) ?? '',
+      sourceUri: (json['sourceUri'] as String?) ?? '',
+      isLocal: json['isLocal'] == true,
+      service: (json['service'] as String?) ?? '',
+      durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      format: (json['format'] as String?) ?? '',
+      bitDepth: (json['bitDepth'] as num?)?.toInt() ?? 0,
+      sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 0,
+      bitrate: (json['bitrate'] as num?)?.toInt() ?? 0,
+      track: track,
+    );
+  }
+
+  Future<void> _savePlaybackSnapshot() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = <String, dynamic>{
+        'queue': state.queue
+            .map(_serializePlaybackItem)
+            .toList(growable: false),
+        'currentIndex': state.currentIndex,
+        'positionMs': state.position.inMilliseconds,
+        'durationMs': state.duration > Duration.zero
+            ? state.duration.inMilliseconds
+            : (state.currentItem?.durationMs ?? 0),
+        'shuffle': state.shuffle,
+        'repeatMode': state.repeatMode.index,
+      };
+      await prefs.setString(_playbackSnapshotKey, jsonEncode(payload));
+    } catch (e) {
+      _log.w('Failed to save playback snapshot: $e');
+    }
+  }
+
+  Future<void> _restorePlaybackSnapshot() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_playbackSnapshotKey);
+      if (raw == null || raw.isEmpty) return;
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final payload = Map<String, dynamic>.from(decoded);
+
+      final queueRaw = payload['queue'];
+      final restoredQueue = <PlaybackItem>[];
+      if (queueRaw is List) {
+        for (final entry in queueRaw) {
+          if (entry is! Map) continue;
+          final item = _deserializePlaybackItem(
+            Map<String, dynamic>.from(entry),
+          );
+          if (item != null) restoredQueue.add(item);
+        }
+      }
+      if (restoredQueue.isEmpty) return;
+
+      var restoredIndex = (payload['currentIndex'] as num?)?.toInt() ?? 0;
+      restoredIndex = restoredIndex.clamp(0, restoredQueue.length - 1).toInt();
+      final restoredPositionMs = (payload['positionMs'] as num?)?.toInt() ?? 0;
+      final restoredDurationMs = (payload['durationMs'] as num?)?.toInt() ?? 0;
+      final restoredRepeatIndex = (payload['repeatMode'] as num?)?.toInt() ?? 0;
+      final restoredRepeatMode =
+          restoredRepeatIndex >= 0 &&
+              restoredRepeatIndex < RepeatMode.values.length
+          ? RepeatMode.values[restoredRepeatIndex]
+          : RepeatMode.off;
+
+      state = state.copyWith(
+        queue: restoredQueue,
+        currentIndex: restoredIndex,
+        currentItem: restoredQueue[restoredIndex],
+        isPlaying: false,
+        isBuffering: false,
+        isLoading: false,
+        position: Duration(milliseconds: restoredPositionMs),
+        bufferedPosition: Duration.zero,
+        duration: restoredDurationMs > 0
+            ? Duration(milliseconds: restoredDurationMs)
+            : (restoredQueue[restoredIndex].durationMs > 0
+                  ? Duration(
+                      milliseconds: restoredQueue[restoredIndex].durationMs,
+                    )
+                  : Duration.zero),
+        shuffle: payload['shuffle'] == true,
+        repeatMode: restoredRepeatMode,
+        clearError: true,
+      );
+      _pendingResumePosition = restoredPositionMs > 0
+          ? Duration(milliseconds: restoredPositionMs)
+          : null;
+      _pendingResumeIndex = restoredPositionMs > 0 ? restoredIndex : null;
+      _lastProgressSnapshotMs = restoredPositionMs;
+
+      if (state.shuffle) {
+        _regenerateShuffleOrder();
+        _shufflePosition = _shuffleOrder.indexOf(state.currentIndex);
+        if (_shufflePosition < 0) _shufflePosition = 0;
+      } else {
+        _shuffleOrder = [];
+        _shufflePosition = -1;
+      }
+    } catch (e) {
+      _log.w('Failed to restore playback snapshot: $e');
+    }
+  }
+
+  PlaybackItem _buildQueueItemFromTrack(Track track) {
+    final localState = ref.read(localLibraryProvider);
+    final isLocalSource = (track.source ?? '').toLowerCase() == 'local';
+
+    LocalLibraryItem? localItem;
+    if (isLocalSource) {
+      for (final item in localState.items) {
+        if (item.id == track.id) {
+          localItem = item;
+          break;
+        }
+      }
+    }
+
+    if (localItem == null) {
+      final isrc = track.isrc?.trim();
+      if (isrc != null && isrc.isNotEmpty) {
+        localItem = localState.getByIsrc(isrc);
+      }
+    }
+
+    localItem ??= localState.findByTrackAndArtist(track.name, track.artistName);
+
+    if (localItem != null && localItem.filePath.isNotEmpty) {
+      final localUri = _uriFromPath(localItem.filePath);
+      return PlaybackItem(
+        id: localItem.id,
+        title: localItem.trackName,
+        artist: localItem.artistName,
+        album: localItem.albumName,
+        coverUrl: localItem.coverPath ?? track.coverUrl ?? '',
+        sourceUri: localUri.toString(),
+        isLocal: true,
+        service: 'offline',
+        durationMs: localItem.duration ?? track.duration,
+        track: track,
+      );
+    }
+
+    return PlaybackItem(
+      id: track.id,
+      title: track.name,
+      artist: track.artistName,
+      album: track.albumName,
+      coverUrl: track.coverUrl ?? '',
+      sourceUri: '',
+      durationMs: track.duration,
+      track: track,
+    );
+  }
+
+  Duration _fallbackDurationForItem(PlaybackItem? item) {
+    final ms = item?.durationMs ?? 0;
+    if (ms <= 0) return Duration.zero;
+    return Duration(milliseconds: ms);
+  }
+
   // ─── Public: play a Track (streaming) ────────────────────────────────────
-  Future<void> playTrackStream(Track track) async {
+  Future<void> playTrackStream(
+    Track track, {
+    bool preserveQueue = false,
+    Duration? initialPosition,
+    int? requestEpoch,
+  }) async {
+    final activeRequestEpoch = requestEpoch ?? _startNewPlayRequest();
     // Cut current audio immediately so previous track does not continue
     // while waiting for the next stream URL to resolve.
     try {
@@ -519,7 +896,9 @@ class PlaybackController extends Notifier<PlaybackState> {
     } catch (e) {
       _log.w('Failed to stop current playback before stream switch: $e');
     }
+    if (!_isPlayRequestCurrent(activeRequestEpoch)) return;
     await FFmpegService.stopLiveDecryptedStream();
+    if (!_isPlayRequestCurrent(activeRequestEpoch)) return;
 
     final streamRequest = _buildStreamRequest(track);
     final selectedService = streamRequest.selectedService;
@@ -537,6 +916,18 @@ class PlaybackController extends Notifier<PlaybackState> {
       track: track,
     );
 
+    if (!preserveQueue) {
+      _pendingResumePosition = null;
+      _pendingResumeIndex = null;
+      state = state.copyWith(queue: [resolvingItem], currentIndex: 0);
+      unawaited(_savePlaybackSnapshot());
+    }
+
+    if (!preserveQueue) {
+      _clearLyricsForTrackChange(upcomingItem: resolvingItem);
+      // Start lyrics lookup immediately while stream URL is still resolving.
+      unawaited(_fetchLyricsForItem(resolvingItem));
+    }
     state = state.copyWith(
       currentItem: resolvingItem,
       isLoading: true,
@@ -545,7 +936,7 @@ class PlaybackController extends Notifier<PlaybackState> {
       seekSupported: true,
       position: Duration.zero,
       bufferedPosition: Duration.zero,
-      duration: Duration.zero,
+      duration: _fallbackDurationForItem(resolvingItem),
       clearError: true,
     );
     _updateMediaItemNotification(resolvingItem);
@@ -553,7 +944,9 @@ class PlaybackController extends Notifier<PlaybackState> {
     final result = await PlatformBridge.resolveStreamByStrategy(
       streamRequest.payload,
     );
+    if (!_isPlayRequestCurrent(activeRequestEpoch)) return;
     final requiresDecryption = result['requires_decryption'] == true;
+    final requiresProxy = result['requires_proxy'] == true;
     if (result['success'] != true && !requiresDecryption) {
       final failure = _buildStreamResolveFailure(result);
       _setPlaybackError(failure.message, type: failure.type);
@@ -572,6 +965,7 @@ class PlaybackController extends Notifier<PlaybackState> {
     var playbackUrl = rawStreamUrl;
     var playbackFormat = (result['format'] as String?) ?? '';
     var persistResolvedUrl = true;
+    var usesLiveProxy = false;
 
     if (requiresDecryption) {
       final decryptionKey = (result['decryption_key'] as String?)?.trim() ?? '';
@@ -588,6 +982,10 @@ class PlaybackController extends Notifier<PlaybackState> {
         decryptionKey: decryptionKey,
         preferredFormat: 'flac',
       );
+      if (!_isPlayRequestCurrent(activeRequestEpoch)) {
+        await FFmpegService.stopLiveDecryptedStream();
+        return;
+      }
       if (decrypted == null) {
         final message = (result['error'] as String?)?.trim().isNotEmpty == true
             ? (result['error'] as String).trim()
@@ -599,6 +997,28 @@ class PlaybackController extends Notifier<PlaybackState> {
       playbackUrl = decrypted.localUrl;
       playbackFormat = decrypted.format;
       persistResolvedUrl = false;
+      usesLiveProxy = true;
+    } else if (requiresProxy || rawStreamUrl.startsWith('MANIFEST:')) {
+      final tunnel = await FFmpegService.startTidalDashLiveStream(
+        manifestPayload: rawStreamUrl,
+        preferredFormat: 'm4a',
+      );
+      if (!_isPlayRequestCurrent(activeRequestEpoch)) {
+        await FFmpegService.stopLiveDecryptedStream();
+        return;
+      }
+      if (tunnel == null) {
+        final message = (result['error'] as String?)?.trim().isNotEmpty == true
+            ? (result['error'] as String).trim()
+            : 'Failed to start Tidal DASH live stream.';
+        _setPlaybackError(message, type: 'resolve_failed');
+        throw Exception(message);
+      }
+
+      playbackUrl = tunnel.localUrl;
+      playbackFormat = tunnel.format;
+      persistResolvedUrl = false;
+      usesLiveProxy = true;
     }
 
     final item = PlaybackItem(
@@ -618,8 +1038,22 @@ class PlaybackController extends Notifier<PlaybackState> {
       track: track,
     );
 
-    state = state.copyWith(seekSupported: !requiresDecryption);
-    await _setSourceAndPlay(Uri.parse(playbackUrl), item);
+    state = state.copyWith(
+      seekSupported: !(requiresDecryption || usesLiveProxy),
+    );
+    final effectiveInitialPosition =
+        (!requiresDecryption &&
+            !usesLiveProxy &&
+            initialPosition != null &&
+            initialPosition > Duration.zero)
+        ? initialPosition
+        : null;
+    await _setSourceAndPlay(
+      Uri.parse(playbackUrl),
+      item,
+      initialPosition: effectiveInitialPosition,
+      expectedRequestEpoch: activeRequestEpoch,
+    );
   }
 
   // ─── Public: play local file ─────────────────────────────────────────────
@@ -630,7 +1064,11 @@ class PlaybackController extends Notifier<PlaybackState> {
     String album = '',
     String coverUrl = '',
   }) async {
-    await FFmpegService.stopLiveDecryptedStream();
+    final requestEpoch = _startNewPlayRequest();
+    _prefetchingQueueIndex = null;
+    _lastPrefetchAttemptIndex = null;
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
     final uri = _uriFromPath(path);
     final item = PlaybackItem(
       id: path,
@@ -642,8 +1080,31 @@ class PlaybackController extends Notifier<PlaybackState> {
       isLocal: true,
       service: 'offline',
     );
-    state = state.copyWith(seekSupported: true, clearError: true);
-    await _setSourceAndPlay(uri, item);
+
+    _clearLyricsForTrackChange(upcomingItem: item);
+    // Start lyrics lookup immediately while local source is preparing.
+    unawaited(_fetchLyricsForItem(item));
+
+    // Replacing stream playback with local playback should also replace queue,
+    // otherwise the old streaming queue remains visible in queue UI.
+    state = state.copyWith(
+      seekSupported: true,
+      clearError: true,
+      queue: [item],
+      currentIndex: 0,
+    );
+    unawaited(_savePlaybackSnapshot());
+
+    if (state.shuffle) {
+      _regenerateShuffleOrder();
+      _shufflePosition = _shuffleOrder.indexOf(0);
+      if (_shufflePosition < 0) _shufflePosition = 0;
+    } else {
+      _shuffleOrder = [];
+      _shufflePosition = -1;
+    }
+
+    await _setSourceAndPlay(uri, item, expectedRequestEpoch: requestEpoch);
   }
 
   // ─── Public: play a list of tracks (set queue) ───────────────────────────
@@ -652,25 +1113,15 @@ class PlaybackController extends Notifier<PlaybackState> {
     _prefetchingQueueIndex = null;
     _lastPrefetchAttemptIndex = null;
 
-    final items = tracks
-        .map(
-          (t) => PlaybackItem(
-            id: t.id,
-            title: t.name,
-            artist: t.artistName,
-            album: t.albumName,
-            coverUrl: t.coverUrl ?? '',
-            sourceUri: '', // resolved lazily
-            durationMs: t.duration,
-            track: t,
-          ),
-        )
-        .toList();
+    final items = tracks.map(_buildQueueItemFromTrack).toList(growable: false);
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
 
     state = state.copyWith(
       queue: items,
       currentIndex: startIndex.clamp(0, items.length - 1),
     );
+    unawaited(_savePlaybackSnapshot());
 
     if (state.shuffle) {
       _regenerateShuffleOrder();
@@ -690,25 +1141,17 @@ class PlaybackController extends Notifier<PlaybackState> {
     _prefetchingQueueIndex = null;
     _lastPrefetchAttemptIndex = null;
     final items = albumTracks
-        .map(
-          (t) => PlaybackItem(
-            id: t.id,
-            title: t.name,
-            artist: t.artistName,
-            album: t.albumName,
-            coverUrl: t.coverUrl ?? '',
-            sourceUri: '',
-            durationMs: t.duration,
-            track: t,
-          ),
-        )
-        .toList();
+        .map(_buildQueueItemFromTrack)
+        .toList(growable: false);
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
 
     final startIndex = albumTracks.indexWhere((t) => t.id == track.id);
     state = state.copyWith(
       queue: items,
       currentIndex: startIndex >= 0 ? startIndex : 0,
     );
+    unawaited(_savePlaybackSnapshot());
 
     if (state.shuffle) {
       _regenerateShuffleOrder();
@@ -716,33 +1159,16 @@ class PlaybackController extends Notifier<PlaybackState> {
       if (_shufflePosition < 0) _shufflePosition = 0;
     }
 
-    await playTrackStream(track);
-
-    // Update the queue item with resolved data
-    if (startIndex >= 0 &&
-        startIndex < state.queue.length &&
-        state.currentItem != null) {
-      final updatedQueue = [...state.queue];
-      updatedQueue[startIndex] = state.currentItem!;
-      state = state.copyWith(queue: updatedQueue);
-    }
+    await _playQueueIndex(state.currentIndex);
   }
 
   // ─── Public: add track to queue ──────────────────────────────────────────
   void addToQueue(Track track) {
-    final item = PlaybackItem(
-      id: track.id,
-      title: track.name,
-      artist: track.artistName,
-      album: track.albumName,
-      coverUrl: track.coverUrl ?? '',
-      sourceUri: '',
-      durationMs: track.duration,
-      track: track,
-    );
+    final item = _buildQueueItemFromTrack(track);
 
     final newQueue = [...state.queue, item];
     state = state.copyWith(queue: newQueue);
+    unawaited(_savePlaybackSnapshot());
 
     if (state.shuffle) {
       _shuffleOrder.add(newQueue.length - 1);
@@ -762,6 +1188,7 @@ class PlaybackController extends Notifier<PlaybackState> {
     }
 
     state = state.copyWith(queue: newQueue, currentIndex: newIndex);
+    unawaited(_savePlaybackSnapshot());
     if (state.shuffle) _regenerateShuffleOrder();
   }
 
@@ -769,9 +1196,13 @@ class PlaybackController extends Notifier<PlaybackState> {
   void clearQueue() {
     _prefetchingQueueIndex = null;
     _lastPrefetchAttemptIndex = null;
+    _lastProgressSnapshotMs = -1;
     state = state.copyWith(queue: [], currentIndex: -1);
+    unawaited(_savePlaybackSnapshot());
     _shuffleOrder = [];
     _shufflePosition = -1;
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
   }
 
   // ─── Public: jump to specific queue index ────────────────────────────────
@@ -831,6 +1262,12 @@ class PlaybackController extends Notifier<PlaybackState> {
     if (_player.playing) {
       await _player.pause();
     } else {
+      if (_player.processingState == ProcessingState.idle &&
+          state.queue.isNotEmpty) {
+        final resumeIndex = state.currentIndex < 0 ? 0 : state.currentIndex;
+        await _playQueueIndex(resumeIndex);
+        return;
+      }
       await _player.play();
     }
   }
@@ -849,10 +1286,15 @@ class PlaybackController extends Notifier<PlaybackState> {
 
   // ─── Public: stop ────────────────────────────────────────────────────────
   Future<void> stop() async {
+    _startNewPlayRequest();
+    _lyricsGeneration++;
+    final lastKnownPosition = state.position;
+    final lastKnownDuration = state.duration;
     await FFmpegService.stopLiveDecryptedStream();
     await _player.stop();
     _prefetchingQueueIndex = null;
     _lastPrefetchAttemptIndex = null;
+    _lastProgressSnapshotMs = lastKnownPosition.inMilliseconds;
     _audioHandler?.playbackState.add(
       audio_service.PlaybackState(
         processingState: audio_service.AudioProcessingState.idle,
@@ -862,21 +1304,44 @@ class PlaybackController extends Notifier<PlaybackState> {
     _audioHandler?.mediaItem.add(null);
 
     state = state.copyWith(
-      clearCurrentItem: true,
       isPlaying: false,
       isBuffering: false,
       isLoading: false,
       seekSupported: true,
+      position: lastKnownPosition,
+      bufferedPosition: Duration.zero,
+      duration: lastKnownDuration,
+      clearError: true,
+      clearLyrics: true,
+    );
+    unawaited(_savePlaybackSnapshot());
+  }
+
+  /// Stops playback and dismisses the mini player UI entirely.
+  Future<void> dismissPlayer() async {
+    await stop();
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
+    _lastProgressSnapshotMs = -1;
+
+    state = state.copyWith(
+      clearCurrentItem: true,
+      queue: const [],
+      currentIndex: -1,
       position: Duration.zero,
       bufferedPosition: Duration.zero,
       duration: Duration.zero,
       clearError: true,
       clearLyrics: true,
-      queue: [],
-      currentIndex: -1,
+      lyricsLoading: false,
     );
-    _shuffleOrder = [];
-    _shufflePosition = -1;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_playbackSnapshotKey);
+    } catch (e) {
+      _log.w('Failed to clear playback snapshot on dismiss: $e');
+    }
   }
 
   void clearError() {
@@ -888,21 +1353,50 @@ class PlaybackController extends Notifier<PlaybackState> {
   Future<void> _playQueueIndex(int index) async {
     if (index < 0 || index >= state.queue.length) return;
 
+    final requestEpoch = _startNewPlayRequest();
     _prefetchingQueueIndex = null;
     _lastPrefetchAttemptIndex = null;
+    final pendingResumePosition = _pendingResumePositionForIndex(index);
     final item = state.queue[index];
-    state = state.copyWith(currentIndex: index);
+    _clearLyricsForTrackChange(upcomingItem: item);
+    state = state.copyWith(
+      currentIndex: index,
+      currentItem: item,
+      isLoading: true,
+      isBuffering: true,
+      isPlaying: false,
+      position:
+          pendingResumePosition != null && pendingResumePosition > Duration.zero
+          ? pendingResumePosition
+          : Duration.zero,
+      bufferedPosition: Duration.zero,
+      duration: _fallbackDurationForItem(item),
+      clearError: true,
+    );
+    unawaited(_savePlaybackSnapshot());
+    // Start lyrics lookup at track-change time, not after playback starts.
+    unawaited(_fetchLyricsForItem(item));
 
     // If the item has a Track but no resolved sourceUri, resolve stream
     if (item.sourceUri.isEmpty && item.track != null) {
       try {
-        await playTrackStream(item.track!);
+        await playTrackStream(
+          item.track!,
+          preserveQueue: true,
+          initialPosition: pendingResumePosition,
+          requestEpoch: requestEpoch,
+        );
+        if (!_isPlayRequestCurrent(requestEpoch) ||
+            state.currentIndex != index) {
+          return;
+        }
         // Update the queue item with resolved data
         final updatedQueue = [...state.queue];
         if (index < updatedQueue.length && state.currentItem != null) {
           updatedQueue[index] = state.currentItem!;
           state = state.copyWith(queue: updatedQueue);
         }
+        _clearPendingResumeForIndex(index);
       } catch (e) {
         _log.e('Failed to resolve queue item $index: $e');
         final hasExistingError = (state.error ?? '').trim().isNotEmpty;
@@ -923,11 +1417,32 @@ class PlaybackController extends Notifier<PlaybackState> {
     if (item.sourceUri.isNotEmpty) {
       final uri = _uriFromPath(item.sourceUri);
       try {
-        await _setSourceAndPlay(uri, item);
+        await _setSourceAndPlay(
+          uri,
+          item,
+          initialPosition: pendingResumePosition,
+          expectedRequestEpoch: requestEpoch,
+        );
+        if (!_isPlayRequestCurrent(requestEpoch) ||
+            state.currentIndex != index) {
+          return;
+        }
+        _clearPendingResumeForIndex(index);
       } catch (e) {
+        if (!_isPlayRequestCurrent(requestEpoch)) return;
         if (item.track == null) rethrow;
         _log.w('Prefetched stream failed for ${item.id}, re-resolving: $e');
-        await playTrackStream(item.track!);
+        await playTrackStream(
+          item.track!,
+          preserveQueue: true,
+          initialPosition: pendingResumePosition,
+          requestEpoch: requestEpoch,
+        );
+        if (!_isPlayRequestCurrent(requestEpoch) ||
+            state.currentIndex != index) {
+          return;
+        }
+        _clearPendingResumeForIndex(index);
         final updatedQueue = [...state.queue];
         if (index < updatedQueue.length && state.currentItem != null) {
           updatedQueue[index] = state.currentItem!;
@@ -937,32 +1452,71 @@ class PlaybackController extends Notifier<PlaybackState> {
     }
   }
 
-  Future<void> _setSourceAndPlay(Uri uri, PlaybackItem item) async {
+  Future<void> _setSourceAndPlay(
+    Uri uri,
+    PlaybackItem item, {
+    Duration? initialPosition,
+    int? expectedRequestEpoch,
+  }) async {
+    if (expectedRequestEpoch != null &&
+        !_isPlayRequestCurrent(expectedRequestEpoch)) {
+      return;
+    }
     if (!FFmpegService.isActiveLiveDecryptedUrl(uri.toString())) {
       await FFmpegService.stopLiveDecryptedStream();
     }
 
+    final startPosition =
+        initialPosition != null && initialPosition > Duration.zero
+        ? initialPosition
+        : Duration.zero;
     state = state.copyWith(
       currentItem: item,
       isLoading: true,
       isBuffering: true,
       isPlaying: false,
-      position: Duration.zero,
+      position: startPosition,
       bufferedPosition: Duration.zero,
-      duration: Duration.zero,
+      duration: _fallbackDurationForItem(item),
       clearError: true,
-      clearLyrics: true,
     );
+    unawaited(_savePlaybackSnapshot());
 
     _updateMediaItemNotification(item);
 
-    // Fetch lyrics in background
-    unawaited(_fetchLyricsForItem(item));
-
     try {
-      await _player.setAudioSource(AudioSource.uri(uri));
+      if (expectedRequestEpoch != null &&
+          !_isPlayRequestCurrent(expectedRequestEpoch)) {
+        return;
+      }
+      final isDirectLocalFile = uri.scheme == 'file';
+      if (isDirectLocalFile) {
+        final filePath = uri.toFilePath();
+        if (startPosition > Duration.zero) {
+          await _player.setFilePath(filePath, initialPosition: startPosition);
+        } else {
+          await _player.setFilePath(filePath);
+        }
+      } else {
+        if (startPosition > Duration.zero) {
+          await _player.setAudioSource(
+            AudioSource.uri(uri),
+            initialPosition: startPosition,
+          );
+        } else {
+          await _player.setAudioSource(AudioSource.uri(uri));
+        }
+      }
+      if (expectedRequestEpoch != null &&
+          !_isPlayRequestCurrent(expectedRequestEpoch)) {
+        return;
+      }
       await _player.play();
     } catch (e) {
+      if (expectedRequestEpoch != null &&
+          !_isPlayRequestCurrent(expectedRequestEpoch)) {
+        return;
+      }
       if (FFmpegService.isActiveLiveDecryptedUrl(uri.toString())) {
         await FFmpegService.stopLiveDecryptedStream();
       }
@@ -974,11 +1528,9 @@ class PlaybackController extends Notifier<PlaybackState> {
 
   // ─── Lyrics fetching + parsing ───────────────────────────────────────────
 
-  /// A generation counter to discard stale lyrics results.
-  int _lyricsGeneration = 0;
-
   Future<void> _fetchLyricsForItem(PlaybackItem item) async {
     final generation = ++_lyricsGeneration;
+    _log.d('Lyrics fetch start: ${item.artist} - ${item.title} (${item.id})');
     state = state.copyWith(lyricsLoading: true, clearLyrics: true);
 
     try {
@@ -998,6 +1550,7 @@ class PlaybackController extends Notifier<PlaybackState> {
       final source = (result['source'] as String?) ?? '';
 
       if (!success && !instrumental) {
+        _log.d('Lyrics fetch returned no usable lyrics for ${item.id}');
         state = state.copyWith(
           lyricsLoading: false,
           lyrics: const LyricsData(),
@@ -1006,6 +1559,7 @@ class PlaybackController extends Notifier<PlaybackState> {
       }
 
       if (instrumental) {
+        _log.d('Lyrics fetch result is instrumental from: $source');
         state = state.copyWith(
           lyricsLoading: false,
           lyrics: LyricsData(
@@ -1019,6 +1573,9 @@ class PlaybackController extends Notifier<PlaybackState> {
 
       final rawLines = result['lines'] as List<dynamic>? ?? [];
       final parsed = _parseLyricsLines(rawLines, syncType);
+      _log.d(
+        'Lyrics fetch success from $source (sync=$syncType, lines=${parsed.lines.length}, wordSync=${parsed.hasWordSync})',
+      );
 
       state = state.copyWith(
         lyricsLoading: false,
@@ -1031,7 +1588,7 @@ class PlaybackController extends Notifier<PlaybackState> {
       );
     } catch (e) {
       if (generation != _lyricsGeneration) return;
-      _log.w('Lyrics fetch failed: $e');
+      _log.w('Lyrics fetch failed for ${item.id}: $e');
       state = state.copyWith(lyricsLoading: false, lyrics: const LyricsData());
     }
   }
@@ -1229,12 +1786,14 @@ class PlaybackController extends Notifier<PlaybackState> {
         streamRequest.payload,
       );
 
-      if (result['success'] != true || result['requires_decryption'] == true) {
+      if (result['success'] != true ||
+          result['requires_decryption'] == true ||
+          result['requires_proxy'] == true) {
         return;
       }
 
       final rawStreamUrl = (result['stream_url'] as String?)?.trim() ?? '';
-      if (rawStreamUrl.isEmpty) return;
+      if (rawStreamUrl.isEmpty || rawStreamUrl.startsWith('MANIFEST:')) return;
       if (index >= state.queue.length) return;
 
       final current = state.queue[index];
@@ -1375,7 +1934,43 @@ class PlaybackController extends Notifier<PlaybackState> {
     );
   }
 
+  Duration? _pendingResumePositionForIndex(int index) {
+    final pendingPosition = _pendingResumePosition;
+    final pendingIndex = _pendingResumeIndex;
+    if (pendingPosition == null ||
+        pendingPosition <= Duration.zero ||
+        pendingIndex != index) {
+      return null;
+    }
+    return pendingPosition;
+  }
+
+  void _clearPendingResumeForIndex(int index) {
+    if (_pendingResumeIndex != index) return;
+    _pendingResumePosition = null;
+    _pendingResumeIndex = null;
+  }
+
+  void _scheduleSnapshotSaveForProgress(Duration position) {
+    if (state.queue.isEmpty || state.currentIndex < 0) return;
+    if (_player.processingState == ProcessingState.idle) return;
+
+    final ms = position.inMilliseconds;
+    if (_lastProgressSnapshotMs >= 0 &&
+        (ms - _lastProgressSnapshotMs).abs() < 1500) {
+      return;
+    }
+    _lastProgressSnapshotMs = ms;
+
+    _snapshotSaveTimer?.cancel();
+    _snapshotSaveTimer = Timer(const Duration(milliseconds: 300), () {
+      unawaited(_savePlaybackSnapshot());
+    });
+  }
+
   void _disposeInternal() {
+    _snapshotSaveTimer?.cancel();
+    unawaited(_savePlaybackSnapshot());
     unawaited(FFmpegService.stopLiveDecryptedStream());
     for (final sub in _subscriptions) {
       sub.cancel();

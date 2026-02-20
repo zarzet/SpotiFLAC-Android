@@ -241,6 +241,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     if (wasStreaming && normalized == 'downloader') {
       final playback = ref.read(playbackProvider.notifier);
       playback.stop();
+      playback.clearQueue();
     }
   }
 

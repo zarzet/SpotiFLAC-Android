@@ -311,6 +311,9 @@ class _LibraryTracksFolderScreenState
       LibraryTracksFolderMode.playlist =>
         context.l10n.collectionPlaylistEmptySubtitle,
     };
+    final folderTracks = entries
+        .map((entry) => entry.track)
+        .toList(growable: false);
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -355,6 +358,7 @@ class _LibraryTracksFolderScreenState
                           mode: widget.mode,
                           playlistId: widget.playlistId,
                           localLibraryState: localState,
+                          folderTracks: folderTracks,
                           isSelectionMode: _isSelectionMode,
                           isSelected: isSelected,
                           onTap: _isSelectionMode
@@ -898,6 +902,7 @@ class _CollectionTrackTile extends ConsumerWidget {
   final LibraryTracksFolderMode mode;
   final String? playlistId;
   final LocalLibraryState localLibraryState;
+  final List<Track> folderTracks;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -908,6 +913,7 @@ class _CollectionTrackTile extends ConsumerWidget {
     required this.mode,
     required this.playlistId,
     required this.localLibraryState,
+    required this.folderTracks,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onTap,
@@ -1004,6 +1010,12 @@ class _CollectionTrackTile extends ConsumerWidget {
 
                   if (shouldPlayStream) {
                     _playTrackStream(context, ref);
+                    return;
+                  }
+
+                  if (mode == LibraryTracksFolderMode.playlist &&
+                      settings.isStreamingMode) {
+                    _playTrackStreamAndSetQueue(context, ref);
                     return;
                   }
 
@@ -1269,6 +1281,24 @@ class _CollectionTrackTile extends ConsumerWidget {
   Future<void> _playTrackStream(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(playbackProvider.notifier).playTrackStream(entry.track);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.errorFailedToLoad(entry.track.name)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _playTrackStreamAndSetQueue(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    try {
+      await ref
+          .read(playbackProvider.notifier)
+          .playTrackStreamAndSetQueue(entry.track, folderTracks);
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

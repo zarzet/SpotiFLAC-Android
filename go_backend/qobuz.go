@@ -185,13 +185,19 @@ func qobuzTitlesMatch(expectedTitle, foundTitle string) bool {
 		}
 	}
 
-	// Some tracks are symbol/emoji-heavy and providers can return textual
-	// aliases. If artist/duration already matched upstream, avoid false rejects.
+	// Emoji/symbol-only titles must be matched strictly to avoid false positives
+	// like mapping "🪐" to unrelated textual tracks.
 	if (!hasAlphaNumericRunes(expectedTitle) || !hasAlphaNumericRunes(foundTitle)) &&
 		strings.TrimSpace(expectedTitle) != "" &&
 		strings.TrimSpace(foundTitle) != "" {
-		GoLog("[Qobuz] Symbol-heavy title detected, relaxing match: '%s' vs '%s'\n", expectedTitle, foundTitle)
-		return true
+		expectedSymbols := normalizeSymbolOnlyTitle(expectedTitle)
+		foundSymbols := normalizeSymbolOnlyTitle(foundTitle)
+		if expectedSymbols != "" && foundSymbols != "" && expectedSymbols == foundSymbols {
+			GoLog("[Qobuz] Symbol-heavy title matched strictly: '%s' vs '%s'\n", expectedTitle, foundTitle)
+			return true
+		}
+		GoLog("[Qobuz] Symbol-heavy title mismatch: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return false
 	}
 
 	expectedLatin := qobuzIsLatinScript(expectedTitle)

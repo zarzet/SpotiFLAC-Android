@@ -16,6 +16,7 @@ class FFmpegService {
   static int _tempEmbedCounter = 0;
   static FFmpegSession? _activeLiveDecryptSession;
   static String? _activeLiveDecryptUrl;
+  static String? _activeLiveTempInputPath;
 
   static String _buildOutputPath(String inputPath, String extension) {
     final normalizedExt = extension.startsWith('.') ? extension : '.$extension';
@@ -317,21 +318,170 @@ class FFmpegService {
 
   static Future<void> stopLiveDecryptedStream() async {
     final session = _activeLiveDecryptSession;
+    final tempInputPath = _activeLiveTempInputPath;
     _activeLiveDecryptSession = null;
     _activeLiveDecryptUrl = null;
-    if (session == null) return;
+    _activeLiveTempInputPath = null;
+
+    if (session != null) {
+      try {
+        await session.cancel();
+      } catch (e) {
+        final sessionId = session.getSessionId();
+        if (sessionId != null) {
+          try {
+            await FFmpegKit.cancel(sessionId);
+          } catch (_) {}
+        }
+        _log.w('Failed to stop live decrypt session cleanly: $e');
+      }
+    }
+
+    if (tempInputPath != null && tempInputPath.isNotEmpty) {
+      try {
+        final file = File(tempInputPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
+  }
+
+  static Future<LiveDecryptedStreamResult?> startTidalDashLiveStream({
+    required String manifestPayload,
+    String preferredFormat = 'm4a',
+  }) async {
+    final rawPayload = manifestPayload.trim();
+    if (rawPayload.isEmpty) return null;
+
+    final payload = rawPayload.startsWith('MANIFEST:')
+        ? rawPayload.substring('MANIFEST:'.length)
+        : rawPayload;
+
+    final manifestPath = await _writeTempManifestFile(payload);
+    if (manifestPath == null) {
+      _log.e('Failed to prepare Tidal DASH manifest for live stream');
+      return null;
+    }
+
+    await stopLiveDecryptedStream();
+
+    final attempts = _buildLiveDashFormatAttempts(preferredFormat);
+    for (final format in attempts) {
+      final stream = await _tryStartLiveDashAttempt(
+        manifestPath: manifestPath,
+        format: format,
+      );
+      if (stream != null) {
+        _activeLiveDecryptSession = stream.session;
+        _activeLiveDecryptUrl = stream.localUrl;
+        _activeLiveTempInputPath = manifestPath;
+        return stream;
+      }
+    }
+
+    try {
+      final file = File(manifestPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<String?> _writeTempManifestFile(String payload) async {
+    if (payload.trim().isEmpty) return null;
+
+    Uint8List bytes;
+    try {
+      bytes = base64Decode(payload);
+    } catch (_) {
+      bytes = Uint8List.fromList(utf8.encode(payload));
+    }
+
+    final manifestText = utf8.decode(bytes, allowMalformed: true).trim();
+    if (manifestText.isEmpty) return null;
+
+    final tempDir = await getTemporaryDirectory();
+    final manifestPath =
+        '${tempDir.path}${Platform.pathSeparator}tidal_dash_${DateTime.now().microsecondsSinceEpoch}.mpd';
+    await File(manifestPath).writeAsString(manifestText, flush: true);
+    return manifestPath;
+  }
+
+  static List<_LiveDecryptFormat> _buildLiveDashFormatAttempts(
+    String preferredFormat,
+  ) {
+    final normalized = preferredFormat.trim().toLowerCase();
+    if (normalized == 'flac') {
+      return const [_LiveDecryptFormat.flac, _LiveDecryptFormat.m4a];
+    }
+    return const [_LiveDecryptFormat.m4a, _LiveDecryptFormat.flac];
+  }
+
+  static Future<LiveDecryptedStreamResult?> _tryStartLiveDashAttempt({
+    required String manifestPath,
+    required _LiveDecryptFormat format,
+  }) async {
+    final port = await _allocateLoopbackPort();
+    final ext = format == _LiveDecryptFormat.flac ? 'flac' : 'm4a';
+    final mimeType = format == _LiveDecryptFormat.flac
+        ? 'audio/flac'
+        : 'audio/mp4';
+    final localUrl = 'http://localhost:$port/stream.$ext';
+
+    final commandArguments = <String>[
+      '-nostdin',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-protocol_whitelist',
+      'file,http,https,tcp,tls,crypto,data',
+      '-i',
+      manifestPath,
+      '-map',
+      '0:a:0',
+      '-c:a',
+      'copy',
+      if (format == _LiveDecryptFormat.flac) ...['-f', 'flac'],
+      if (format == _LiveDecryptFormat.m4a) ...[
+        '-movflags',
+        '+frag_keyframe+empty_moov+default_base_moof',
+        '-f',
+        'mp4',
+      ],
+      '-content_type',
+      mimeType,
+      '-listen',
+      '1',
+      localUrl,
+    ];
+
+    _log.d(
+      'Starting Tidal DASH tunnel: ${_previewCommandForLog(commandArguments.join(' '))}',
+    );
+
+    final session = await FFmpegKit.executeWithArgumentsAsync(commandArguments);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+
+    final state = await session.getState();
+    if (state == SessionState.running || state == SessionState.created) {
+      return LiveDecryptedStreamResult(
+        localUrl: localUrl,
+        format: ext,
+        session: session,
+      );
+    }
+
+    final output = (await session.getOutput() ?? '').trim();
+    if (output.isNotEmpty) {
+      _log.w('Tidal DASH tunnel failed ($ext): $output');
+    }
 
     try {
       await session.cancel();
-    } catch (e) {
-      final sessionId = session.getSessionId();
-      if (sessionId != null) {
-        try {
-          await FFmpegKit.cancel(sessionId);
-        } catch (_) {}
-      }
-      _log.w('Failed to stop live decrypt session cleanly: $e');
-    }
+    } catch (_) {}
+    return null;
   }
 
   static Future<LiveDecryptedStreamResult?> startAmazonLiveDecryptedStream({
@@ -361,6 +511,7 @@ class FFmpegService {
         if (stream != null) {
           _activeLiveDecryptSession = stream.session;
           _activeLiveDecryptUrl = stream.localUrl;
+          _activeLiveTempInputPath = null;
           return stream;
         }
       }

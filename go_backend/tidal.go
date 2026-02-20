@@ -331,7 +331,7 @@ func (t *TidalDownloader) SearchTrackByISRC(isrc string) (*TidalTrack, error) {
 }
 
 // Now includes romaji conversion for Japanese text (4 search strategies like PC)
-func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, spotifyISRC string, expectedDuration int) (*TidalTrack, error) {
+func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, albumName, spotifyISRC string, expectedDuration int) (*TidalTrack, error) {
 	token, err := t.GetAccessToken()
 	if err != nil {
 		return nil, err
@@ -346,6 +346,18 @@ func (t *TidalDownloader) SearchTrackByMetadataWithISRC(trackName, artistName, s
 
 	if trackName != "" {
 		queries = append(queries, trackName)
+	}
+
+	// Emoji/symbol-only titles are often poorly indexed by providers.
+	// Add album-based queries to improve recall for tracks like "🪐"/"✨"/"🌎".
+	if !hasAlphaNumericRunes(trackName) {
+		cleanAlbum := strings.TrimSpace(albumName)
+		if cleanAlbum != "" {
+			if artistName != "" {
+				queries = append(queries, artistName+" "+cleanAlbum)
+			}
+			queries = append(queries, cleanAlbum)
+		}
 	}
 
 	if ContainsJapanese(trackName) || ContainsJapanese(artistName) {
@@ -641,7 +653,7 @@ func fallbackHasTag(track *TidalTrack, tag string) bool {
 }
 
 func (t *TidalDownloader) SearchTrackByMetadata(trackName, artistName string) (*TidalTrack, error) {
-	return t.SearchTrackByMetadataWithISRC(trackName, artistName, "", 0)
+	return t.SearchTrackByMetadataWithISRC(trackName, artistName, "", "", 0)
 }
 
 // TidalDownloadInfo contains download URL and quality info
@@ -1376,13 +1388,19 @@ func titlesMatch(expectedTitle, foundTitle string) bool {
 		}
 	}
 
-	// Some tracks are symbol/emoji-heavy and providers can return textual
-	// aliases. If artist/duration already matched upstream, avoid false rejects.
+	// Emoji/symbol-only titles must be matched strictly to avoid false positives
+	// like mapping "🪐" to "Higher Power".
 	if (!hasAlphaNumericRunes(expectedTitle) || !hasAlphaNumericRunes(foundTitle)) &&
 		strings.TrimSpace(expectedTitle) != "" &&
 		strings.TrimSpace(foundTitle) != "" {
-		GoLog("[Tidal] Symbol-heavy title detected, relaxing match: '%s' vs '%s'\n", expectedTitle, foundTitle)
-		return true
+		expectedSymbols := normalizeSymbolOnlyTitle(expectedTitle)
+		foundSymbols := normalizeSymbolOnlyTitle(foundTitle)
+		if expectedSymbols != "" && foundSymbols != "" && expectedSymbols == foundSymbols {
+			GoLog("[Tidal] Symbol-heavy title matched strictly: '%s' vs '%s'\n", expectedTitle, foundTitle)
+			return true
+		}
+		GoLog("[Tidal] Symbol-heavy title mismatch: '%s' vs '%s'\n", expectedTitle, foundTitle)
+		return false
 	}
 
 	expectedLatin := isLatinScript(expectedTitle)
@@ -1557,7 +1575,7 @@ func resolveTidalTrackForRequest(req DownloadRequest, downloader *TidalDownloade
 
 	if track == nil && req.ISRC != "" {
 		GoLog("[%s] Trying ISRC search: %s\n", logPrefix, req.ISRC)
-		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.ISRC, expectedDurationSec)
+		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.AlbumName, req.ISRC, expectedDurationSec)
 		if track != nil {
 			tidalArtist := tidalTrackArtistsDisplay(track)
 			if !artistsMatch(req.ArtistName, tidalArtist) {
@@ -1568,25 +1586,23 @@ func resolveTidalTrackForRequest(req DownloadRequest, downloader *TidalDownloade
 		}
 	}
 
-	if track == nil && req.SpotifyID != "" {
+	if track == nil && (req.SpotifyID != "" || req.DeezerID != "") {
 		GoLog("[%s] ISRC search failed, trying SongLink...\n", logPrefix)
 
 		var trackID int64
 		var gotTidalID bool
-
-		if strings.HasPrefix(req.SpotifyID, "deezer:") {
-			deezerID := strings.TrimPrefix(req.SpotifyID, "deezer:")
-			GoLog("[%s] Using Deezer ID for SongLink lookup: %s\n", logPrefix, deezerID)
-			songlink := NewSongLinkClient()
-			availability, slErr := songlink.CheckAvailabilityFromDeezer(deezerID)
-			if slErr == nil && availability != nil && availability.TidalID != "" {
+		resolveFromAvailability := func(availability *TrackAvailability) {
+			if availability == nil || gotTidalID {
+				return
+			}
+			if availability.TidalID != "" {
 				if _, parseErr := fmt.Sscanf(availability.TidalID, "%d", &trackID); parseErr == nil && trackID > 0 {
 					GoLog("[%s] Got Tidal ID %d directly from SongLink\n", logPrefix, trackID)
 					gotTidalID = true
+					return
 				}
 			}
-			// Fallback to URL parsing if TidalID not in struct
-			if !gotTidalID && availability != nil && availability.TidalURL != "" {
+			if availability.TidalURL != "" {
 				var idErr error
 				trackID, idErr = downloader.GetTrackIDFromURL(availability.TidalURL)
 				if idErr == nil && trackID > 0 {
@@ -1594,23 +1610,39 @@ func resolveTidalTrackForRequest(req DownloadRequest, downloader *TidalDownloade
 					gotTidalID = true
 				}
 			}
-		} else {
+		}
+
+		// Prefer Deezer-based SongLink lookup when DeezerID is available.
+		if req.DeezerID != "" {
+			GoLog("[%s] Using Deezer ID for SongLink lookup: %s\n", logPrefix, req.DeezerID)
+			songlink := NewSongLinkClient()
+			availability, slErr := songlink.CheckAvailabilityFromDeezer(req.DeezerID)
+			if slErr == nil {
+				resolveFromAvailability(availability)
+			} else {
+				GoLog("[%s] SongLink Deezer lookup failed: %v\n", logPrefix, slErr)
+			}
+		}
+
+		if !gotTidalID && req.SpotifyID != "" {
+			if strings.HasPrefix(req.SpotifyID, "deezer:") {
+				deezerID := strings.TrimPrefix(req.SpotifyID, "deezer:")
+				GoLog("[%s] Using Deezer ID for SongLink lookup: %s\n", logPrefix, deezerID)
+				songlink := NewSongLinkClient()
+				availability, slErr := songlink.CheckAvailabilityFromDeezer(deezerID)
+				if slErr == nil {
+					resolveFromAvailability(availability)
+				} else {
+					GoLog("[%s] SongLink Deezer lookup failed: %v\n", logPrefix, slErr)
+				}
+			}
+		}
+
+		if !gotTidalID && req.SpotifyID != "" && !strings.HasPrefix(req.SpotifyID, "deezer:") {
 			songlink := NewSongLinkClient()
 			availability, slErr := songlink.CheckTrackAvailability(req.SpotifyID, req.ISRC)
-			if slErr == nil && availability != nil && availability.TidalID != "" {
-				if _, parseErr := fmt.Sscanf(availability.TidalID, "%d", &trackID); parseErr == nil && trackID > 0 {
-					GoLog("[%s] Got Tidal ID %d directly from SongLink\n", logPrefix, trackID)
-					gotTidalID = true
-				}
-			}
-			// Fallback to URL parsing if TidalID not in struct
-			if !gotTidalID && availability != nil && availability.TidalURL != "" {
-				var idErr error
-				trackID, idErr = downloader.GetTrackIDFromURL(availability.TidalURL)
-				if idErr == nil && trackID > 0 {
-					GoLog("[%s] Got Tidal ID %d from URL parsing\n", logPrefix, trackID)
-					gotTidalID = true
-				}
+			if slErr == nil {
+				resolveFromAvailability(availability)
 			}
 		}
 
@@ -1647,7 +1679,7 @@ func resolveTidalTrackForRequest(req DownloadRequest, downloader *TidalDownloade
 
 	if track == nil {
 		GoLog("[%s] Trying metadata search as last resort...\n", logPrefix)
-		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, "", expectedDurationSec)
+		track, err = downloader.SearchTrackByMetadataWithISRC(req.TrackName, req.ArtistName, req.AlbumName, "", expectedDurationSec)
 		if track != nil {
 			tidalArtist := tidalTrackArtistsDisplay(track)
 
