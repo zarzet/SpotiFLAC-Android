@@ -252,6 +252,18 @@ class AppLocalizationsId extends AppLocalizations {
       'Coba layanan lain jika unduhan gagal';
 
   @override
+  String get optionsAutoSkipUnavailableTracks =>
+      'Lewati Otomatis Lagu yang Tidak Tersedia';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOn =>
+      'Otomatis lanjut ke lagu berikutnya di antrean jika stream lagu tidak bisa ditemukan.';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOff =>
+      'Berhenti di lagu yang gagal dan tampilkan pesan error.';
+
+  @override
   String get optionsInteractionMode => 'Mode Interaksi';
 
   @override

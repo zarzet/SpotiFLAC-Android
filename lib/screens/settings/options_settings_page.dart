@@ -170,6 +170,21 @@ class OptionsSettingsPage extends ConsumerWidget {
                         ref.read(settingsProvider.notifier).setAutoFallback(v),
                   ),
                   SettingsSwitchItem(
+                    icon: Icons.skip_next_rounded,
+                    title: context.l10n.optionsAutoSkipUnavailableTracks,
+                    subtitle: settings.autoSkipUnavailableTracks
+                        ? context
+                              .l10n
+                              .optionsAutoSkipUnavailableTracksSubtitleOn
+                        : context
+                              .l10n
+                              .optionsAutoSkipUnavailableTracksSubtitleOff,
+                    value: settings.autoSkipUnavailableTracks,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .setAutoSkipUnavailableTracks(v),
+                  ),
+                  SettingsSwitchItem(
                     icon: Icons.queue_music_rounded,
                     title: context.l10n.settingsSmartQueueTitle,
                     subtitle: settings.interactionMode == 'streaming'

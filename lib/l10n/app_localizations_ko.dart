@@ -248,6 +248,17 @@ class AppLocalizationsKo extends AppLocalizations {
   String get optionsAutoFallbackSubtitle => '다운로드가 실패한 경우, 다른 서비스로 재시도';
 
   @override
+  String get optionsAutoSkipUnavailableTracks => 'Auto Skip Unavailable Tracks';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOn =>
+      'Automatically skip to the next queue track when a stream cannot be resolved.';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOff =>
+      'Stop on failed track resolution and show an error.';
+
+  @override
   String get optionsInteractionMode => 'Interaction Mode';
 
   @override

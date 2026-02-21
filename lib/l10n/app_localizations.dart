@@ -544,6 +544,24 @@ abstract class AppLocalizations {
   /// **'Try other services if download fails'**
   String get optionsAutoFallbackSubtitle;
 
+  /// Toggle to skip to the next queue track when current track stream resolution fails
+  ///
+  /// In en, this message translates to:
+  /// **'Auto Skip Unavailable Tracks'**
+  String get optionsAutoSkipUnavailableTracks;
+
+  /// Subtitle when auto skip on resolve failure is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically skip to the next queue track when a stream cannot be resolved.'**
+  String get optionsAutoSkipUnavailableTracksSubtitleOn;
+
+  /// Subtitle when auto skip on resolve failure is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Stop on failed track resolution and show an error.'**
+  String get optionsAutoSkipUnavailableTracksSubtitleOff;
+
   /// Tap behavior mode for track lists
   ///
   /// In en, this message translates to:

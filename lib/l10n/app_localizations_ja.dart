@@ -249,6 +249,17 @@ class AppLocalizationsJa extends AppLocalizations {
       'Try other services if download fails';
 
   @override
+  String get optionsAutoSkipUnavailableTracks => 'Auto Skip Unavailable Tracks';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOn =>
+      'Automatically skip to the next queue track when a stream cannot be resolved.';
+
+  @override
+  String get optionsAutoSkipUnavailableTracksSubtitleOff =>
+      'Stop on failed track resolution and show an error.';
+
+  @override
   String get optionsInteractionMode => 'Interaction Mode';
 
   @override

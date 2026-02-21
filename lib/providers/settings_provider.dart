@@ -281,6 +281,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setAutoSkipUnavailableTracks(bool enabled) {
+    state = state.copyWith(autoSkipUnavailableTracks: enabled);
+    _saveSettings();
+  }
+
   void setSmartQueueEnabled(bool enabled) {
     state = state.copyWith(smartQueueEnabled: enabled);
     _saveSettings();

@@ -308,6 +308,18 @@
   "@optionsAutoFallbackSubtitle": {
     "description": "Subtitle for auto fallback"
   },
+  "optionsAutoSkipUnavailableTracks": "Lewati Otomatis Lagu yang Tidak Tersedia",
+  "@optionsAutoSkipUnavailableTracks": {
+    "description": "Toggle to skip to the next queue track when current track stream resolution fails"
+  },
+  "optionsAutoSkipUnavailableTracksSubtitleOn": "Otomatis lanjut ke lagu berikutnya di antrean jika stream lagu tidak bisa ditemukan.",
+  "@optionsAutoSkipUnavailableTracksSubtitleOn": {
+    "description": "Subtitle when auto skip on resolve failure is enabled"
+  },
+  "optionsAutoSkipUnavailableTracksSubtitleOff": "Berhenti di lagu yang gagal dan tampilkan pesan error.",
+  "@optionsAutoSkipUnavailableTracksSubtitleOff": {
+    "description": "Subtitle when auto skip on resolve failure is disabled"
+  },
   "optionsInteractionMode": "Mode Interaksi",
   "@optionsInteractionMode": {
     "description": "Tap behavior mode for track lists"

@@ -1780,15 +1780,14 @@ class PlaybackController extends Notifier<PlaybackState> {
         _clearPendingResumeForIndex(index);
       } catch (e) {
         _log.e('Failed to resolve queue item $index: $e');
-        final hasExistingError = (state.error ?? '').trim().isNotEmpty;
-        if (hasExistingError) {
-          state = state.copyWith(
-            isLoading: false,
-            isPlaying: false,
-            isBuffering: false,
-          );
-        } else {
-          _setPlaybackError('Failed to play: $e', type: 'resolve_failed');
+        final skipped = await _handleQueueItemPlaybackFailure(
+          failedIndex: index,
+          expectedRequestEpoch: requestEpoch,
+          error: e,
+          fallbackType: 'resolve_failed',
+        );
+        if (skipped) {
+          return;
         }
       }
       return;
@@ -1813,21 +1812,34 @@ class PlaybackController extends Notifier<PlaybackState> {
         if (!_isPlayRequestCurrent(requestEpoch)) return;
         if (item.track == null) rethrow;
         _log.w('Prefetched stream failed for ${item.id}, re-resolving: $e');
-        await playTrackStream(
-          item.track!,
-          preserveQueue: true,
-          initialPosition: pendingResumePosition,
-          requestEpoch: requestEpoch,
-        );
-        if (!_isPlayRequestCurrent(requestEpoch) ||
-            state.currentIndex != index) {
-          return;
-        }
-        _clearPendingResumeForIndex(index);
-        final updatedQueue = [...state.queue];
-        if (index < updatedQueue.length && state.currentItem != null) {
-          updatedQueue[index] = state.currentItem!;
-          state = state.copyWith(queue: updatedQueue);
+        try {
+          await playTrackStream(
+            item.track!,
+            preserveQueue: true,
+            initialPosition: pendingResumePosition,
+            requestEpoch: requestEpoch,
+          );
+          if (!_isPlayRequestCurrent(requestEpoch) ||
+              state.currentIndex != index) {
+            return;
+          }
+          _clearPendingResumeForIndex(index);
+          final updatedQueue = [...state.queue];
+          if (index < updatedQueue.length && state.currentItem != null) {
+            updatedQueue[index] = state.currentItem!;
+            state = state.copyWith(queue: updatedQueue);
+          }
+        } catch (resolveError) {
+          if (!_isPlayRequestCurrent(requestEpoch)) return;
+          final skipped = await _handleQueueItemPlaybackFailure(
+            failedIndex: index,
+            expectedRequestEpoch: requestEpoch,
+            error: resolveError,
+            fallbackType: 'resolve_failed',
+          );
+          if (skipped) {
+            return;
+          }
         }
       }
     }
@@ -4100,6 +4112,75 @@ class PlaybackController extends Notifier<PlaybackState> {
       error: trimmed.isEmpty ? 'Playback error' : trimmed,
       errorType: type,
     );
+  }
+
+  bool _shouldAutoSkipQueueItemOnFailure(String? failureType) {
+    final settings = ref.read(settingsProvider);
+    if (!settings.autoSkipUnavailableTracks) {
+      return false;
+    }
+    final normalized = (failureType ?? '').trim().toLowerCase();
+    return normalized == 'not_found' || normalized == 'resolve_failed';
+  }
+
+  int? _resolveNextQueueIndexWithoutWrapAfterFailure(int failedIndex) {
+    if (failedIndex < 0 || failedIndex >= state.queue.length) return null;
+
+    if (state.shuffle) {
+      final failedShufflePos = _shuffleOrder.indexOf(failedIndex);
+      if (failedShufflePos < 0) return null;
+      final nextShufflePos = failedShufflePos + 1;
+      if (nextShufflePos >= _shuffleOrder.length) return null;
+      return _shuffleOrder[nextShufflePos];
+    }
+
+    final nextIndex = failedIndex + 1;
+    if (nextIndex >= state.queue.length) return null;
+    return nextIndex;
+  }
+
+  Future<bool> _handleQueueItemPlaybackFailure({
+    required int failedIndex,
+    required int expectedRequestEpoch,
+    required Object error,
+    String fallbackType = 'resolve_failed',
+  }) async {
+    if (!_isPlayRequestCurrent(expectedRequestEpoch)) {
+      return false;
+    }
+
+    final hasExistingError = (state.error ?? '').trim().isNotEmpty;
+    if (hasExistingError) {
+      state = state.copyWith(
+        isLoading: false,
+        isPlaying: false,
+        isBuffering: false,
+      );
+    } else {
+      _setPlaybackError('Failed to play: $error', type: fallbackType);
+    }
+
+    if (!_isPlayRequestCurrent(expectedRequestEpoch) ||
+        state.currentIndex != failedIndex ||
+        !_shouldAutoSkipQueueItemOnFailure(state.errorType)) {
+      return false;
+    }
+
+    final nextIndex = _resolveNextQueueIndexWithoutWrapAfterFailure(
+      failedIndex,
+    );
+    if (nextIndex == null || nextIndex == failedIndex) {
+      return false;
+    }
+
+    final failureMessage = (state.error ?? '').trim();
+    _log.w(
+      'Auto-skip queue item $failedIndex -> $nextIndex '
+      'after ${state.errorType ?? fallbackType}: '
+      '${failureMessage.isNotEmpty ? failureMessage : error}',
+    );
+    await _playQueueIndex(nextIndex);
+    return true;
   }
 
   bool _inferSeekSupportedForQueueItem(PlaybackItem item) {
