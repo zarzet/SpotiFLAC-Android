@@ -10,6 +10,9 @@ import 'package:spotiflac_android/models/playback_item.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart'
+    as playback_types
+    show RepeatMode;
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
@@ -118,7 +121,7 @@ class MiniPlayerBar extends ConsumerWidget {
                   ),
                   // Next
                   if (stateSnapshot.hasNext ||
-                      stateSnapshot.repeatMode == RepeatMode.all)
+                      stateSnapshot.repeatMode == playback_types.RepeatMode.all)
                     IconButton(
                       icon: const Icon(Icons.skip_next_rounded, size: 22),
                       onPressed: () =>
@@ -1370,9 +1373,7 @@ class _DownloadButton extends ConsumerWidget {
           .read(downloadQueueProvider.notifier)
           .addToQueue(track, settings.defaultService);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.snackbarAddedToQueue(track.name)),
-        ),
+        SnackBar(content: Text(context.l10n.snackbarAddedToQueue(track.name))),
       );
     }
   }
@@ -1389,8 +1390,10 @@ class _PlaybackControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final notifier = ref.read(playbackProvider.notifier);
-    final hasPrev = state.hasPrevious || state.repeatMode == RepeatMode.all;
-    final hasNext = state.hasNext || state.repeatMode == RepeatMode.all;
+    final hasPrev =
+        state.hasPrevious || state.repeatMode == playback_types.RepeatMode.all;
+    final hasNext =
+        state.hasNext || state.repeatMode == playback_types.RepeatMode.all;
     final sideIconSize = compact ? 18.0 : 22.0;
     final skipIconSize = compact ? 28.0 : 32.0;
     final mainButtonSize = compact ? 54.0 : 64.0;
@@ -1487,10 +1490,10 @@ class _PlaybackControls extends ConsumerWidget {
               ? VisualDensity.compact
               : VisualDensity.standard,
           icon: Icon(
-            state.repeatMode == RepeatMode.one
+            state.repeatMode == playback_types.RepeatMode.one
                 ? Icons.repeat_one_rounded
                 : Icons.repeat_rounded,
-            color: state.repeatMode != RepeatMode.off
+            color: state.repeatMode != playback_types.RepeatMode.off
                 ? colorScheme.primary
                 : colorScheme.onSurfaceVariant,
             size: sideIconSize,
@@ -1502,13 +1505,13 @@ class _PlaybackControls extends ConsumerWidget {
     );
   }
 
-  String _repeatTooltip(RepeatMode mode) {
+  String _repeatTooltip(playback_types.RepeatMode mode) {
     switch (mode) {
-      case RepeatMode.off:
+      case playback_types.RepeatMode.off:
         return 'Repeat: Off';
-      case RepeatMode.all:
+      case playback_types.RepeatMode.all:
         return 'Repeat: All';
-      case RepeatMode.one:
+      case playback_types.RepeatMode.one:
         return 'Repeat: One';
     }
   }
