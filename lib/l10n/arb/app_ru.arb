@@ -2506,15 +2506,15 @@
   "@youtubeQualityNote": {
     "description": "Note for YouTube service explaining lossy-only quality"
   },
-  "youtubeOpusBitrateTitle": "YouTube Opus Bitrate",
+  "youtubeOpusBitrateTitle": "Битрейт YouTube Opus",
   "@youtubeOpusBitrateTitle": {
     "description": "Title for YouTube Opus bitrate setting"
   },
-  "youtubeMp3BitrateTitle": "YouTube MP3 Bitrate",
+  "youtubeMp3BitrateTitle": "Битрейт YouTube MP3",
   "@youtubeMp3BitrateTitle": {
     "description": "Title for YouTube MP3 bitrate setting"
   },
-  "youtubeBitrateSubtitle": "{bitrate}kbps ({min}-{max})",
+  "youtubeBitrateSubtitle": "{bitrate}кбит/с ({min}-{max})",
   "@youtubeBitrateSubtitle": {
     "description": "Subtitle showing current bitrate and valid range",
     "placeholders": {
@@ -2529,7 +2529,7 @@
       }
     }
   },
-  "youtubeBitrateInputHelp": "Enter custom bitrate ({min}-{max} kbps)",
+  "youtubeBitrateInputHelp": "Введите битрейт ({min}-{max} кбит/с)",
   "@youtubeBitrateInputHelp": {
     "description": "Helper text for manual YouTube bitrate input",
     "placeholders": {
@@ -2541,11 +2541,11 @@
       }
     }
   },
-  "youtubeBitrateFieldLabel": "Bitrate (kbps)",
+  "youtubeBitrateFieldLabel": "Битрейт (кбит/с)",
   "@youtubeBitrateFieldLabel": {
     "description": "Label for YouTube bitrate input field"
   },
-  "youtubeBitrateValidationError": "Bitrate must be between {min} and {max} kbps",
+  "youtubeBitrateValidationError": "Битрейт должен быть между {min} и {max} кбит/с",
   "@youtubeBitrateValidationError": {
     "description": "Validation error for invalid YouTube bitrate input",
     "placeholders": {
@@ -3669,7 +3669,7 @@
   "@cacheCoverImageDesc": {
     "description": "Description of what cover image cache contains"
   },
-  "cacheLibraryCover": "Library cover cache",
+  "cacheLibraryCover": "Кэш обложек библиотеки",
   "@cacheLibraryCover": {
     "description": "Cache item title for local library cover art images"
   },
