@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -480,9 +482,36 @@ class ExtensionState {
 }
 
 class ExtensionNotifier extends Notifier<ExtensionState> {
+  AppLifecycleListener? _appLifecycleListener;
+  bool _cleanupInFlight = false;
+
   @override
   ExtensionState build() {
+    _appLifecycleListener ??= AppLifecycleListener(
+      onDetach: _scheduleLifecycleCleanup,
+    );
+    ref.onDispose(() {
+      _appLifecycleListener?.dispose();
+      _appLifecycleListener = null;
+    });
     return const ExtensionState();
+  }
+
+  void _scheduleLifecycleCleanup() {
+    if (_cleanupInFlight) return;
+    _cleanupInFlight = true;
+    unawaited(_cleanupExtensions(reason: 'lifecycle detach'));
+  }
+
+  Future<void> _cleanupExtensions({required String reason}) async {
+    try {
+      await PlatformBridge.cleanupExtensions();
+      _log.d('Extensions cleaned up ($reason)');
+    } catch (e) {
+      _log.w('Extension cleanup failed ($reason): $e');
+    } finally {
+      _cleanupInFlight = false;
+    }
   }
 
   Future<void> initialize(String extensionsDir, String dataDir) async {
@@ -833,12 +862,9 @@ class ExtensionNotifier extends Notifier<ExtensionState> {
   }
 
   Future<void> cleanup() async {
-    try {
-      await PlatformBridge.cleanupExtensions();
-      _log.d('Extensions cleaned up');
-    } catch (e) {
-      _log.e('Failed to cleanup extensions: $e');
-    }
+    if (_cleanupInFlight) return;
+    _cleanupInFlight = true;
+    await _cleanupExtensions(reason: 'manual');
   }
 
   Extension? getExtension(String extensionId) {

@@ -11,11 +11,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"time"
 
 	"github.com/dop251/goja"
 )
 
 // ==================== Storage API ====================
+
+const (
+	defaultStorageFlushDelay = 400 * time.Millisecond
+	storageFlushRetryDelay   = 2 * time.Second
+)
 
 func (r *ExtensionRuntime) getStoragePath() string {
 	return filepath.Join(r.dataDir, "storage.json")
@@ -80,22 +87,88 @@ func (r *ExtensionRuntime) loadStorage() (map[string]interface{}, error) {
 	return cloneInterfaceMap(r.storageCache), nil
 }
 
-func (r *ExtensionRuntime) saveStorage(storage map[string]interface{}) error {
-	storagePath := r.getStoragePath()
-	data, err := json.MarshalIndent(storage, "", "  ")
+func (r *ExtensionRuntime) queueStorageFlushLocked(delay time.Duration) {
+	if r.storageClosed {
+		return
+	}
+	if r.storageTimer != nil {
+		return
+	}
+	r.storageTimer = time.AfterFunc(delay, r.flushStorageDirtyAsync)
+}
+
+func (r *ExtensionRuntime) persistStorageSnapshot(storage map[string]interface{}) error {
+	data, err := json.Marshal(storage)
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(storagePath, data, 0600); err != nil {
+	r.storageWriteMu.Lock()
+	defer r.storageWriteMu.Unlock()
+
+	return os.WriteFile(r.getStoragePath(), data, 0600)
+}
+
+func (r *ExtensionRuntime) flushStorageDirtyAsync() {
+	if err := r.flushStorageDirty(); err != nil {
+		GoLog("[Extension:%s] Storage flush error: %v\n", r.extensionID, err)
+	}
+}
+
+func (r *ExtensionRuntime) flushStorageDirty() error {
+	r.storageMu.Lock()
+	if r.storageClosed {
+		r.storageTimer = nil
+		r.storageMu.Unlock()
+		return nil
+	}
+	if !r.storageDirty {
+		r.storageTimer = nil
+		r.storageMu.Unlock()
+		return nil
+	}
+	snapshot := cloneInterfaceMap(r.storageCache)
+	r.storageDirty = false
+	r.storageTimer = nil
+	r.storageMu.Unlock()
+
+	if err := r.persistStorageSnapshot(snapshot); err != nil {
+		r.storageMu.Lock()
+		r.storageDirty = true
+		r.queueStorageFlushLocked(storageFlushRetryDelay)
+		r.storageMu.Unlock()
 		return err
 	}
 
-	r.storageMu.Lock()
-	r.storageCache = cloneInterfaceMap(storage)
-	r.storageLoaded = true
-	r.storageMu.Unlock()
 	return nil
+}
+
+func (r *ExtensionRuntime) flushStorageNow() error {
+	r.storageMu.Lock()
+	if r.storageTimer != nil {
+		r.storageTimer.Stop()
+		r.storageTimer = nil
+	}
+	if !r.storageLoaded || r.storageClosed {
+		r.storageMu.Unlock()
+		return nil
+	}
+	snapshot := cloneInterfaceMap(r.storageCache)
+	r.storageDirty = false
+	r.storageMu.Unlock()
+
+	return r.persistStorageSnapshot(snapshot)
+}
+
+func (r *ExtensionRuntime) closeStorageFlusher() {
+	r.storageMu.Lock()
+	r.storageClosed = true
+	r.storageDirty = false
+	if r.storageTimer != nil {
+		r.storageTimer.Stop()
+		r.storageTimer = nil
+	}
+	r.storageMu.Unlock()
 }
 
 func (r *ExtensionRuntime) storageGet(call goja.FunctionCall) goja.Value {
@@ -136,15 +209,21 @@ func (r *ExtensionRuntime) storageSet(call goja.FunctionCall) goja.Value {
 		return r.vm.ToValue(false)
 	}
 
-	r.storageMu.RLock()
-	nextStorage := cloneInterfaceMap(r.storageCache)
-	r.storageMu.RUnlock()
-	nextStorage[key] = value
-
-	if err := r.saveStorage(nextStorage); err != nil {
-		GoLog("[Extension:%s] Storage save error: %v\n", r.extensionID, err)
+	r.storageMu.Lock()
+	if r.storageClosed {
+		r.storageMu.Unlock()
 		return r.vm.ToValue(false)
 	}
+	if existing, exists := r.storageCache[key]; exists {
+		if reflect.DeepEqual(existing, value) {
+			r.storageMu.Unlock()
+			return r.vm.ToValue(true)
+		}
+	}
+	r.storageCache[key] = value
+	r.storageDirty = true
+	r.queueStorageFlushLocked(r.storageFlushDelay)
+	r.storageMu.Unlock()
 
 	return r.vm.ToValue(true)
 }
@@ -161,15 +240,19 @@ func (r *ExtensionRuntime) storageRemove(call goja.FunctionCall) goja.Value {
 		return r.vm.ToValue(false)
 	}
 
-	r.storageMu.RLock()
-	nextStorage := cloneInterfaceMap(r.storageCache)
-	r.storageMu.RUnlock()
-	delete(nextStorage, key)
-
-	if err := r.saveStorage(nextStorage); err != nil {
-		GoLog("[Extension:%s] Storage save error: %v\n", r.extensionID, err)
+	r.storageMu.Lock()
+	if r.storageClosed {
+		r.storageMu.Unlock()
 		return r.vm.ToValue(false)
 	}
+	if _, exists := r.storageCache[key]; !exists {
+		r.storageMu.Unlock()
+		return r.vm.ToValue(true)
+	}
+	delete(r.storageCache, key)
+	r.storageDirty = true
+	r.queueStorageFlushLocked(r.storageFlushDelay)
+	r.storageMu.Unlock()
 
 	return r.vm.ToValue(true)
 }

@@ -89,13 +89,18 @@ type ExtensionRuntime struct {
 	dataDir     string
 	vm          *goja.Runtime
 
-	storageMu     sync.RWMutex
-	storageCache  map[string]interface{}
-	storageLoaded bool
+	storageMu      sync.RWMutex
+	storageCache   map[string]interface{}
+	storageLoaded  bool
+	storageDirty   bool
+	storageClosed  bool
+	storageTimer   *time.Timer
+	storageWriteMu sync.Mutex
 
 	credentialsMu     sync.RWMutex
 	credentialsCache  map[string]interface{}
 	credentialsLoaded bool
+	storageFlushDelay time.Duration
 }
 
 type privateIPCacheEntry struct {
@@ -118,12 +123,13 @@ func NewExtensionRuntime(ext *LoadedExtension) *ExtensionRuntime {
 	jar, _ := newSimpleCookieJar()
 
 	runtime := &ExtensionRuntime{
-		extensionID: ext.ID,
-		manifest:    ext.Manifest,
-		settings:    make(map[string]interface{}),
-		cookieJar:   jar,
-		dataDir:     ext.DataDir,
-		vm:          ext.VM,
+		extensionID:       ext.ID,
+		manifest:          ext.Manifest,
+		settings:          make(map[string]interface{}),
+		cookieJar:         jar,
+		dataDir:           ext.DataDir,
+		vm:                ext.VM,
+		storageFlushDelay: defaultStorageFlushDelay,
 	}
 
 	// Extension sandbox enforces HTTPS-only domains. Do not apply global

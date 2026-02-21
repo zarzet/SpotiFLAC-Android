@@ -1751,6 +1751,7 @@ class PlaybackController extends Notifier<PlaybackState> {
       isLoading: true,
       isBuffering: true,
       isPlaying: false,
+      seekSupported: _inferSeekSupportedForQueueItem(item),
       position:
           pendingResumePosition != null && pendingResumePosition > Duration.zero
           ? pendingResumePosition
@@ -3024,7 +3025,7 @@ class PlaybackController extends Notifier<PlaybackState> {
     );
     final secondaryLimit = max(trackLimit ~/ 2, trackLimit - 2);
 
-    final primarySearch = preferSpotify
+    final primaryResults = await (preferSpotify
         ? _safeSmartQueueTrackSearch(
             () => _searchSpotifyTracksForSmartQueue(
               normalizedQuery,
@@ -3036,25 +3037,29 @@ class PlaybackController extends Notifier<PlaybackState> {
               normalizedQuery,
               trackLimit: primaryLimit,
             ),
-          );
-    final secondarySearch = preferSpotify
-        ? _safeSmartQueueTrackSearch(
-            () => _searchDeezerTracksForSmartQueue(
-              normalizedQuery,
-              trackLimit: secondaryLimit,
-            ),
-          )
-        : _safeSmartQueueTrackSearch(
-            () => _searchSpotifyTracksForSmartQueue(
-              normalizedQuery,
-              trackLimit: secondaryLimit,
-            ),
-          );
+          ));
+    final shouldQuerySecondary =
+        primaryResults.length <
+        max(8, (trackLimit * _smartQueuePrimarySourceRatio).round());
+    final secondaryResults = shouldQuerySecondary
+        ? (preferSpotify
+              ? await _safeSmartQueueTrackSearch(
+                  () => _searchDeezerTracksForSmartQueue(
+                    normalizedQuery,
+                    trackLimit: secondaryLimit,
+                  ),
+                )
+              : await _safeSmartQueueTrackSearch(
+                  () => _searchSpotifyTracksForSmartQueue(
+                    normalizedQuery,
+                    trackLimit: secondaryLimit,
+                  ),
+                ))
+        : const <Map<String, dynamic>>[];
 
-    final responses = await Future.wait([primarySearch, secondarySearch]);
     final blended = _blendSmartQueueTrackCandidates(
-      primary: responses[0],
-      secondary: responses[1],
+      primary: primaryResults,
+      secondary: secondaryResults,
       targetCount: max(10, trackLimit + 6),
       primaryRatio: _smartQueuePrimarySourceRatio,
     );
@@ -3083,7 +3088,8 @@ class PlaybackController extends Notifier<PlaybackState> {
   ) async {
     try {
       return await resolver();
-    } catch (_) {
+    } catch (e) {
+      _log.d('Smart queue source search failed: $e');
       return const <Map<String, dynamic>>[];
     }
   }
@@ -3552,7 +3558,8 @@ class PlaybackController extends Notifier<PlaybackState> {
   }) {
     if (targetCount <= 0 || scored.isEmpty) return const [];
 
-    final pool = scored.take(14).toList(growable: true);
+    final poolSize = min(scored.length, max(14, targetCount * 3));
+    final pool = scored.take(poolSize).toList(growable: true);
     final selected = <_SmartQueueCandidate>[];
     final artistCounts = _buildSmartQueueArtistBaselineCounts();
     final selectedKeys = <String>{};
@@ -3584,6 +3591,27 @@ class PlaybackController extends Notifier<PlaybackState> {
         artistCounts[artistKey] = repeats + 1;
       }
     }
+
+    if (selected.isEmpty) {
+      final relaxedArtistLimit = _smartQueueMaxArtistRepeats + 1;
+      for (final candidate in scored) {
+        if (selected.length >= targetCount) break;
+        if (selectedKeys.contains(candidate.key)) continue;
+
+        final artistKey = _normalizeSmartQueueKey(candidate.track.artistName);
+        final repeats = artistCounts[artistKey] ?? 0;
+        if (artistKey.isNotEmpty && repeats >= relaxedArtistLimit) {
+          continue;
+        }
+
+        selected.add(candidate);
+        selectedKeys.add(candidate.key);
+        if (artistKey.isNotEmpty) {
+          artistCounts[artistKey] = repeats + 1;
+        }
+      }
+    }
+
     return selected;
   }
 
@@ -4063,6 +4091,23 @@ class PlaybackController extends Notifier<PlaybackState> {
       error: trimmed.isEmpty ? 'Playback error' : trimmed,
       errorType: type,
     );
+  }
+
+  bool _inferSeekSupportedForQueueItem(PlaybackItem item) {
+    if (item.isLocal) return true;
+
+    final service = item.service.trim().toLowerCase();
+    final trackSource = (item.track?.source ?? '').trim().toLowerCase();
+    final resolvedService = service.isNotEmpty ? service : trackSource;
+    if (resolvedService == 'youtube') return false;
+
+    final sourceUri = item.sourceUri.trim();
+    if (sourceUri.isNotEmpty &&
+        FFmpegService.isActiveLiveDecryptedUrl(sourceUri)) {
+      return false;
+    }
+
+    return true;
   }
 
   Duration? _pendingResumePositionForIndex(int index) {

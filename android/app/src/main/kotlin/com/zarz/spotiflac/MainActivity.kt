@@ -1347,6 +1347,11 @@ class MainActivity: AudioServiceFragmentActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            Gobackend.cleanupExtensions()
+        } catch (e: Exception) {
+            android.util.Log.w("SpotiFLAC", "Failed to cleanup extensions on destroy: ${e.message}")
+        }
         stopDownloadProgressStream()
         stopLibraryScanProgressStream()
         super.onDestroy()
