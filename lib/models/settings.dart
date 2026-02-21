@@ -14,6 +14,7 @@ class AppSettings {
   final bool autoFallback;
   final bool autoSkipUnavailableTracks;
   final bool smartQueueEnabled; // Enable smart curated autoplay queue
+  final bool embedMetadata; // Master switch for metadata/cover/lyrics embedding
   final bool embedLyrics;
   final bool maxQualityCover;
   final bool isFirstLaunch;
@@ -90,6 +91,7 @@ class AppSettings {
     this.autoFallback = true,
     this.autoSkipUnavailableTracks = true,
     this.smartQueueEnabled = true,
+    this.embedMetadata = true,
     this.embedLyrics = true,
     this.maxQualityCover = true,
     this.isFirstLaunch = true,
@@ -155,6 +157,7 @@ class AppSettings {
     bool? autoFallback,
     bool? autoSkipUnavailableTracks,
     bool? smartQueueEnabled,
+    bool? embedMetadata,
     bool? embedLyrics,
     bool? maxQualityCover,
     bool? isFirstLaunch,
@@ -215,6 +218,7 @@ class AppSettings {
       autoSkipUnavailableTracks:
           autoSkipUnavailableTracks ?? this.autoSkipUnavailableTracks,
       smartQueueEnabled: smartQueueEnabled ?? this.smartQueueEnabled,
+      embedMetadata: embedMetadata ?? this.embedMetadata,
       embedLyrics: embedLyrics ?? this.embedLyrics,
       maxQualityCover: maxQualityCover ?? this.maxQualityCover,
       isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,

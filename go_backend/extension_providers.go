@@ -815,7 +815,7 @@ func DownloadWithExtensionFallback(req DownloadRequest) (*DownloadResponse, erro
 					Copyright:        req.Copyright,
 				}
 
-				if req.Genre != "" || req.Label != "" {
+				if req.EmbedMetadata && (req.Genre != "" || req.Label != "") {
 					if err := EmbedGenreLabel(result.FilePath, req.Genre, req.Label); err != nil {
 						GoLog("[DownloadWithExtensionFallback] Warning: failed to embed genre/label: %v\n", err)
 					} else {
@@ -1013,7 +1013,7 @@ func DownloadWithExtensionFallback(req DownloadRequest) (*DownloadResponse, erro
 					Copyright:        req.Copyright,
 				}
 
-				if req.Genre != "" || req.Label != "" {
+				if req.EmbedMetadata && (req.Genre != "" || req.Label != "") {
 					if err := EmbedGenreLabel(result.FilePath, req.Genre, req.Label); err != nil {
 						GoLog("[DownloadWithExtensionFallback] Warning: failed to embed genre/label: %v\n", err)
 					} else {

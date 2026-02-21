@@ -61,7 +61,9 @@ class _TrackOptionsSheet extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final settings = ref.watch(settingsProvider);
     final isStreamingMode = settings.isStreamingMode;
+    final showDownloadAction = isStreamingMode;
     final rootContext = Navigator.of(context, rootNavigator: true).context;
+    final container = ProviderScope.containerOf(rootContext, listen: false);
 
     final isLoved = ref.watch(
       libraryCollectionsProvider.select((state) => state.isLoved(track)),
@@ -168,17 +170,17 @@ class _TrackOptionsSheet extends ConsumerWidget {
 
               // Action items (matches _QualityOption style)
               _OptionTile(
-                icon: isStreamingMode
-                    ? Icons.play_arrow_rounded
-                    : Icons.download_rounded,
-                title: isStreamingMode
-                    ? 'Play Stream'
-                    : context.l10n.downloadTitle,
+                icon: showDownloadAction
+                    ? Icons.download_rounded
+                    : Icons.play_arrow_rounded,
+                title: showDownloadAction
+                    ? context.l10n.downloadTitle
+                    : 'Play Stream',
                 onTap: () async {
                   Navigator.pop(context);
-                  if (isStreamingMode) {
+                  if (!showDownloadAction) {
                     try {
-                      await ref
+                      await container
                           .read(playbackProvider.notifier)
                           .playTrackStream(track);
                     } catch (e) {
@@ -199,7 +201,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
                       artistName: track.artistName,
                       coverUrl: track.coverUrl,
                       onSelect: (quality, service) {
-                        ref
+                        container
                             .read(downloadQueueProvider.notifier)
                             .addToQueue(
                               track,
@@ -216,7 +218,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
                       },
                     );
                   } else {
-                    ref
+                    container
                         .read(downloadQueueProvider.notifier)
                         .addToQueue(track, settings.defaultService);
                     if (!rootContext.mounted) {

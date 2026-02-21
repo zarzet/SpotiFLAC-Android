@@ -188,6 +188,7 @@ type DownloadRequest struct {
 	OutputExt            string `json:"output_ext,omitempty"`
 	FilenameFormat       string `json:"filename_format"`
 	Quality              string `json:"quality"`
+	EmbedMetadata        bool   `json:"embed_metadata"`
 	EmbedLyrics          bool   `json:"embed_lyrics"`
 	EmbedMaxQualityCover bool   `json:"embed_max_quality_cover"`
 	TrackNumber          int    `json:"track_number"`

@@ -1804,13 +1804,19 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	parallelDone := make(chan struct{})
 	go func() {
 		defer close(parallelDone)
+		coverURL := req.CoverURL
+		embedLyrics := req.EmbedLyrics
+		if !req.EmbedMetadata {
+			coverURL = ""
+			embedLyrics = false
+		}
 		parallelResult = FetchCoverAndLyricsParallel(
-			req.CoverURL,
+			coverURL,
 			req.EmbedMaxQualityCover,
 			req.SpotifyID,
 			req.TrackName,
 			req.ArtistName,
-			req.EmbedLyrics,
+			embedLyrics,
 			int64(req.DurationMS),
 		)
 	}()
@@ -1894,11 +1900,15 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}
 
 	if (isSafOutput && actualExt == ".flac") || (!isSafOutput && strings.HasSuffix(actualOutputPath, ".flac")) {
-		if err := EmbedMetadataWithCoverData(actualOutputPath, metadata, coverData); err != nil {
-			fmt.Printf("Warning: failed to embed metadata: %v\n", err)
+		if req.EmbedMetadata {
+			if err := EmbedMetadataWithCoverData(actualOutputPath, metadata, coverData); err != nil {
+				fmt.Printf("Warning: failed to embed metadata: %v\n", err)
+			}
+		} else {
+			GoLog("[Tidal] Metadata embedding disabled by settings, skipping FLAC metadata/lyrics embedding\n")
 		}
 
-		if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+		if req.EmbedMetadata && req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
 			lyricsMode := req.LyricsMode
 			if lyricsMode == "" {
 				lyricsMode = "embed"
@@ -1921,14 +1931,14 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 					fmt.Println("[Tidal] Lyrics embedded successfully")
 				}
 			}
-		} else if req.EmbedLyrics {
+		} else if req.EmbedMetadata && req.EmbedLyrics {
 			fmt.Println("[Tidal] No lyrics available from parallel fetch")
 		}
 	} else if (isSafOutput && actualExt == ".m4a") || (!isSafOutput && strings.HasSuffix(actualOutputPath, ".m4a")) {
 		if quality == "HIGH" {
 			GoLog("[Tidal] HIGH quality M4A - skipping metadata embedding (file from server is already valid)\n")
 
-			if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+			if req.EmbedMetadata && req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
 				lyricsMode := req.LyricsMode
 				if lyricsMode == "" {
 					lyricsMode = "embed"
@@ -1959,7 +1969,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 		bitDepth = 0
 		sampleRate = 44100
 	}
-	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+	if req.EmbedMetadata && req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
 		lyricsLRC = parallelResult.LyricsLRC
 	}
 

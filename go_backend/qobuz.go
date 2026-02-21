@@ -1263,13 +1263,19 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	parallelDone := make(chan struct{})
 	go func() {
 		defer close(parallelDone)
+		coverURL := req.CoverURL
+		embedLyrics := req.EmbedLyrics
+		if !req.EmbedMetadata {
+			coverURL = ""
+			embedLyrics = false
+		}
 		parallelResult = FetchCoverAndLyricsParallel(
-			req.CoverURL,
+			coverURL,
 			req.EmbedMaxQualityCover,
 			req.SpotifyID,
 			req.TrackName,
 			req.ArtistName,
-			req.EmbedLyrics,
+			embedLyrics,
 			int64(req.DurationMS),
 		)
 	}()
@@ -1319,8 +1325,12 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		GoLog("[Qobuz] Using parallel-fetched cover (%d bytes)\n", len(coverData))
 	}
 
-	if isSafOutput {
-		GoLog("[Qobuz] SAF output detected - skipping in-backend metadata/lyrics embedding (handled in Flutter)\n")
+	if isSafOutput || !req.EmbedMetadata {
+		if !req.EmbedMetadata {
+			GoLog("[Qobuz] Metadata embedding disabled by settings, skipping in-backend metadata/lyrics embedding\n")
+		} else {
+			GoLog("[Qobuz] SAF output detected - skipping in-backend metadata/lyrics embedding (handled in Flutter)\n")
+		}
 	} else {
 		if err := EmbedMetadataWithCoverData(outputPath, metadata, coverData); err != nil {
 			fmt.Printf("Warning: failed to embed metadata: %v\n", err)
@@ -1359,7 +1369,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	}
 
 	lyricsLRC := ""
-	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+	if req.EmbedMetadata && req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
 		lyricsLRC = parallelResult.LyricsLRC
 	}
 

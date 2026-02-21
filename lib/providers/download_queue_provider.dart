@@ -2071,6 +2071,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String? copyright,
   }) async {
     final settings = ref.read(settingsProvider);
+    if (!settings.embedMetadata) {
+      _log.d('Metadata embedding disabled, skipping FLAC metadata/cover embed');
+      return;
+    }
 
     String? coverPath;
     var coverUrl = track.coverUrl;
@@ -2222,6 +2226,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String? copyright,
   }) async {
     final settings = ref.read(settingsProvider);
+    if (!settings.embedMetadata) {
+      _log.d('Metadata embedding disabled, skipping MP3 metadata/cover embed');
+      return;
+    }
 
     String? coverPath;
     var coverUrl = track.coverUrl;
@@ -2386,6 +2394,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     String? copyright,
   }) async {
     final settings = ref.read(settingsProvider);
+    if (!settings.embedMetadata) {
+      _log.d('Metadata embedding disabled, skipping Opus metadata/cover embed');
+      return;
+    }
 
     String? coverPath;
     var coverUrl = track.coverUrl;
@@ -2867,6 +2879,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
     try {
       final settings = ref.read(settingsProvider);
+      final metadataEmbeddingEnabled = settings.embedMetadata;
 
       Track trackToDownload = item.track;
       final needsEnrichment =
@@ -3225,12 +3238,16 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
           artistName: trackToDownload.artistName,
           albumName: trackToDownload.albumName,
           albumArtist: resolvedAlbumArtist,
-          coverUrl: trackToDownload.coverUrl ?? '',
+          coverUrl: metadataEmbeddingEnabled
+              ? (trackToDownload.coverUrl ?? '')
+              : '',
           outputDir: outputDir,
           filenameFormat: state.filenameFormat,
           quality: quality,
-          embedLyrics: settings.embedLyrics,
-          embedMaxQualityCover: settings.maxQualityCover,
+          embedMetadata: metadataEmbeddingEnabled,
+          embedLyrics: metadataEmbeddingEnabled && settings.embedLyrics,
+          embedMaxQualityCover:
+              metadataEmbeddingEnabled && settings.maxQualityCover,
           trackNumber: normalizedTrackNumber,
           discNumber: normalizedDiscNumber,
           releaseDate: trackToDownload.releaseDate ?? '',
@@ -3816,7 +3833,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               }
             }
           }
-        } else if (isContentUriPath &&
+        } else if (metadataEmbeddingEnabled &&
+            isContentUriPath &&
             effectiveSafMode &&
             isFlacFile &&
             !wasExisting) {
@@ -3877,7 +3895,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
               } catch (_) {}
             }
           }
-        } else if (!isContentUriPath &&
+        } else if (metadataEmbeddingEnabled &&
+            !isContentUriPath &&
             !effectiveSafMode &&
             isFlacFile &&
             !wasExisting &&
@@ -3916,7 +3935,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         }
 
         // YouTube downloads: embed metadata to raw Opus/MP3 files from Cobalt
-        if (!wasExisting && item.service == 'youtube' && filePath != null) {
+        if (metadataEmbeddingEnabled &&
+            !wasExisting &&
+            item.service == 'youtube' &&
+            filePath != null) {
           final isOpusFile = filePath.endsWith('.opus');
           final isMp3File = filePath.endsWith('.mp3');
 
@@ -4081,6 +4103,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
         final lyricsMode = settings.lyricsMode;
         final shouldSaveExternalLrc =
+            metadataEmbeddingEnabled &&
             settings.embedLyrics &&
             (lyricsMode == 'external' || lyricsMode == 'both');
         if (shouldSaveExternalLrc &&

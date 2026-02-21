@@ -501,14 +501,17 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                   SettingsSwitchItem(
                     icon: Icons.subtitles_outlined,
                     title: context.l10n.optionsEmbedLyrics,
-                    subtitle: context.l10n.optionsEmbedLyricsSubtitle,
+                    subtitle: settings.embedMetadata
+                        ? context.l10n.optionsEmbedLyricsSubtitle
+                        : 'Disabled while Embed Metadata is turned off',
                     value: settings.embedLyrics,
+                    enabled: settings.embedMetadata,
                     onChanged: (value) => ref
                         .read(settingsProvider.notifier)
                         .setEmbedLyrics(value),
-                    showDivider: settings.embedLyrics,
+                    showDivider: settings.embedMetadata && settings.embedLyrics,
                   ),
-                  if (settings.embedLyrics) ...[
+                  if (settings.embedMetadata && settings.embedLyrics) ...[
                     SettingsItem(
                       icon: Icons.lyrics_outlined,
                       title: context.l10n.lyricsMode,

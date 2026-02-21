@@ -487,13 +487,19 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	parallelDone := make(chan struct{})
 	go func() {
 		defer close(parallelDone)
+		coverURL := req.CoverURL
+		embedLyrics := req.EmbedLyrics
+		if !req.EmbedMetadata {
+			coverURL = ""
+			embedLyrics = false
+		}
 		parallelResult = FetchCoverAndLyricsParallel(
-			req.CoverURL,
+			coverURL,
 			req.EmbedMaxQualityCover,
 			req.SpotifyID,
 			req.TrackName,
 			req.ArtistName,
-			req.EmbedLyrics,
+			embedLyrics,
 			int64(req.DurationMS),
 		)
 	}()
@@ -580,8 +586,12 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 		}
 	}
 
-	if isSafOutput || needsDecryption {
-		GoLog("[Amazon] SAF output detected - skipping in-backend metadata/lyrics embedding (handled in Flutter)\n")
+	if isSafOutput || needsDecryption || !req.EmbedMetadata {
+		if !req.EmbedMetadata {
+			GoLog("[Amazon] Metadata embedding disabled by settings, skipping in-backend metadata/lyrics embedding\n")
+		} else {
+			GoLog("[Amazon] SAF output detected - skipping in-backend metadata/lyrics embedding (handled in Flutter)\n")
+		}
 	} else {
 		isFlacOutput := strings.HasSuffix(strings.ToLower(actualOutputPath), ".flac")
 		if isFlacOutput {
@@ -661,7 +671,7 @@ func downloadFromAmazon(req DownloadRequest) (AmazonDownloadResult, error) {
 	}
 
 	lyricsLRC := ""
-	if req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
+	if req.EmbedMetadata && req.EmbedLyrics && parallelResult != nil && parallelResult.LyricsLRC != "" {
 		lyricsLRC = parallelResult.LyricsLRC
 	}
 

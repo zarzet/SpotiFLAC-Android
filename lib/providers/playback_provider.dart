@@ -1638,6 +1638,15 @@ class PlaybackController extends Notifier<PlaybackState> {
     if (_player.playing) {
       await _player.pause();
     } else {
+      if (_player.processingState == ProcessingState.completed) {
+        final hasCurrentTrack =
+            state.currentIndex >= 0 || state.currentItem != null;
+        if (hasCurrentTrack) {
+          await _restartCurrentTrack(playAfterSeek: true);
+          return;
+        }
+      }
+
       if (_player.processingState == ProcessingState.idle &&
           state.queue.isNotEmpty) {
         final resumeIndex = state.currentIndex < 0 ? 0 : state.currentIndex;
