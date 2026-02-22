@@ -3190,31 +3190,32 @@ class AppLocalizationsId extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'tracks',
-      one: 'track',
+      other: 'trek',
+      one: 'trek',
     );
-    return 'Share $count $_temp0';
+    return 'Bagikan $count $_temp0';
   }
 
   @override
-  String get selectionShareNoFiles => 'No shareable files found';
+  String get selectionShareNoFiles => 'Tidak ada file yang dapat dibagikan';
 
   @override
   String selectionConvertCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'tracks',
-      one: 'track',
+      other: 'trek',
+      one: 'trek',
     );
-    return 'Convert $count $_temp0';
+    return 'Konversi $count $_temp0';
   }
 
   @override
-  String get selectionConvertNoConvertible => 'No convertible tracks selected';
+  String get selectionConvertNoConvertible =>
+      'Tidak ada trek yang dapat dikonversi dipilih';
 
   @override
-  String get selectionBatchConvertConfirmTitle => 'Batch Convert';
+  String get selectionBatchConvertConfirmTitle => 'Konversi Massal';
 
   @override
   String selectionBatchConvertConfirmMessage(
@@ -3225,20 +3226,20 @@ class AppLocalizationsId extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'tracks',
-      one: 'track',
+      other: 'trek',
+      one: 'trek',
     );
-    return 'Convert $count $_temp0 to $format at $bitrate?\n\nOriginal files will be deleted after conversion.';
+    return 'Konversi $count $_temp0 ke $format pada $bitrate?\n\nFile asli akan dihapus setelah konversi.';
   }
 
   @override
   String selectionBatchConvertProgress(int current, int total) {
-    return 'Converting $current of $total...';
+    return 'Mengonversi $current dari $total...';
   }
 
   @override
   String selectionBatchConvertSuccess(int success, int total, String format) {
-    return 'Converted $success of $total tracks to $format';
+    return 'Berhasil mengonversi $success dari $total trek ke $format';
   }
 
   @override
@@ -3288,4 +3289,179 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get settingsSmartQueueSubtitle =>
       'Secara otomatis temukan dan tambahkan trek serupa ke antrean Anda';
+
+  @override
+  String get whatsNewTitle => 'Yang Baru di 4.0';
+
+  @override
+  String get whatsNewSubtitle =>
+      'SpotiFLAC telah berevolusi — inilah yang berubah sejak 3.x';
+
+  @override
+  String get whatsNewWelcomeTitle => 'SpotiFLAC Mobile 4.0';
+
+  @override
+  String get whatsNewWelcomeDesc =>
+      'Selamat datang kembali! Ini pembaruan besar dengan banyak fitur baru. Geser untuk melihat apa yang berubah.';
+
+  @override
+  String get whatsNewWelcomeTip1 =>
+      'Mode streaming baru dengan pemutaran instan';
+
+  @override
+  String get whatsNewWelcomeTip2 =>
+      'Perpustakaan dan pemutar layar penuh yang didesain ulang';
+
+  @override
+  String get whatsNewWelcomeTip3 =>
+      'Alat massal, peningkatan performa, dan lainnya';
+
+  @override
+  String get whatsNewStreamingTitle => 'Mode Streaming';
+
+  @override
+  String get whatsNewStreamingDesc =>
+      'Ketuk trek apa pun untuk langsung diputar — tanpa perlu mengunduh. Pemutar layar penuh dengan lirik tersinkron dan kontrol media.';
+
+  @override
+  String get whatsNewSmartQueueTitle => 'Smart Queue';
+
+  @override
+  String get whatsNewSmartQueueDesc =>
+      'Antrean Anda otomatis mengkurasi trek terkait dan penemuan artis. Tak pernah kehabisan musik.';
+
+  @override
+  String get whatsNewDualModeTitle => 'Mode Ganda';
+
+  @override
+  String get whatsNewDualModeDesc =>
+      'Beralih antara mode Pengunduh dan Streaming kapan saja. Semua tombol menyesuaikan secara otomatis.';
+
+  @override
+  String get whatsNewLibraryTitle => 'Perpustakaan Baru';
+
+  @override
+  String get whatsNewLibraryDesc =>
+      'Tata letak berbasis playlist dengan kategorisasi seret-dan-lepas, sampul kustom, dan aksi massal multi-pilih.';
+
+  @override
+  String get whatsNewPlayerTitle => 'Pemutar Layar Penuh';
+
+  @override
+  String get whatsNewPlayerDesc =>
+      'Paralaks seni sampul, lirik tersinkron, pemutaran tetap tersimpan saat restart, dan tombol unduh di pemutar.';
+
+  @override
+  String get whatsNewContextMenuTitle => 'Menu Tekan Lama';
+
+  @override
+  String get whatsNewContextMenuDesc =>
+      'Tekan lama trek apa pun untuk aksi cepat — tambah ke playlist, bagikan, konversi, atau perbarui metadata.';
+
+  @override
+  String get whatsNewPerformanceTitle => 'Performa';
+
+  @override
+  String get whatsNewPerformanceDesc =>
+      'Startup lebih cepat, penggunaan memori berkurang, penyimpanan berbasis SQLite, dan pembaruan UI yang lebih efisien.';
+
+  @override
+  String get whatsNewBatchToolsTitle => 'Alat Massal';
+
+  @override
+  String get whatsNewBatchToolsDesc =>
+      'Berbagi multi-pilih, konversi massal ke MP3/Opus, dan perbarui metadata secara massal di seluruh perpustakaan.';
+
+  @override
+  String get whatsNewStreamingTip1 =>
+      'Ketuk trek apa pun untuk langsung memutar';
+
+  @override
+  String get whatsNewStreamingTip2 => 'Lirik tersinkron di pemutar layar penuh';
+
+  @override
+  String get whatsNewStreamingTip3 => 'Unduh trek langsung dari pemutar';
+
+  @override
+  String get whatsNewSmartQueueTip1 =>
+      'Antrean terisi otomatis dengan trek terkait';
+
+  @override
+  String get whatsNewSmartQueueTip2 => 'Temukan artis baru saat mendengarkan';
+
+  @override
+  String get whatsNewSmartQueueTip3 =>
+      'Tak pernah kehabisan musik untuk diputar';
+
+  @override
+  String get whatsNewDualModeTip1 => 'Beralih mode kapan saja di Pengaturan';
+
+  @override
+  String get whatsNewDualModeTip2 => 'Tombol UI menyesuaikan dengan mode Anda';
+
+  @override
+  String get whatsNewDualModeTip3 =>
+      'Unduh untuk offline, streaming untuk putar langsung';
+
+  @override
+  String get whatsNewLibraryTip1 => 'Seret dan lepas untuk mengatur playlist';
+
+  @override
+  String get whatsNewLibraryTip2 => 'Atur gambar sampul kustom untuk playlist';
+
+  @override
+  String get whatsNewLibraryTip3 => 'Pilih banyak trek untuk aksi massal';
+
+  @override
+  String get whatsNewPlayerTip1 => 'Seni sampul dengan efek paralaks';
+
+  @override
+  String get whatsNewPlayerTip2 => 'Pemutaran tetap tersimpan saat restart';
+
+  @override
+  String get whatsNewPlayerTip3 => 'Lirik tersinkron saat mendengarkan';
+
+  @override
+  String get whatsNewContextMenuTip1 =>
+      'Tambahkan trek ke playlist mana pun langsung';
+
+  @override
+  String get whatsNewContextMenuTip2 =>
+      'Bagikan atau konversi dengan satu ketukan';
+
+  @override
+  String get whatsNewContextMenuTip3 => 'Perbarui metadata saat diperlukan';
+
+  @override
+  String get whatsNewBatchToolsTip1 => 'Bagikan banyak trek sekaligus';
+
+  @override
+  String get whatsNewBatchToolsTip2 =>
+      'Konversi massal ke format MP3 atau Opus';
+
+  @override
+  String get whatsNewBatchToolsTip3 =>
+      'Perbarui metadata di seluruh perpustakaan';
+
+  @override
+  String get whatsNewPerformanceTip1 => 'Waktu startup aplikasi lebih cepat';
+
+  @override
+  String get whatsNewPerformanceTip2 =>
+      'Penggunaan memori berkurang saat pemutaran';
+
+  @override
+  String get whatsNewPerformanceTip3 =>
+      'Penyimpanan berbasis SQLite untuk keandalan';
+
+  @override
+  String get whatsNewReadyMessage => 'Siap — nikmati SpotiFLAC yang baru!';
+
+  @override
+  String get whatsNewGetStarted => 'Ayo Mulai';
+
+  @override
+  String whatsNewPageIndicator(int current, int total) {
+    return '$current dari $total';
+  }
 }

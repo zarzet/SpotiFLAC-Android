@@ -370,6 +370,9 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
   bool _isPlaylistSelectionMode = false;
   final Set<String> _selectedPlaylistIds = {};
+  OverlayEntry? _playlistSelectionOverlayEntry;
+  List<UserPlaylistCollection> _playlistSelectionOverlayItems = const [];
+  double _playlistSelectionOverlayBottomPadding = 0;
 
   PageController? _filterPageController;
   final List<String> _filterModes = ['all', 'albums', 'singles'];
@@ -463,6 +466,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   @override
   void dispose() {
     _hideSelectionOverlay();
+    _hidePlaylistSelectionOverlay();
     for (final notifier in _fileExistsNotifiers.values) {
       notifier.dispose();
     }
@@ -801,9 +805,12 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   void _enterSelectionMode(String itemId) {
     HapticFeedback.mediumImpact();
     setState(() {
+      _isPlaylistSelectionMode = false;
+      _selectedPlaylistIds.clear();
       _isSelectionMode = true;
       _selectedIds.add(itemId);
     });
+    _hidePlaylistSelectionOverlay();
   }
 
   void _exitSelectionMode() {
@@ -843,7 +850,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     required double bottomPadding,
   }) {
     if (!mounted) return;
-    if (!_isSelectionMode) {
+    if (!_isSelectionMode || _isPlaylistSelectionMode) {
       _hideSelectionOverlay();
       return;
     }
@@ -879,14 +886,63 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     overlay.insert(_selectionOverlayEntry!);
   }
 
+  void _hidePlaylistSelectionOverlay() {
+    _playlistSelectionOverlayEntry?.remove();
+    _playlistSelectionOverlayEntry = null;
+  }
+
+  void _syncPlaylistSelectionOverlay({
+    required List<UserPlaylistCollection> playlists,
+    required double bottomPadding,
+  }) {
+    if (!mounted) return;
+    if (!_isPlaylistSelectionMode || _isSelectionMode) {
+      _hidePlaylistSelectionOverlay();
+      return;
+    }
+
+    _playlistSelectionOverlayItems = playlists;
+    _playlistSelectionOverlayBottomPadding = bottomPadding;
+
+    if (_playlistSelectionOverlayEntry != null) {
+      _playlistSelectionOverlayEntry!.markNeedsBuild();
+      return;
+    }
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _playlistSelectionOverlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Material(
+            color: Colors.transparent,
+            child: _buildPlaylistSelectionBottomBar(
+              context,
+              colorScheme,
+              _playlistSelectionOverlayItems,
+              _playlistSelectionOverlayBottomPadding,
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_playlistSelectionOverlayEntry!);
+  }
+
   // --- Playlist selection mode ---
 
   void _enterPlaylistSelectionMode(String playlistId) {
     HapticFeedback.mediumImpact();
     setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
       _isPlaylistSelectionMode = true;
       _selectedPlaylistIds.add(playlistId);
     });
+    _hideSelectionOverlay();
   }
 
   void _exitPlaylistSelectionMode() {
@@ -894,6 +950,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       _isPlaylistSelectionMode = false;
       _selectedPlaylistIds.clear();
     });
+    _hidePlaylistSelectionOverlay();
   }
 
   void _togglePlaylistSelection(String playlistId) {
@@ -2518,13 +2575,21 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         items: selectionItems,
         bottomPadding: bottomPadding,
       );
+      _syncPlaylistSelectionOverlay(
+        playlists: collectionState.playlists,
+        bottomPadding: bottomPadding,
+      );
     });
 
     return PopScope(
-      canPop: !_isSelectionMode,
+      canPop: !_isSelectionMode && !_isPlaylistSelectionMode,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _isSelectionMode) {
-          _exitSelectionMode();
+        if (!didPop) {
+          if (_isPlaylistSelectionMode) {
+            _exitPlaylistSelectionMode();
+          } else if (_isSelectionMode) {
+            _exitSelectionMode();
+          }
         }
       },
       child: Stack(
@@ -2728,22 +2793,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
               ),
             ),
           ), // ScrollConfiguration
-          // Playlist selection bottom bar
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            left: 0,
-            right: 0,
-            bottom: _isPlaylistSelectionMode ? 0 : -(200 + bottomPadding),
-            child: _isPlaylistSelectionMode
-                ? _buildPlaylistSelectionBottomBar(
-                    context,
-                    colorScheme,
-                    collectionState.playlists,
-                    bottomPadding,
-                  )
-                : const SizedBox.shrink(),
-          ),
         ],
       ),
     );
@@ -4371,14 +4420,18 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   }
 
   /// Show batch convert bottom sheet for selected tracks
-  void _showBatchConvertSheet(
+  Future<void> _showBatchConvertSheet(
     BuildContext context,
     List<UnifiedLibraryItem> allItems,
-  ) {
+  ) async {
     String selectedFormat = 'MP3';
     String selectedBitrate = '320k';
+    var didStartConversion = false;
 
-    showModalBottomSheet(
+    _hideSelectionOverlay();
+    _hidePlaylistSelectionOverlay();
+
+    await showModalBottomSheet(
       context: context,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(
@@ -4475,6 +4528,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: () {
+                          didStartConversion = true;
                           Navigator.pop(context);
                           _performBatchConversion(
                             allItems: allItems,
@@ -4503,6 +4557,19 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         );
       },
     );
+
+    if (!mounted || didStartConversion) return;
+    if (_isSelectionMode) {
+      _syncSelectionOverlay(
+        items: allItems,
+        bottomPadding: MediaQuery.of(this.context).padding.bottom,
+      );
+    } else if (_isPlaylistSelectionMode) {
+      _syncPlaylistSelectionOverlay(
+        playlists: ref.read(libraryCollectionsProvider).playlists,
+        bottomPadding: MediaQuery.of(this.context).padding.bottom,
+      );
+    }
   }
 
   /// Perform batch conversion on selected tracks

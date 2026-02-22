@@ -80,6 +80,12 @@ class AppSettings {
   final String
   musixmatchLanguage; // Optional ISO language code for Musixmatch localized lyrics
 
+  // Version upgrade tracking
+  final String
+  lastSeenVersion; // Last app version the user has acknowledged (e.g. '3.7.0')
+  final bool
+  hasSeenWhatsNew; // Whether user has seen the What's New screen for current version
+
   const AppSettings({
     this.interactionMode = 'downloader',
     this.defaultService = 'tidal',
@@ -144,6 +150,9 @@ class AppSettings {
     this.lyricsIncludeRomanizationNetease = false,
     this.lyricsMultiPersonWordByWord = false,
     this.musixmatchLanguage = '',
+    // Version upgrade tracking
+    this.lastSeenVersion = '',
+    this.hasSeenWhatsNew = true, // Default true so new installs don't see it
   });
 
   AppSettings copyWith({
@@ -205,6 +214,9 @@ class AppSettings {
     bool? lyricsIncludeRomanizationNetease,
     bool? lyricsMultiPersonWordByWord,
     String? musixmatchLanguage,
+    // Version upgrade tracking
+    String? lastSeenVersion,
+    bool? hasSeenWhatsNew,
   }) {
     return AppSettings(
       interactionMode: interactionMode ?? this.interactionMode,
@@ -281,6 +293,9 @@ class AppSettings {
       lyricsMultiPersonWordByWord:
           lyricsMultiPersonWordByWord ?? this.lyricsMultiPersonWordByWord,
       musixmatchLanguage: musixmatchLanguage ?? this.musixmatchLanguage,
+      // Version upgrade tracking
+      lastSeenVersion: lastSeenVersion ?? this.lastSeenVersion,
+      hasSeenWhatsNew: hasSeenWhatsNew ?? this.hasSeenWhatsNew,
     );
   }
 

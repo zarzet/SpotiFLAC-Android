@@ -73,6 +73,8 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
   lyricsMultiPersonWordByWord:
       json['lyricsMultiPersonWordByWord'] as bool? ?? false,
   musixmatchLanguage: json['musixmatchLanguage'] as String? ?? '',
+  lastSeenVersion: json['lastSeenVersion'] as String? ?? '',
+  hasSeenWhatsNew: json['hasSeenWhatsNew'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$AppSettingsToJson(
@@ -133,4 +135,6 @@ Map<String, dynamic> _$AppSettingsToJson(
   'lyricsIncludeRomanizationNetease': instance.lyricsIncludeRomanizationNetease,
   'lyricsMultiPersonWordByWord': instance.lyricsMultiPersonWordByWord,
   'musixmatchLanguage': instance.musixmatchLanguage,
+  'lastSeenVersion': instance.lastSeenVersion,
+  'hasSeenWhatsNew': instance.hasSeenWhatsNew,
 };
